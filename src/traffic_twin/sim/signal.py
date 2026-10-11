@@ -16,9 +16,10 @@ class Stage:
 class SignalPlan:
     """Stateful phase sequencer: `request()` a stage, show `phase`, then `advance(dt)`."""
 
-    def __init__(self, stages: list[Stage], phase_durations: list[float]):
+    def __init__(self, stages: list[Stage], phase_durations: list[float], min_green_s: float = 0.0):
         self.stages = stages
         self.durations = phase_durations
+        self.min_green_s = min_green_s
         self.stage = 0
         self.time_in_stage = 0.0
         self._queue: list[tuple[int, float]] = []  # pending (phase, remaining s)
@@ -35,10 +36,14 @@ class SignalPlan:
         return self.stages[self.stage].green_phase
 
     def request(self, stage: int) -> int:
-        """Ask for a green stage; starts clearance if it differs. Returns the phase to show."""
+        """Ask for a green stage; starts clearance if it differs. Returns the phase to show.
+
+        A switch asked before the current green has lasted `min_green_s` is ignored; the
+        controller simply asks again on a later step."""
         if not 0 <= stage < len(self.stages):
             raise ValueError(f"unknown stage {stage}")
-        if self._target is None and stage != self.stage:
+        held = self.time_in_stage < self.min_green_s - 1e-9
+        if self._target is None and stage != self.stage and not held:
             self._target = stage
             self._queue = [(p, self.durations[p]) for p in self.stages[self.stage].clearance_phases]
             if not self._queue:  # no clearance configured: switch at once
@@ -63,9 +68,11 @@ class SignalPlan:
         self.stage, self._target, self.time_in_stage = self._target, None, 0.0
 
     @classmethod
-    def from_config(cls, stages_cfg: list[dict], phase_durations: list[float]) -> SignalPlan:
+    def from_config(
+        cls, stages_cfg: list[dict], phase_durations: list[float], min_green_s: float = 0.0
+    ) -> SignalPlan:
         stages = [
             Stage(s["name"], int(s["green_phase"]), tuple(s["clearance_phases"]))
             for s in stages_cfg
         ]
-        return cls(stages, phase_durations)
+        return cls(stages, phase_durations, min_green_s)

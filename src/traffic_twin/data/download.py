@@ -13,7 +13,8 @@ from pathlib import Path
 
 import requests
 
-from traffic_twin.config import load_config
+from traffic_twin.config import DATA_KEYS, load_config
+from traffic_twin.paths import DATA_CONFIG
 
 log = logging.getLogger(__name__)
 
@@ -53,11 +54,11 @@ def download_zone(
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", default="configs/data.yaml")
+    parser.add_argument("--config", type=Path, default=DATA_CONFIG)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, DATA_KEYS)
     src = cfg["source"]
     since = date.today() - timedelta(days=30 * src["months"])
     raw_dir = Path(cfg["paths"]["raw"])

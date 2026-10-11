@@ -16,6 +16,12 @@ def user_type_of(vtype: str) -> str:
     return {"bus": "bus", "ambulance": "ambulance"}.get(vtype, "car")
 
 
+TRIP_COLUMNS = [
+    "id", "type", "depart_s", "arrival_s", "duration_s", "time_loss_s", "waiting_s", "stops",
+]  # fmt: skip
+WALK_COLUMNS = ["id", "type", "depart_s", "arrival_s", "duration_s", "time_loss_s"]
+
+
 def read_tripinfo(path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Vehicle trips and pedestrian walks from a SUMO tripinfo file."""
     trips, walks = [], []
@@ -45,7 +51,8 @@ def read_tripinfo(path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
                         "time_loss_s": float(w.get("timeLoss")),
                     }
                 )
-    return pd.DataFrame(trips), pd.DataFrame(walks)
+    # Fixed columns so a run where nothing finished still has a usable schema
+    return pd.DataFrame(trips, columns=TRIP_COLUMNS), pd.DataFrame(walks, columns=WALK_COLUMNS)
 
 
 def read_bus_stop_arrivals(path: Path) -> pd.Series:

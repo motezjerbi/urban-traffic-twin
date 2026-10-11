@@ -9,7 +9,8 @@ import argparse
 from pathlib import Path
 from xml.sax.saxutils import quoteattr
 
-from traffic_twin.config import load_config
+from traffic_twin.config import load_scenario
+from traffic_twin.paths import DEMAND_DIR, SCENARIO_CONFIG
 
 # Destination edge for each approach and turn (right-hand traffic)
 TURNS = {
@@ -127,10 +128,10 @@ def write_demand(cfg: dict, out_dir: Path) -> tuple[Path, Path]:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", default="configs/scenario_base.yaml")
-    parser.add_argument("--out", default="sumo/demand")
+    parser.add_argument("--config", type=Path, default=SCENARIO_CONFIG)
+    parser.add_argument("--out", type=Path, default=DEMAND_DIR)
     args = parser.parse_args(argv)
-    for p in write_demand(load_config(args.config), Path(args.out)):
+    for p in write_demand(load_scenario(args.config), args.out):
         print(p)
 
 

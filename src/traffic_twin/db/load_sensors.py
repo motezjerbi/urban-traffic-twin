@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 from pathlib import Path
 
 import pandas as pd
 
-from traffic_twin.config import load_config
-from traffic_twin.db.env import read_dotenv
+from traffic_twin.config import DATA_KEYS, load_config
+from traffic_twin.data.clean import SENSOR_HOURLY_COLUMNS
+from traffic_twin.db.env import connect
+from traffic_twin.paths import DATA_CONFIG, SENSOR_HOURLY_FILE
 
 log = logging.getLogger(__name__)
 
@@ -29,39 +30,21 @@ on conflict (iu_ac, ts) do update set
 
 
 def to_rows(df: pd.DataFrame) -> list[tuple]:
-    cols = [
-        "iu_ac",
-        "libelle",
-        "zone",
-        "ts",
-        "flow_veh_h",
-        "occupancy_pct",
-        "traffic_state",
-        "lat",
-        "lon",
-    ]
+    cols = SENSOR_HOURLY_COLUMNS
     clean = df[cols].astype(object).where(df[cols].notna(), None)
     return [tuple(r) for r in clean.itertuples(index=False, name=None)]
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", default="configs/data.yaml")
+    parser.add_argument("--config", type=Path, default=DATA_CONFIG)
     parser.add_argument("--batch", type=int, default=5000)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    read_dotenv()
-
-    import psycopg  # optional dependency: pip install -e ".[db]"
-
-    db_url = os.environ.get("SUPABASE_DB_URL")
-    if not db_url:
-        raise SystemExit("SUPABASE_DB_URL is not set (see .env.example)")
-
-    cfg = load_config(args.config)
-    df = pd.read_parquet(Path(cfg["paths"]["processed"]) / "sensor_hourly.parquet")
+    cfg = load_config(args.config, DATA_KEYS)
+    df = pd.read_parquet(Path(cfg["paths"]["processed"]) / SENSOR_HOURLY_FILE)
     rows = to_rows(df)
-    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+    with connect() as conn, conn.cursor() as cur:
         for i in range(0, len(rows), args.batch):
             cur.executemany(UPSERT_SQL, rows[i : i + args.batch])
             log.info("upserted %d / %d", min(i + args.batch, len(rows)), len(rows))

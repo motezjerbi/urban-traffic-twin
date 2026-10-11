@@ -14,7 +14,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from traffic_twin.config import load_config
+from traffic_twin.config import DATA_KEYS, load_config
+from traffic_twin.paths import (
+    ARC_COVERAGE_FILE,
+    DATA_CONFIG,
+    HOURLY_PROFILE_FILE,
+    SENSOR_HOURLY_FILE,
+)
 
 log = logging.getLogger(__name__)
 
@@ -115,11 +121,11 @@ def arc_coverage(df: pd.DataFrame, since: pd.Timestamp, until: pd.Timestamp) -> 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", default="configs/data.yaml")
+    parser.add_argument("--config", type=Path, default=DATA_CONFIG)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, DATA_KEYS)
     c = cfg["cleaning"]
     raw_dir, out_dir = Path(cfg["paths"]["raw"]), Path(cfg["paths"]["processed"])
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -143,12 +149,12 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit("no raw files found")
 
     sensors = pd.concat(frames, ignore_index=True)
-    sensors.to_parquet(out_dir / "sensor_hourly.parquet", index=False)
+    sensors.to_parquet(out_dir / SENSOR_HOURLY_FILE, index=False)
     hourly_profile(select_weekdays(sensors, c["weekdays"])).to_parquet(
-        out_dir / "hourly_profile.parquet", index=False
+        out_dir / HOURLY_PROFILE_FILE, index=False
     )
     arc_coverage(sensors, sensors["ts"].min(), sensors["ts"].max()).to_csv(
-        out_dir / "arc_coverage.csv", index=False
+        out_dir / ARC_COVERAGE_FILE, index=False
     )
     log.info("wrote %s", out_dir)
 

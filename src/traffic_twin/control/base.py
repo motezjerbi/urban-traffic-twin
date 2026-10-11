@@ -18,7 +18,12 @@ class Observation:
 
 
 class Controller(ABC):
-    name: str = "base"
+    name: str = "base"  # set by control.registry.register
+
+    @classmethod
+    def from_config(cls, cfg: dict) -> Controller:
+        """Build from the scenario config (parameters usually under `cfg[name]`)."""
+        return cls()
 
     @abstractmethod
     def reset(self, seed: int) -> None: ...

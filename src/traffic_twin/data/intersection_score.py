@@ -6,7 +6,8 @@ import argparse
 
 import pandas as pd
 
-from traffic_twin.config import load_config
+from traffic_twin.config import INTERSECTIONS_KEYS, load_config
+from traffic_twin.paths import INTERSECTIONS_CONFIG
 
 MAX_SCORE = 5
 
@@ -41,9 +42,9 @@ def score_candidates(cfg: dict) -> pd.DataFrame:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("config", nargs="?", default="configs/intersections.yaml")
+    parser.add_argument("config", nargs="?", default=INTERSECTIONS_CONFIG)
     args = parser.parse_args(argv)
-    ranking = score_candidates(load_config(args.config))
+    ranking = score_candidates(load_config(args.config, INTERSECTIONS_KEYS))
     print(ranking.to_string(index=False))
     kept = ranking[~ranking["eliminated"]]
     if kept.empty:

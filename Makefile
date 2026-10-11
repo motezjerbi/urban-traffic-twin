@@ -1,7 +1,14 @@
+# Windows has no `python3` (or only the Store stub): use `python` there.
+# No make on Windows? `python tasks.py <target>` runs the same targets.
+ifeq ($(OS),Windows_NT)
+PY ?= python
+else
 PY ?= python3
+endif
 CONFIG ?= configs/data.yaml
 
-.PHONY: install data explore score db-load net demand sim sim-gui db-runs lint test train eval app
+.PHONY: install data explore score db-load net demand sim sim-gui db-runs plots baseline
+.PHONY: lint format test test-fast check train eval app
 
 install:
 	$(PY) -m pip install -e ".[dev,db,sim]"
@@ -42,11 +49,30 @@ sim-gui:
 db-runs:
 	$(PY) -m traffic_twin.db.load_run data/results/*/
 
+## KPI figures from data/results into docs/figures
+plots:
+	$(PY) -m traffic_twin.viz.plots
+
+## Rebuild the fixed-time baseline: network, every seed, figures
+baseline: net sim plots
+
 lint:
-	ruff check src tests
+	$(PY) -m ruff check .
+	$(PY) -m ruff format --check .
+
+format:
+	$(PY) -m ruff format .
+	$(PY) -m ruff check --fix .
 
 test:
-	pytest -q
+	$(PY) -m pytest -q
+
+## Tests that do not need the SUMO binaries
+test-fast:
+	$(PY) -m pytest -q -m "not sumo"
+
+## What CI runs
+check: lint test
 
 # Later parts of the roadmap
 train eval app:

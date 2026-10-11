@@ -17,7 +17,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-from traffic_twin.db.env import read_dotenv
+from traffic_twin.db.env import connect
 
 log = logging.getLogger(__name__)
 BUCKET = "sim-logs"
@@ -100,14 +100,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("run_dirs", nargs="+", type=Path)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    read_dotenv()
-
-    import psycopg  # optional dependency: pip install -e ".[db]"
-
-    db_url = os.environ.get("SUPABASE_DB_URL")
-    if not db_url:
-        raise SystemExit("SUPABASE_DB_URL is not set (see .env.example)")
-    with psycopg.connect(db_url) as conn:
+    with connect() as conn:
         for d in args.run_dirs:
             load_run_dir(d, conn)
 
