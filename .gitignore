@@ -12,3 +12,4 @@ data/results/*
 sumo/demand/*.rou.xml
 *.log
 sumo/demand/*.add.xml
+.claude/settings.local.json
