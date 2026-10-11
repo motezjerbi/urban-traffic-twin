@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import struct
 from pathlib import Path
 
 import pandas as pd
@@ -34,8 +35,18 @@ INVALID_BAR_STATES = {"Barré", "Invalide"}
 
 
 def _split_geo(geo: pd.Series) -> tuple[pd.Series, pd.Series]:
-    """geo_point_2d is a {lat, lon} dict (parquet/json) or a "lat, lon" string (csv)."""
+    """geo_point_2d is WKB bytes (GeoParquet), a {lat, lon} dict (json) or a "lat, lon" string."""
     first = geo.dropna().iloc[0] if geo.notna().any() else None
+    if isinstance(first, bytes | bytearray):
+        # GeoParquet export: WKB point (byte order, uint32 type, x=lon, y=lat)
+        def _xy(b):
+            if not b:
+                return (None, None)
+            order = "<" if b[0] == 1 else ">"
+            return struct.unpack(order + "dd", b[5:21])
+
+        xy = geo.map(_xy)
+        return xy.map(lambda p: p[1]), xy.map(lambda p: p[0])
     if isinstance(first, dict):
         return geo.map(lambda g: g and g.get("lat")), geo.map(lambda g: g and g.get("lon"))
     parts = geo.astype("string").str.split(",", n=1, expand=True)

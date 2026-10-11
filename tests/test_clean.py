@@ -1,7 +1,10 @@
+import struct
+
 import pandas as pd
 
 from traffic_twin.data.clean import (
     SENSOR_HOURLY_COLUMNS,
+    _split_geo,
     arc_coverage,
     clean_sensor_frame,
     hourly_profile,
@@ -45,6 +48,14 @@ def test_geo_as_string():
     raw = raw_frame().assign(geo_point_2d="48.88, 2.39")
     df = clean_sensor_frame(raw, zone="z")
     assert df["lon"].iloc[0] == 2.39
+
+
+def test_geo_as_wkb_point():
+    # GeoParquet exports give geo_point_2d as little-endian WKB (x=lon, y=lat)
+    wkb = struct.pack("<BIdd", 1, 1, 2.361, 48.838)
+    lat, lon = _split_geo(pd.Series([wkb, None]))
+    assert lat.iloc[0] == 48.838
+    assert lon.iloc[0] == 2.361
 
 
 def test_weekdays_and_profile():
