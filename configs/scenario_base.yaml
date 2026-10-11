@@ -1,17 +1,73 @@
-# Spec annex B. Used from Part 2 onwards.
+# Scenario config (spec annex B), extended for Part 2.
 scenario: baseline_fixed
 seed: 42
+begin_s: 27000 # 07:30
 duration_s: 7200 # 07:30 to 09:30
+step_length_s: 1.0
 controller: fixed # fixed | actuated | rules | rl
+
+network:
+  net_file: sumo/network/intersection.net.xml
+  tls_id: C
+  # Green stages in cycle order and the clearance phases after each one (indices in
+  # the netconvert program). Stages must be served in this order: each LEFT stage's
+  # clearance is what ends that axis's permissive left turns (checked by tests).
+  stages:
+    - name: EW
+      green_phase: 0
+      clearance_phases: [1, 2] # pedestrian clearance, yellow (lefts keep going)
+    - name: EW_LEFT
+      green_phase: 3
+      clearance_phases: [4, 5] # yellow, all-red
+    - name: NS
+      green_phase: 6
+      clearance_phases: [7, 8]
+    - name: NS_LEFT
+      green_phase: 9
+      clearance_phases: [10, 11]
+  approaches: # incoming edge per approach, used for queues
+    W: w_in
+    E: e_in
+    N: n_in
+    S: s_in
+
+fixed:
+  # Green time per stage (s). Cycle = 74 s of green + 26 s of clearance = 100 s.
+  green_s:
+    EW: 35
+    EW_LEFT: 10
+    NS: 22
+    NS_LEFT: 7
+
 demand:
   day_type: tue_wed_thu
   multiplier: 1.0
+  # Provisional peak-hour flows (veh/h) until calibration on sensor data in Part 3.
+  approaches:
+    W: {edge: w_in, flow_veh_h: 900, turns: {left: 0.15, straight: 0.75, right: 0.10}}
+    E: {edge: e_in, flow_veh_h: 800, turns: {left: 0.15, straight: 0.75, right: 0.10}}
+    N: {edge: n_in, flow_veh_h: 300, turns: {left: 0.20, straight: 0.60, right: 0.20}}
+    S: {edge: s_in, flow_veh_h: 350, turns: {left: 0.20, straight: 0.60, right: 0.20}}
+  bus:
+    line: B1
+    route: [w_in, e_out]
+    headway_s: 420
+    stop_edge: e_out
+    stop_pos_m: 120
+    dwell_s: 20
+  pedestrians:
+    # ped/h per crossing direction pair (corner to corner across one arm)
+    flow_ped_h: 150
+
 emergency:
   enabled: true
-  depart_s: 2400
+  depart_s: 2400 # after begin
+  route: [s_in, n_out]
+
 safety:
   min_green_s: 6
   ped_max_wait_s: 90
+
 outputs:
-  kpi_csv: data/results/kpi_run.csv
-  state_log: data/results/state_log.parquet
+  dir: data/results
+  state_log_every_s: 5

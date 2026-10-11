@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Provisional 4-arm signalised intersection. Replaced by the real Paris geometry
+     (OSM extract) once the intersection is chosen in Part 1. -->
+<nodes>
+    <node id="C" x="0" y="0" type="traffic_light" tl="C"/>
+    <node id="W" x="-250" y="0" type="priority"/>
+    <node id="E" x="250" y="0" type="priority"/>
+    <node id="N" x="0" y="250" type="priority"/>
+    <node id="S" x="0" y="-250" type="priority"/>
+</nodes>

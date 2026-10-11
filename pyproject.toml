@@ -13,10 +13,12 @@ dependencies = [
     "pyyaml>=6",
     "requests>=2.31",
     "matplotlib>=3.8",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
-db = ["supabase>=2.4", "psycopg[binary]>=3.1"]
+db = ["psycopg[binary]>=3.1"]
+sim = ["eclipse-sumo>=1.20", "traci>=1.20", "sumolib>=1.20", "libsumo>=1.20"]
 dev = ["pytest>=8", "ruff>=0.5"]
 
 [tool.setuptools.packages.find]
