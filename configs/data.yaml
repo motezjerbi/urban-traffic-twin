@@ -1,0 +1,39 @@
+# City of Paris permanent road sensors (opendata.paris.fr)
+# "Comptage routier - Données trafic issues des capteurs permanents"
+source:
+  base_url: https://opendata.paris.fr/api/explore/v2.1/catalog/datasets
+  dataset: comptages-routiers-permanents
+  # Months of history to pull (the live dataset keeps ~13 rolling months)
+  months: 3
+
+# Candidate zones from spec section 2.3. Sensors within radius_m of each point are pulled.
+zones:
+  pitie_salpetriere:
+    label: "Boulevard de l'Hôpital, Pitié-Salpêtrière (13e)"
+    lat: 48.8380
+    lon: 2.3610
+    radius_m: 600
+  lariboisiere:
+    label: "Lariboisière / Gare du Nord (10e)"
+    lat: 48.8820
+    lon: 2.3530
+    radius_m: 600
+  porte_de_pantin:
+    label: "Porte de Pantin / avenue Jean Jaurès (19e)"
+    lat: 48.8880
+    lon: 2.3920
+    radius_m: 600
+
+cleaning:
+  # Typical weekdays only (spec 8.1): Tuesday to Thursday
+  weekdays: [1, 2, 3]
+  timezone: Europe/Paris
+  # Hourly flow above this is treated as a sensor fault (veh/h per arc)
+  max_flow_veh_h: 4000
+  # Occupancy is a percentage
+  max_occupancy_pct: 100
+
+paths:
+  raw: data/raw
+  processed: data/processed
+  figures: docs/figures

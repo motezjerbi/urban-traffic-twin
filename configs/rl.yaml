@@ -1,0 +1,9 @@
+# RL hyperparameters and reward weights (spec chapter 10). Filled in Part 6.
+algorithm: dqn
+total_timesteps: 200000
+decision_interval_s: 5
+reward_weights:
+  queue: 1.0
+  wait: 0.5
+  bus_delay: 1.0
+  ped_wait: 1.0

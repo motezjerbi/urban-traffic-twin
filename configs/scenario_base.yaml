@@ -1,0 +1,17 @@
+# Spec annex B. Used from Part 2 onwards.
+scenario: baseline_fixed
+seed: 42
+duration_s: 7200 # 07:30 to 09:30
+controller: fixed # fixed | actuated | rules | rl
+demand:
+  day_type: tue_wed_thu
+  multiplier: 1.0
+emergency:
+  enabled: true
+  depart_s: 2400
+safety:
+  min_green_s: 6
+  ped_max_wait_s: 90
+outputs:
+  kpi_csv: data/results/kpi_run.csv
+  state_log: data/results/state_log.parquet
