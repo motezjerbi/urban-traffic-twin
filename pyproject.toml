@@ -18,8 +18,10 @@ dependencies = [
 
 [project.optional-dependencies]
 db = ["psycopg[binary]>=3.1"]
-sim = ["eclipse-sumo>=1.20", "traci>=1.20", "sumolib>=1.20", "libsumo>=1.20"]
-dev = ["pytest>=8", "ruff>=0.5"]
+# SUMO pinned (Part 3, D17): netconvert output, TLS link order and the grid regression
+# fixture depend on the version. Ruff pinned so CI formats like the local checkout.
+sim = ["eclipse-sumo==1.28.0", "traci==1.28.0", "sumolib==1.28.0", "libsumo==1.28.0"]
+dev = ["pytest>=8", "ruff==0.17.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -35,18 +35,30 @@ def test_short_headless_run(short_scenario, tmp_path, capsys):
     main(["--config", str(short_scenario), "--seed", "7"])
 
     out = tmp_path / "results" / "baseline_fixed_seed7"
-    assert {p.name for p in out.iterdir()} >= {
+    names = {p.name for p in out.iterdir()}
+    assert names >= {
         "kpi_run.csv", "trip.parquet", "state_log.parquet", "run.json",
-        "tripinfo.xml", "stops.xml",
+        "tripinfo.xml", "stops.xml", "statistics.xml",
     }  # fmt: skip
+    # the grid has no detectors and no measurement section
+    assert not names & {"detectors.add.xml", "detector.parquet", "queue.parquet", "signal.parquet"}
     kpis = pd.read_csv(out / "kpi_run.csv")
     assert {"car", "bus", "pedestrian", "ambulance"} <= set(kpis["user_type"])
     meta = json.loads((out / "run.json").read_text(encoding="utf-8"))
     assert (kpis["run_id"] == meta["run_id"]).all()
     assert meta["seed"] == 7 and meta["duration_s"] == 600
+    assert meta["config_sources"] == ["configs/scenario_short.yaml"]
+    health = meta["health"]
+    assert health["teleports"] == health["collisions"] == 0 and not health["drain_timeout"]
+    assert health["vehicles_waiting_end"] == 0 and health["depart_delay_max"] >= 0
+    assert set(meta["safety"]["interventions"].values()) == {0}
+    assert set(meta["safety"]["audit"].values()) == {0}
     counts = kpis[kpis["kpi"] == "count"].set_index("user_type")["value"]
     assert counts["car"] > 50 and counts["ambulance"] == 1
     assert (kpis["value"] >= 0).all()
+    get = kpis.set_index(["user_type", "kpi"])["value"]
+    assert get["pedestrian", "ped_wait_single_max"] <= get["pedestrian", "ped_wait_max"]
+    assert ("car", "depart_delay_mean") in get.index and ("bus", "dwell_mean") in get.index
 
     state = pd.read_parquet(out / "state_log.parquet")
     assert {"intersection", "car"} <= set(state["entity"])

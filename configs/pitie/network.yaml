@@ -1,0 +1,109 @@
+# Pitié-Salpêtrière junction (node 302): Bd de l'Hôpital x Bd Saint-Marcel, Paris 13e.
+# Network, signal stages and fixed greens of the provisional program (lead sketch v7
+# adapted, ASSUMED until the field visit). Fragment of configs/pitie_fixed.yaml (owner WS1).
+network:
+  net_file: sumo/network/pitie/pitie.net.xml
+  tls_id: C
+  gui_settings: sumo/gui/pitie_view.xml
+  build:
+    plain_prefix: sumo/network/pitie/pitie # pitie.nod/.edg/.con.xml
+    tll: sumo/network/pitie/pitie.tll.xml
+    options: [--sidewalks.guess, --sidewalks.guess.exclude, "nb_in,wb_out", --default.sidewalk-width, "3",
+              --tls.default-type, static, --no-turnarounds, --output.street-names, --junctions.corner-detail, "5"]
+  osm:
+    file: sumo/network/osm/pitie.osm
+    centre: [48.83992, 2.36172]
+    extent_m: {n: 180, s: 100, w: 180, e: 130}
+    join_dist_m: 20
+    lane_use: provisional # provisional | osm_strict
+    crossings: [nb, s, wb, w]
+    # Lane-to-lane connections at C as [from edge, lane, to edge, lane], lane indices
+    # before sidewalks are added (0 = kerb lane). `all` always applies, plus the
+    # `lane_use` variant. Cars: N->S, N->W, S->N, S->W, W->N, W->S. Buses: wb<->nb (91,
+    # 24), s->nb and nb->s (57). ASSUMED until the field visit (stop-line arrows).
+    connections:
+      all:
+        - [n_in, 0, w_out, 0] # N right (two lanes into Saint-Marcel)
+        - [n_in, 0, w_out, 1]
+        - [n_in, 1, s_out, 0] # N straight
+        - [s_in, 0, nb_out, 0] # bus 57 N
+        - [s_in, 1, n_out, 1] # S straight
+        - [s_in, 1, w_out, 1] # S left
+        - [w_in, 0, n_out, 1] # W left
+        - [w_in, 0, s_out, 0] # W right
+        - [wb_in, 0, nb_out, 0] # bus 91 / 24 E
+        - [nb_in, 0, wb_out, 0] # bus 91 / 24 W
+        - [nb_in, 0, s_out, 0] # bus 57 S
+      # OSM has 2 northbound general lanes upstream and a bus-only lane on the last 9 m:
+      # straight cars may use the right lane (ASSUMED)
+      provisional: [[s_in, 0, n_out, 0]]
+      osm_strict: [[s_in, 1, n_out, 0]] # bus lane as tagged in OSM, cars on lane 1 only
+    lane_allow: # lane permission overrides per lane_use variant (emergency: Paris bus lanes)
+      provisional: {s_in: {0: bus bicycle passenger emergency}}
+  # Green stages in cycle order and the clearance phases after each one (indices in
+  # pitie.tll.xml). Cycle 123 s = 74 s of green + 49 s of clearance.
+  stages:
+    - {name: HOP,    green_phase: 0,  clearance_phases: [1, 2, 3]}
+    - {name: S_LEFT, green_phase: 4,  clearance_phases: [5, 6]}
+    - {name: STM,    green_phase: 7,  clearance_phases: [8, 9]}
+    - {name: BUS_91, green_phase: 10, clearance_phases: [11, 12, 13]}
+    - {name: BUS_57, green_phase: 14, clearance_phases: [15, 16]}
+  approaches:
+    N:  {in_edges: [n_in],  out_edges: [n_out]}
+    S:  {in_edges: [s_in],  out_edges: [s_out]}
+    W:  {in_edges: [w_in],  out_edges: [w_out]}
+    NB: {in_edges: [nb_in], out_edges: [nb_out], bus_only: true}
+    WB: {in_edges: [wb_in], out_edges: [wb_out], bus_only: true}
+  # Explicit crossings :C_c0..3 (netconvert names them in network.osm.crossings order)
+  # with their TLS link. Walks are pinned 5 m from C (absolute metres on the sidewalk
+  # lane, lane 0): otherwise SUMO walkers switch sidewalks at the boundary nodes.
+  crossings:
+    NB: {edge: ":C_c0", link: 12, walks: [{from: nb_out, to: n_out, depart_pos: 5.0, arrival_pos: 5.0},
+                                          {from: n_out, to: nb_out, depart_pos: 5.0, arrival_pos: 5.0}]}
+    S:  {edge: ":C_c1", link: 13, walks: [{from: s_in, to: s_out, depart_pos: 97.3, arrival_pos: 5.0},
+                                          {from: s_out, to: s_in, depart_pos: 5.0, arrival_pos: 97.3}]}
+    WB: {edge: ":C_c2", link: 14, walks: [{from: w_in, to: wb_in, depart_pos: 228.0, arrival_pos: 263.9},
+                                          {from: wb_in, to: w_in, depart_pos: 263.9, arrival_pos: 228.0}]}
+    W:  {edge: ":C_c3", link: 15, walks: [{from: w_out, to: w_in, depart_pos: 5.0, arrival_pos: 228.0},
+                                          {from: w_in, to: w_out, depart_pos: 228.0, arrival_pos: 5.0}]}
+  # OSM bus stops (stop length 20 m) projected onto the final lanes by `python -m
+  # traffic_twin.sim.osm_import --config configs/pitie_fixed.yaml --out <tmp> --stops`;
+  # stop_57_S is shifted 0.2 m to end inside s_out. Saint-Marcel - La Pitié.
+  # All stops are in-lane: OSM has no bus bay (the 57 stop position, node 7763495636, is
+  # on carriageway way 570738511, and no way carries bus_bay), so a dwelling bus holds its
+  # lane. s_out has a single vehicle lane (OSM lanes:backward=1), so each 57 S dwell
+  # blocks N straight, W right and the ambulance behind it. That makes N straight the
+  # binding movement, so both points are listed in `assumptions` (tests check them).
+  bus_stops:
+    stop_SM_E: {lane: wb_in_1,  start: 240.1, end: 260.1} # eastbound, near-side, 8.8 m before the stop line (IDFM 26675: 91, 24)
+    stop_SM_W: {lane: wb_out_0, start: 27.3,  end: 47.3}  # westbound, far-side (IDFM 26886: 91)
+    stop_57_N: {lane: s_in_1,   start: 0.0,   end: 20.0}  # 57 northbound, ~80-100 m south (IDFM 22828/22829)
+    stop_57_S: {lane: s_out_1,  start: 81.0,  end: 101.0} # 57 southbound
+  signal_groups: {N_right: [0, 1], N_straight: [2], bus_91_W: [3], bus_57_S: [4], bus_57_N: [5],
+                  S_straight: [6, 7], S_left: [8], bus_91_E: [9], W: [10, 11],
+                  ped_NB: [12], ped_S: [13], ped_WB: [14], ped_W: [15]}
+  reference_group: N_straight # cycle = time between its green onsets
+  assumptions: # rendered into docs/validation.md
+    - "signal program: provisional (lead sketch v7 adapted, cycle 123 s), not field-measured"
+    - "s_in lane 1 shared by buses and straight cars; S-left from lane 2 only"
+    - "no pedestrian crossing on the N arm; W and WB crossings signalised at the junction"
+    - "bus 57N served only in S_LEFT"
+    - "lane use and connections at the stop lines from OSM plus the lane_use assumption, not surveyed"
+    - "sidewalks 3 m wide (guessed); bus lanes open to emergency vehicles"
+    - "network cropped to the junction: Rue Poliveau, Rue des Wallons and the nearby signals are not modelled"
+    - "bus stops in-lane, no bay (OSM tags none): stop_57_S is on the only vehicle lane of s_out
+      (OSM lanes:backward=1), so every dwell of a 57 S bus blocks N straight, W right and the
+      ambulance route; stop_57_N is on the shared s_in lane 1 and leaves lane 2 free"
+    - "N straight at capacity at 08:00-09:30 under this program and the in-lane stop_57_S:
+      about 415 veh/h of demand against about 415 veh/h discharged when it is saturated (about
+      440 veh/h without the stop), a degree of saturation of about 1.0. On some seeds its queue
+      grows past the 208 m of modelled n_in. The backlog then shows up as insertion delay (car
+      depart_delay KPIs), which the time-loss and wait KPIs do not count"
+
+fixed:
+  # Green phase durations of the provisional program (ASSUMED; equal to pitie.tll.xml).
+  # Clearances 49 s. HOP and STM are the largest greens keeping the worst-case red of
+  # crossings S and W at 86 s, 2 s under the 88 s bound (tls_check); the other stages
+  # stay at the 6 s minimum green. N straight (green in HOP only) is still at capacity
+  # at the calibrated 08:00-09:30 level (see assumptions and tests/test_pitie_network.py).
+  green_s: {HOP: 36, S_LEFT: 6, STM: 20, BUS_91: 6, BUS_57: 6}

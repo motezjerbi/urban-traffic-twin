@@ -1,6 +1,7 @@
 import pytest
 
 from traffic_twin.config import ConfigError
+from traffic_twin.control.actuated import ActuatedController
 from traffic_twin.control.base import Controller, Observation
 from traffic_twin.control.fixed import FixedTimeController
 from traffic_twin.control.registry import available, make_controller, register
@@ -13,8 +14,14 @@ def test_fixed_from_scenario_config(base_scenario):
     assert "fixed" in available()
 
 
+def test_actuated_is_registered(pitie_scenario):
+    assert {"actuated", "fixed"} <= set(available())
+    ctrl = make_controller({**pitie_scenario, "controller": "actuated"})
+    assert isinstance(ctrl, ActuatedController) and ctrl.name == "actuated"
+
+
 def test_unknown_controller_lists_available(base_scenario):
-    with pytest.raises(ConfigError, match=r"available: .*fixed"):
+    with pytest.raises(ConfigError, match=r"available: .*actuated.*fixed"):
         make_controller({**base_scenario, "controller": "nope"})
 
 

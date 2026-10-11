@@ -69,9 +69,11 @@ CONTROLLER_COLORS = {
 SERIES = ("#4a3aa7", "#eda100", "#e87ba4", "#008300")  # fallback order for other series
 
 # Light ramps for signal-stage shading: E-W stages in blue, N-S stages in orange,
-# clearance (yellow, all-red, pedestrian clearance) in grey.
+# clearance (yellow, all-red, pedestrian clearance) in grey. Other stage names take
+# STAGE_FILL_OTHER in stage order (6 entries: the Pitié program has 5 stages, so none
+# repeats).
 STAGE_FILL = {"EW": "#b7d3f6", "EW_LEFT": "#6da7ec", "NS": "#f8cdb8", "NS_LEFT": "#f0956b"}
-STAGE_FILL_OTHER = ("#cde2fb", "#86b6ef", "#fbe0d2", "#f4ae8c")
+STAGE_FILL_OTHER = ("#cde2fb", "#86b6ef", "#fbe0d2", "#f4ae8c", "#d9d3f2", "#aa9fe0")
 CLEARANCE_FILL = "#ecebe6"
 
 # -- sizes -----------------------------------------------------------------------------

@@ -1,0 +1,98 @@
+# Demand calibration of the Pitié-Salpêtrière junction (node 302). GENERATED, do not edit:
+#   python -m traffic_twin.data.calibrate --config configs/data.yaml [--from-raw]
+# Source: data/reference/pitie_302_hours.csv (source_sha256: its text with LF line ends).
+# Slot flows in veh/h over typical days (school-term Tue-Thu, configs/data.yaml calendar);
+# a sensor value covers the hour before its published stamp (decision D3).
+schema_version: 1
+site: pitie_302
+source:
+  reference_csv: data/reference/pitie_302_hours.csv
+  source_sha256: be8425b51be3430fe01e98cd401904a742d810b104bb6229adfb37304589eb4d
+  raw_period: ['2026-07-13', '2026-10-10']
+timestamp_convention: period_end
+day_filter:
+  weekdays: [1, 2, 3]
+  day_type: term
+  typical_period: ['2026-09-01', '2026-12-18']
+  mad_k: 3.5
+  min_days: 8
+  days_used:
+    '508': ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-15',
+      '2026-09-16', '2026-09-17', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-29', '2026-09-30',
+      '2026-10-01', '2026-10-06']
+    '510': ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-15',
+      '2026-09-16', '2026-09-17', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-29', '2026-09-30',
+      '2026-10-01', '2026-10-08']
+    '511': ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-15',
+      '2026-09-16', '2026-09-17', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-29', '2026-09-30',
+      '2026-10-01', '2026-10-06', '2026-10-08']
+    '513': ['2026-09-02', '2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-15', '2026-09-16',
+      '2026-09-17', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-29', '2026-09-30', '2026-10-01',
+      '2026-10-06', '2026-10-07', '2026-10-08']
+  n_days: {'508': 16, '510': 16, '511': 17, '513': 17}
+  mad_dropped: {}
+  hold_out_days: {}
+window: {begin_s: 27000, end_s: 34200, slot_s: 900}
+arms:
+  N:
+    arc: '508'
+    status: proxy
+    n_days: 16
+    mean_veh_h: 626.016
+    slots:
+    - {begin_s: 27000, flow_veh_h: 525.938}
+    - {begin_s: 27900, flow_veh_h: 525.938}
+    - {begin_s: 28800, flow_veh_h: 660.438}
+    - {begin_s: 29700, flow_veh_h: 660.438}
+    - {begin_s: 30600, flow_veh_h: 660.438}
+    - {begin_s: 31500, flow_veh_h: 660.438}
+    - {begin_s: 32400, flow_veh_h: 657.25}
+    - {begin_s: 33300, flow_veh_h: 657.25}
+  S:
+    arc: '511'
+    n_days: 17
+    mean_veh_h: 369.809
+    slots:
+    - {begin_s: 27000, flow_veh_h: 244.588}
+    - {begin_s: 27900, flow_veh_h: 244.588}
+    - {begin_s: 28800, flow_veh_h: 399.882}
+    - {begin_s: 29700, flow_veh_h: 399.882}
+    - {begin_s: 30600, flow_veh_h: 399.882}
+    - {begin_s: 31500, flow_veh_h: 399.882}
+    - {begin_s: 32400, flow_veh_h: 434.882}
+    - {begin_s: 33300, flow_veh_h: 434.882}
+  W:
+    arc: '513'
+    n_days: 17
+    mean_veh_h: 206.324
+    slots:
+    - {begin_s: 27000, flow_veh_h: 143.765}
+    - {begin_s: 27900, flow_veh_h: 143.765}
+    - {begin_s: 28800, flow_veh_h: 230.824}
+    - {begin_s: 29700, flow_veh_h: 230.824}
+    - {begin_s: 30600, flow_veh_h: 230.824}
+    - {begin_s: 31500, flow_veh_h: 230.824}
+    - {begin_s: 32400, flow_veh_h: 219.882}
+    - {begin_s: 33300, flow_veh_h: 219.882}
+sensitivity:
+  N:
+    arc: '510'
+    n_days: 16
+    mean_veh_h: 1309.75
+    slots:
+    - {begin_s: 27000, flow_veh_h: 1115.0}
+    - {begin_s: 27900, flow_veh_h: 1115.0}
+    - {begin_s: 28800, flow_veh_h: 1360.438}
+    - {begin_s: 29700, flow_veh_h: 1360.438}
+    - {begin_s: 30600, flow_veh_h: 1360.438}
+    - {begin_s: 31500, flow_veh_h: 1360.438}
+    - {begin_s: 32400, flow_veh_h: 1403.125}
+    - {begin_s: 33300, flow_veh_h: 1403.125}
+station_groups: {'505': 505=510, '508': '508', '509': 509=511=5071, '510': 505=510, '511': 509=511=5071,
+  '512': 512=5065, '513': 513=5879, '514': 514=5878, '5065': 512=5065, '5071': 509=511=5071, '5878': 514=5878,
+  '5879': 513=5879}
+turns:
+  source: assumption
+  N: {S: 0.63, W: 0.37}
+  S: {N: 0.9, W: 0.1}
+  W: {N: 0.85, S: 0.15}

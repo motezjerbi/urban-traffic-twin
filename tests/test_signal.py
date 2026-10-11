@@ -1,10 +1,11 @@
+import dataclasses
 import random
 
 import pytest
 
 from traffic_twin.control.base import Observation
 from traffic_twin.control.fixed import FixedTimeController
-from traffic_twin.sim.signal import SignalPlan, Stage
+from traffic_twin.sim.signal import SignalPlan, SignalState, Stage
 
 # phases: 0 green A, 1 yellow A, 2 all-red, 3 green B, 4 yellow B
 DURATIONS = [30, 3, 2, 30, 3]
@@ -187,3 +188,35 @@ def test_scenario_greens_respect_safety_min_green(base_scenario):
 def test_fixed_rejects_bad_greens(greens):
     with pytest.raises(ValueError, match="positive"):
         FixedTimeController(greens)
+
+
+def test_red_s_counts_from_run_start_for_unserved_stages():
+    plan = SignalPlan(STAGES, DURATIONS)
+    assert plan.red_s == [0.0, 0.0]
+    run_plan(plan, [0] * 5)
+    assert plan.red_s == [0.0, 5.0]  # A green, B never served
+
+
+@pytest.mark.parametrize("dt", [0.5, 1.0])
+def test_red_s_counts_from_the_end_of_green_and_resets_at_green(dt):
+    plan = SignalPlan(STAGES, DURATIONS)
+    n = round(1 / dt)  # steps per second
+    run_plan(plan, [0] * 3 * n + [1] * n, dt)  # 3 s green A, then 1 s of clearance
+    assert plan.in_transition and plan.red_s == pytest.approx([1.0, 4.0])
+    run_plan(plan, [1] * 4 * n, dt)  # rest of the 5 s clearance: green B starts
+    assert plan.stage == 1 and not plan.in_transition
+    assert plan.red_s == pytest.approx([5.0, 0.0])
+    run_plan(plan, [1] * 4 * n, dt)
+    assert plan.red_s == pytest.approx([9.0, 0.0])
+
+
+def test_state_is_an_immutable_snapshot():
+    plan = SignalPlan(STAGES, DURATIONS)
+    run_plan(plan, [0] * 3 + [1])
+    state = plan.state(4.0)
+    assert state == SignalState(4.0, 0, 3.0, True, (1.0, 4.0))
+    run_plan(plan, [1] * 10)  # the plan moves on, the snapshot does not
+    assert state.red_s == (1.0, 4.0) and state.stage == 0
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        state.stage = 1
+    assert plan.state(14.0) == SignalState(14.0, 1, 6.0, False, (11.0, 0.0))

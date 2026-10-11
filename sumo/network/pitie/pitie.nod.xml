@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Generated from sumo/network/osm/pitie.osm by traffic_twin.sim.osm_import. -->
+<nodes>
+    <location netOffset="-452904.07,-5409730.59" convBoundary="0.00,0.00,377.74,333.74" origBoundary="2.353211,48.814561,2.402154,48.843241" projParameter="+proj=utm +zone=31 +ellps=WGS84 +datum=WGS84 +units=m +no_defs" />
+    <node id="C" x="261.60" y="125.97" type="traffic_light" tl="C"><param key="osm_node" value="cluster_1142990020_411736446"/></node>
+    <node id="N" x="367.66" y="333.74" type="dead_end"><param key="osm_node" value="1142990075"/></node>
+    <node id="NB" x="377.74" y="330.49" type="dead_end"><param key="osm_node" value="13506418406"/></node>
+    <node id="S" x="208.59" y="11.92" type="dead_end"><param key="osm_node" value="21648537"/></node>
+    <node id="W" x="28.83" y="22.29" type="dead_end"><param key="osm_node" value="21648577"/></node>
+    <node id="WB" x="0.00" y="0.00" type="dead_end"><param key="osm_node" value="3375721579"/></node>
+</nodes>

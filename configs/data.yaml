@@ -3,8 +3,9 @@
 source:
   base_url: https://opendata.paris.fr/api/explore/v2.1/catalog/datasets
   dataset: comptages-routiers-permanents
-  # Months of history to pull (the live dataset keeps ~13 rolling months)
-  months: 3
+  # Months of history to pull (the live dataset keeps ~13 rolling months). Only used by
+  # `make data`; the versioned extracts in data/reference are what calibration reads.
+  months: 12
 
 # Candidate zones from spec section 2.3. Sensors within radius_m of each point are pulled.
 zones:
@@ -25,7 +26,7 @@ zones:
     radius_m: 600
 
 cleaning:
-  # Typical weekdays only (spec 8.1): Tuesday to Thursday
+  # Weekdays kept for the profiles when no `calendar` is given (spec 8.1: Tue-Thu)
   weekdays: [1, 2, 3]
   timezone: Europe/Paris
   # Hourly flow above this is treated as a sensor fault (veh/h per arc)
@@ -37,3 +38,64 @@ paths:
   raw: data/raw
   processed: data/processed
   figures: docs/figures
+
+# Typical days (spec 8.1, decision D4): Tue-Thu (0 = Monday), school term (zone C, Paris),
+# no public holiday, inside typical_period. One table for calibration, validation and the
+# profile figures (traffic_twin.data.calendar).
+# Day of a sensor value = date of its period START (the published t_1h is the period end).
+calendar:
+  weekdays: [1, 2, 3]
+  # Days the calibration and the A-02 reference use: the autumn 2026 term, the season of
+  # the field visit. A day that would be typical outside it (e.g. the spring term after a
+  # 12-month re-download) is a hold-out day: listed in the calibration file
+  # (day_filter.hold_out_days), never mixed into the demand or the A-02 reference.
+  typical_period: {from: 2026-09-01, to: 2026-12-18}
+  # Range the tables below were checked for. Days outside it are never typical nor
+  # hold-out: add the 2025-26 Toussaint, Christmas and winter holidays
+  # (service-public.gouv.fr) and the 2027 holidays before using data from those periods.
+  covers: {from: 2026-04-01, to: 2027-01-31}
+  school_holidays: # zone C, first and last day without school
+    - {from: 2026-04-18, to: 2026-05-03, name: "printemps 2026"}
+    - {from: 2026-07-04, to: 2026-08-31, name: "été 2026"}
+    - {from: 2026-10-17, to: 2026-11-01, name: "Toussaint 2026"}
+    - {from: 2026-12-19, to: 2027-01-03, name: "Noël 2026"}
+  public_holidays: [2026-01-01, 2026-04-06, 2026-05-01, 2026-05-08, 2026-05-14, 2026-05-25,
+                    2026-07-14, 2026-08-15, 2026-11-01, 2026-11-11, 2026-12-25]
+
+# Demand calibration of the Pitié-Salpêtrière junction (node 302), EF-02:
+#   python -m traffic_twin.data.calibrate --config configs/data.yaml [--from-raw]
+# --from-raw rewrites the versioned extracts (reference_csv, arcs_csv) from
+# data/raw/<raw_zone>.parquet; the calibration file (artifact) is always rebuilt from
+# reference_csv, so CI needs neither data/raw nor data/processed.
+calibration:
+  site: pitie_302
+  node: 302
+  raw_zone: pitie_salpetriere
+  reference_csv: data/reference/pitie_302_hours.csv
+  arcs_csv: data/reference/pitie_arcs.csv
+  artifact: configs/calibration/pitie_302.yaml
+  # Arcs kept in the reference extract: the six arcs at node 302 (509-514), the
+  # upstream N station 508 and the arcs sharing a flow station with them (505, 5065,
+  # 5071, 5878, 5879)
+  reference_arcs: ["505", "508", "509", "510", "511", "512", "513", "514", "5065", "5071", "5878", "5879"]
+  hours: [5, 11] # hour_start range kept in the extract (inclusive)
+  window: {begin: "07:30", end: "09:30", slot_s: 900} # D5: flat within each sensor hour
+  # Inbound reference arc per general arm (decision D6). 508 is the nearest SB station
+  # with its own flow, upstream of Rue Poliveau; 510's flow is a copy of station 505
+  # (north of Gare d'Austerlitz) and is kept as a sensitivity row only.
+  arms:
+    N: {arc: "508", status: proxy, sensitivity: ["510"]}
+    S: {arc: "511"} # NB station shared with 509 and 5071 (counted once)
+    W: {arc: "513"} # EB Saint-Marcel station copied along ~700 m
+  mad_k: 3.5 # robust filter on the window values: |q - median| <= k * 1.4826 * MAD
+  min_days: 8 # fewer typical days for an arm is an error
+  # Arcs whose valid flows are identical over >= this many common hours share a flow
+  # station. The extract holds 7 hours a day: 512 and 5065 share 160 such hours.
+  min_common_hours: 100
+  # Turn shares (decision D7, ASSUMED until the video count), replaced per arm by the
+  # counted shares once field_counts has 15-minute movement counts
+  turn_prior:
+    N: {S: 0.63, W: 0.37}
+    S: {N: 0.90, W: 0.10}
+    W: {N: 0.85, S: 0.15}
+  field_counts: data/field/pitie_measurements.yaml

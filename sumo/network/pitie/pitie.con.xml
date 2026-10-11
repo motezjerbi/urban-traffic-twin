@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Generated from sumo/network/osm/pitie.osm by traffic_twin.sim.osm_import. -->
+<!-- Lane-to-lane connections at C (lane use 'provisional', network.osm.connections; lane indices before sidewalks are added). No U-turns. Explicit crossings (network.osm.crossings). -->
+<connections>
+    <connection from="n_in" to="w_out" fromLane="0" toLane="0"/>
+    <connection from="n_in" to="w_out" fromLane="0" toLane="1"/>
+    <connection from="n_in" to="s_out" fromLane="1" toLane="0"/>
+    <connection from="nb_in" to="s_out" fromLane="0" toLane="0"/>
+    <connection from="nb_in" to="wb_out" fromLane="0" toLane="0"/>
+    <connection from="s_in" to="n_out" fromLane="0" toLane="0"/>
+    <connection from="s_in" to="nb_out" fromLane="0" toLane="0"/>
+    <connection from="s_in" to="n_out" fromLane="1" toLane="1"/>
+    <connection from="s_in" to="w_out" fromLane="1" toLane="1"/>
+    <connection from="w_in" to="n_out" fromLane="0" toLane="1"/>
+    <connection from="w_in" to="s_out" fromLane="0" toLane="0"/>
+    <connection from="wb_in" to="nb_out" fromLane="0" toLane="0"/>
+    <crossing node="C" edges="nb_out nb_in" priority="true"/>
+    <crossing node="C" edges="s_out s_in" priority="true"/>
+    <crossing node="C" edges="wb_out wb_in" priority="true"/>
+    <crossing node="C" edges="w_out w_in" priority="true"/>
+</connections>

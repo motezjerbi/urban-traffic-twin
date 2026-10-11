@@ -1,0 +1,10 @@
+# S0 fixed time on the Pitié-Salpêtrière junction (node 302)
+extends: [pitie/network.yaml, pitie/demand.yaml, pitie/control.yaml, pitie/measurement.yaml]
+scenario: pitie_fixed
+seed: 1
+begin_s: 27000 # 07:30
+duration_s: 7200 # 07:30 to 09:30
+step_length_s: 1.0
+controller: fixed
+sumo: {options: [--collision.check-junctions, "true"]}
+outputs: {dir: data/results, state_log_every_s: 5}

@@ -78,6 +78,8 @@ def test_load_run_dir_inserts_run_kpis_and_trips(run_dir, no_storage_env):
     assert len(kpi_rows) == len(kpis)
     assert all(r[0] == META["run_id"] and isinstance(r[2], int) for r in kpi_rows)
     assert len(trips) == 4  # 2 cars, 1 bus, 1 walk
+    assert "depart_delay_s" in pd.read_parquet(run_dir / "trip.parquet")  # not a DB column
+    assert {len(r) for r in trips} == {len(load_run.TRIP_COLUMNS)}
     walk = next(r for r in trips if r[2] == "pedestrian")
     assert walk[7] is None and walk[8] is None  # no waiting_s / stops for walks
     conn.commit.assert_called_once()

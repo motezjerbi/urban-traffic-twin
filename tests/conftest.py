@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import copy
 import functools
+import shutil
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from traffic_twin.config import load_scenario
-from traffic_twin.paths import SCENARIO_CONFIG
+from traffic_twin.paths import PITIE_FIXED_CONFIG, SCENARIO_CONFIG
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -67,6 +69,62 @@ def base_scenario() -> dict:
 def scenario_cfg(base_scenario: dict) -> dict:
     """A private deep copy of the base scenario config that a test may modify."""
     return copy.deepcopy(base_scenario)
+
+
+@pytest.fixture(scope="session")
+def pitie_scenario() -> dict:
+    """configs/pitie_fixed.yaml (S0 on the Pitié junction, `extends` merged), loaded
+    once. Do not mutate: use `pitie_cfg`."""
+    return load_scenario(REPO_ROOT / PITIE_FIXED_CONFIG)
+
+
+@pytest.fixture
+def pitie_cfg(pitie_scenario: dict) -> dict:
+    """A private deep copy of the Pitié S0 scenario config that a test may modify."""
+    return copy.deepcopy(pitie_scenario)
+
+
+def scenario_inputs(cfg: dict) -> list[Path]:
+    """Repo-relative files a headless run of `cfg` reads besides its configs: the net
+    and, for calibrated demand, the calibration file. Absolute paths are left out."""
+    files = [Path(cfg["network"]["net_file"])]
+    calibration = (cfg.get("demand") or {}).get("calibration")
+    if calibration:
+        files.append(Path(calibration))
+    return [f for f in files if not f.is_absolute()]
+
+
+@pytest.fixture(scope="session")
+def make_workspace() -> Callable[..., Path]:
+    """`make_workspace(root, *cfgs) -> root`: copy configs/ and the inputs of the given
+    scenario configs (net, calibration) from the repo into `root`, at the same relative
+    paths. Runs started with `root` as the working directory read the committed inputs
+    and write nothing into the repo (demand files, results), and their `demand_hash`
+    equals the one computed in the repo."""
+
+    def _make(root: Path, *cfgs: dict) -> Path:
+        root = Path(root)
+        shutil.copytree(REPO_ROOT / "configs", root / "configs", dirs_exist_ok=True)
+        for cfg in cfgs:
+            for rel in scenario_inputs(cfg):
+                src = REPO_ROOT / rel
+                if not src.is_file():
+                    raise FileNotFoundError(f"scenario input {rel.as_posix()} is not in the repo")
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, root / rel)
+        return root
+
+    return _make
+
+
+@pytest.fixture
+def pitie_workdir(make_workspace, pitie_scenario: dict, tmp_path: Path, monkeypatch) -> Path:
+    """tmp_path holding the Pitié configs, net and calibration (see `make_workspace`), as
+    the working directory: `load_scenario("configs/pitie_actuated.yaml")` and runs work
+    from there."""
+    make_workspace(tmp_path, pitie_scenario)
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
 
 
 @pytest.fixture

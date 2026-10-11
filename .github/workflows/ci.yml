@@ -16,6 +16,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -31,10 +32,13 @@ jobs:
 
       - name: Install
         # eclipse-sumo wheels ship the sumo/netconvert binaries, so the `sumo`-marked
-        # integration test runs here too.
+        # integration tests run here too. SUMO is pinned in pyproject.toml.
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev,sim]"
+
+      - name: SUMO version
+        run: python -c "import sumolib; print('SUMO', sumolib.version.gitDescribe())"
 
       - name: Ruff lint
         run: python -m ruff check .
@@ -43,4 +47,7 @@ jobs:
         run: python -m ruff format --check .
 
       - name: Tests
+        # A fresh checkout: no data/raw, data/processed or data/results, so the tests
+        # read only versioned files. The grid regression fixture was captured on
+        # Windows; here it compares within 5 % and warns.
         run: python -m pytest -q

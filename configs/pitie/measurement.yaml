@@ -1,0 +1,20 @@
+# Pitié-Salpêtrière measurement: E1 stations standing in for the Paris sensors, E2 queue
+# detectors and signal switch times. Fragment of configs/pitie_fixed.yaml (owner WS5).
+# Passive: detectors never change the simulation. Station ids are the `station` keys of
+# configs/validation.yaml. Positions are mid-link, at least 10 m from the edge start, on
+# the general lanes of sumo/network/pitie/pitie.net.xml (n_in 207.7 m, s_in 102.3 m,
+# w_in 233.0 m, n_out 208.1 m, s_out 101.2 m, w_out 233.1 m).
+measurement:
+  period_s: 900 # 15-min intervals; the validation slots are unions of them
+  stations: # E1 stand-ins for the Paris sensors; all vehicles counted (s_in_1 carries buses too)
+    - {id: N_in,  lanes: [n_in_1, n_in_2],   pos_m: 100.0}
+    - {id: S_in,  lanes: [s_in_1, s_in_2],   pos_m: 50.0}
+    - {id: W_in,  lanes: [w_in_1],           pos_m: 115.0}
+    - {id: N_out, lanes: [n_out_1, n_out_2], pos_m: 100.0}
+    - {id: S_out, lanes: [s_out_1],          pos_m: 50.0}
+    - {id: W_out, lanes: [w_out_1, w_out_2], pos_m: 115.0}
+  queues: # E2 jam detectors, sampled every outputs.state_log_every_s (length capped to lane length - 1)
+    N: {lanes: [n_in_1, n_in_2], length_m: 150}
+    S: {lanes: [s_in_1, s_in_2], length_m: 95}
+    W: {lanes: [w_in_1],         length_m: 150}
+  tls_switch: true # green intervals per TLS link (SaveTLSSwitchTimes) -> signal.parquet

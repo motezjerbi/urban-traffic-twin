@@ -13,6 +13,17 @@ class Stage:
     clearance_phases: tuple[int, ...]
 
 
+@dataclass(frozen=True)
+class SignalState:
+    """Snapshot of a SignalPlan, as the safety guard sees it before a request."""
+
+    t: float  # simulation time since scenario start (s)
+    stage: int  # current green stage; during a transition, the stage being left
+    time_in_stage: float  # seconds of green of the current stage
+    in_transition: bool  # True while clearance phases run
+    red_s: tuple[float, ...]  # per stage: seconds since its green last ended (0 while green)
+
+
 class SignalPlan:
     """Stateful phase sequencer: `request()` a stage, show `phase`, then `advance(dt)`."""
 
@@ -22,6 +33,9 @@ class SignalPlan:
         self.min_green_s = min_green_s
         self.stage = 0
         self.time_in_stage = 0.0
+        # Per stage: seconds since its green last ended; 0 while green, counted from the
+        # start of the run for stages not yet served
+        self.red_s: list[float] = [0.0] * len(stages)
         self._queue: list[tuple[int, float]] = []  # pending (phase, remaining s)
         self._target: int | None = None
 
@@ -54,15 +68,21 @@ class SignalPlan:
         """Account for dt seconds of simulated time having passed with the current phase."""
         if not self._queue:
             self.time_in_stage += dt
-            return
-        phase, left = self._queue[0]
-        left -= dt
-        if left <= 1e-9:
-            self._queue.pop(0)
         else:
-            self._queue[0] = (phase, left)
-        if not self._queue:
-            self._finish_transition()
+            phase, left = self._queue[0]
+            left -= dt
+            if left <= 1e-9:
+                self._queue.pop(0)
+            else:
+                self._queue[0] = (phase, left)
+            if not self._queue:
+                self._finish_transition()
+        green = None if self.in_transition else self.stage
+        self.red_s = [0.0 if k == green else r + dt for k, r in enumerate(self.red_s)]
+
+    def state(self, t: float) -> SignalState:
+        """Snapshot of the plan at simulation time t (since scenario start)."""
+        return SignalState(t, self.stage, self.time_in_stage, self.in_transition, tuple(self.red_s))
 
     def _finish_transition(self) -> None:
         self.stage, self._target, self.time_in_stage = self._target, None, 0.0

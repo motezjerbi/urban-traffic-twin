@@ -1,0 +1,37 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Generated from sumo/network/osm/pitie.osm by traffic_twin.sim.osm_import. -->
+<edges>
+    <location netOffset="-452904.07,-5409730.59" convBoundary="0.00,0.00,377.74,333.74" origBoundary="2.353211,48.814561,2.402154,48.843241" projParameter="+proj=utm +zone=31 +ellps=WGS84 +datum=WGS84 +units=m +no_defs" />
+    <edge id="n_in" from="N" to="C" name="Boulevard de l'Hôpital" priority="12" numLanes="2" speed="8.33" shape="367.66,333.74 322.08,243.65 320.93,241.41 315.78,231.06 314.00,227.49 291.32,182.09 280.90,163.92 263.97,133.45" disallow="tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone">
+        <param key="osm_edges" value="-25470077#4"/>
+    </edge>
+    <edge id="n_out" from="C" to="N" name="Boulevard de l'Hôpital" priority="12" numLanes="2" speed="8.33" shape="263.97,133.45 280.90,163.92 291.32,182.09 314.00,227.49 315.78,231.06 320.93,241.41 322.08,243.65 367.66,333.74" disallow="tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone">
+        <param key="osm_edges" value="674701113"/>
+    </edge>
+    <edge id="nb_in" from="NB" to="C" name="Boulevard de l'Hôpital" priority="1" numLanes="1" speed="8.33" shape="377.74,330.49 372.92,321.06 349.79,274.38 330.91,237.11 325.81,226.30 313.49,198.44 301.57,177.93 288.85,154.48 283.43,141.68 280.11,138.97 276.32,132.27 274.37,128.79 272.48,126.04 270.24,123.98 267.58,122.43 259.22,118.48" allow="bus bicycle emergency">
+        <param key="osm_edges" value="-674703656#4"/>
+    </edge>
+    <edge id="nb_out" from="C" to="NB" name="Boulevard de l'Hôpital" priority="1" numLanes="1" speed="8.33" shape="259.22,118.48 267.58,122.43 270.24,123.98 272.48,126.04 274.37,128.79 276.32,132.27 280.11,138.97 283.43,141.68 288.85,154.48 301.57,177.93 313.49,198.44 325.81,226.30 330.91,237.11 349.79,274.38 372.92,321.06 377.74,330.49" allow="bus bicycle emergency">
+        <param key="osm_edges" value="41469916#0"/>
+    </edge>
+    <edge id="s_in" from="S" to="C" name="Boulevard de l'Hôpital" priority="12" numLanes="2" speed="8.33" shape="208.59,11.92 212.79,20.03 251.29,96.75 253.21,101.54 259.22,118.48">
+        <param key="osm_edges" value="570738511 79946380#0"/>
+        <lane index="0" allow="bus bicycle passenger emergency"/>
+        <lane index="1" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone"/>
+    </edge>
+    <edge id="s_out" from="C" to="S" name="Boulevard de l'Hôpital" priority="12" numLanes="1" speed="8.33" shape="259.22,118.48 253.21,101.54 251.29,96.75 212.79,20.03 208.59,11.92" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone">
+        <param key="osm_edges" value="-79946380#1 -570738511"/>
+    </edge>
+    <edge id="w_in" from="W" to="C" name="Boulevard Saint-Marcel" priority="11" numLanes="1" speed="8.33" shape="28.83,22.29 85.34,49.05 195.32,100.68 231.44,118.28 263.97,133.45" disallow="tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone">
+        <param key="osm_edges" value="-430573482#1 -570738509#1"/>
+    </edge>
+    <edge id="w_out" from="C" to="W" name="Boulevard Saint-Marcel" priority="11" numLanes="2" speed="8.33" shape="263.97,133.45 231.44,118.28 195.32,100.68 85.34,49.05 28.83,22.29" disallow="tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone">
+        <param key="osm_edges" value="570738509#0 430573482#0"/>
+    </edge>
+    <edge id="wb_in" from="WB" to="C" name="Boulevard Saint-Marcel" priority="1" numLanes="1" speed="8.33" shape="0.00,0.00 88.76,41.95 173.75,82.57 180.75,84.87 187.79,86.37 193.32,87.94 198.61,89.97 210.61,95.66 227.33,103.44 236.45,107.67 259.22,118.48" allow="bus bicycle emergency">
+        <param key="osm_edges" value="85076166#4"/>
+    </edge>
+    <edge id="wb_out" from="C" to="WB" name="Boulevard Saint-Marcel" priority="1" numLanes="1" speed="8.33" shape="259.22,118.48 236.45,107.67 227.33,103.44 210.61,95.66 198.61,89.97 193.32,87.94 187.79,86.37 180.75,84.87 173.75,82.57 88.76,41.95 0.00,0.00" allow="bus bicycle emergency">
+        <param key="osm_edges" value="-1474248320#1"/>
+    </edge>
+</edges>

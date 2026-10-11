@@ -4,6 +4,7 @@ SUMO GUI view settings are only passed to sumo-gui."""
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -14,10 +15,13 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 
+from traffic_twin.config import load_scenario  # noqa: E402
 from traffic_twin.data import explore  # noqa: E402
 from traffic_twin.sim import sumo  # noqa: E402
 from traffic_twin.viz import plots, style  # noqa: E402
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+GRID_FIGURE = REPO_ROOT / "docs/figures/kpi_by_user.png"  # frozen (Part 2)
 STAGES = [
     {"name": "EW", "green_phase": 0, "clearance_phases": [1, 2]},
     {"name": "NS", "green_phase": 3, "clearance_phases": [4, 5]},
@@ -124,21 +128,25 @@ def test_load_scenario_and_cli(tmp_path):
 
 
 def test_profile_figure_renders(tmp_path):
+    """The profile schema `data.clean` writes today: `hour_start` (period start) and the
+    `day_set` label. A legacy end-of-period `hour` profile is refused (tests/test_explore.py)."""
     rows = []
     for arc, base in [("1", 900), ("2", 700), ("3", 500), ("4", 300), ("5", 300)]:
         for h in range(24):
             f = base * (1 + np.sin(h / 24 * 2 * np.pi))
             rows.append(
-                {"zone": "z", "iu_ac": arc, "libelle": "Bd_Test", "hour": h, "flow_mean": f,
-                 "flow_p10": 0.8 * f, "flow_p90": 1.2 * f, "occupancy_mean": f / 100,
-                 "n_days": 30}
+                {"zone": "z", "iu_ac": arc, "libelle": "Bd_Test", "hour_start": h,
+                 "flow_mean": f, "flow_p10": 0.8 * f, "flow_p90": 1.2 * f,
+                 "occupancy_mean": f / 100, "n_days": 17, "day_set": "school-term Tue–Thu"}
             )  # fmt: skip
     profile = pd.DataFrame(rows)
     # arc 5 duplicates arc 4 (paired sensors): it is skipped
     assert explore.top_arcs(profile, "z") == ["1", "2", "3", "4"]
-    weekend = profile.assign(flow_mean=profile["flow_mean"] * 0.7)
+    weekend = profile.assign(flow_mean=profile["flow_mean"] * 0.7, day_set="school-term Sat–Sun")
     _check_png(explore.plot_zone(profile, "z", "Test zone", tmp_path, weekend))
     _check_png(explore.plot_zone(profile, "z", "Test zone", tmp_path / "no_we"))
+    with pytest.raises(ValueError, match="predates the period-start fix"):
+        explore.plot_zone(profile.rename(columns={"hour_start": "hour"}), "z", "T", tmp_path)
 
 
 def test_series_colors_follow_controller_not_rank():
@@ -173,3 +181,64 @@ def test_gui_settings_file_is_valid_xml():
     root = ET.parse(Path(__file__).resolve().parents[1] / sumo.GUI_SETTINGS).getroot()
     assert root.tag == "viewsettings"
     assert root.find("viewport") is not None and root.find("delay") is not None
+
+
+def test_queue_caption_counts_the_config_approaches():
+    pitie = {"network": {"approaches": {a: {} for a in ("N", "S", "W", "NB", "WB")}}}
+    assert plots.approaches_text(pitie) == "the 5 approaches"
+    assert plots.approaches_text({"network": {"approaches": {"W": "w_in"}}}) == "the 1 approach"
+    assert plots.approaches_text({}) == "all approaches"
+
+
+def _ped_panel(scenarios) -> list[str]:
+    return [p[1] for p in plots.headline_panels(scenarios) if p[0] == "pedestrian"]
+
+
+def test_pitie_pedestrian_panel_uses_the_single_wait(pitie_cfg):
+    """Part 3 scenarios (a `measurement` section) are judged on the longest single wait
+    (D14); a run without that KPI falls back to the walk wait."""
+    sc = _scenario("pitie_fixed")
+    sc.config = {**CONFIG, "measurement": pitie_cfg["measurement"]}
+    assert plots.ped_headline_kpi(sc) == "ped_wait_single_max"
+    assert _ped_panel([sc]) == ["ped_wait_max"]  # older runs: no single-wait rows
+    single = sc.kpis[sc.kpis["kpi"] == "ped_wait_max"].assign(kpi="ped_wait_single_max")
+    sc.kpis = pd.concat([sc.kpis, single], ignore_index=True)
+    assert _ped_panel([sc]) == ["ped_wait_single_max"]
+    grid = _scenario()  # no measurement section
+    grid.kpis = sc.kpis.copy()
+    assert plots.ped_headline_kpi(grid) == "ped_wait_max"
+    assert _ped_panel([grid]) == ["ped_wait_max"] and _ped_panel([grid, sc]) == ["ped_wait_max"]
+
+
+def _grid_scenario() -> plots.Scenario:
+    """The frozen grid baseline (seeds 1-3, tests/data fixture captured before Part 3) as
+    today's runs report it: with the single-wait rows kpi.py now adds (77-78 s)."""
+    k = pd.read_csv(REPO_ROOT / "tests/data/grid_baseline_kpis.csv")
+    single = pd.DataFrame(
+        {
+            "seed": [1, 2, 3],
+            "user_type": "pedestrian",
+            "kpi": "ped_wait_single_max",
+            "value": [77.0, 77.0, 78.0],
+        }
+    )
+    cfg = load_scenario(REPO_ROOT / "configs/scenario_base.yaml")
+    kpis = pd.concat([k, single], ignore_index=True)
+    return plots.Scenario("baseline_fixed", "fixed", kpis, pd.DataFrame(), pd.DataFrame(), cfg)
+
+
+def test_grid_figure_keeps_the_frozen_pedestrian_panel(tmp_path):
+    """The grid's pedestrian panel stays the 137 s walk wait of the README table and the
+    committed docs/figures/kpi_by_user.png, even though its runs now report single
+    waits: `tasks.py plots` must reproduce the frozen figure byte for byte."""
+    sc = _grid_scenario()
+    assert plots.ped_headline_kpi(sc) == "ped_wait_max"
+    assert _ped_panel([sc]) == ["ped_wait_max"]
+    walk = sc.kpis[(sc.kpis["user_type"] == "pedestrian") & (sc.kpis["kpi"] == "ped_wait_max")]
+    assert round(walk["value"].mean()) == 137  # README grid table
+    out = plots.plot_kpi_by_user([sc], tmp_path / "kpi_by_user.png")
+    _check_png(out)
+    meta = json.loads((REPO_ROOT / "tests/data/grid_baseline_meta.json").read_text("utf-8"))
+    if sys.platform != meta["platform"]:
+        pytest.skip(f"the frozen figure is byte-exact on {meta['platform']} only (fonts)")
+    assert out.read_bytes() == GRID_FIGURE.read_bytes()

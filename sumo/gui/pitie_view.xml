@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- sumo-gui view for the Pitié-Salpêtrière junction (Bd de l'Hôpital x Bd Saint-Marcel),
+     loaded with -g when a run is started with gui=True and network.gui_settings points here.
+     Display only: nothing here changes what is simulated, headless runs never read it.
+
+     - same scheme as sumo/gui/view.xml: light ground, grey asphalt, pale sidewalks, bus blue,
+       ambulance red, cars light grey, pedestrians amber from 45 s and red at the 90 s target
+     - viewport centred on junction C of sumo/network/pitie/pitie.net.xml (261.60, 125.97),
+       ~150 m across, 80 ms per step -->
+<viewsettings>
+    <scheme name="traffic_twin">
+        <background backgroundColor="226,229,222" showGrid="0"/>
+        <edges laneEdgeMode="0" laneShowBorders="1" showLinkDecals="1" showLinkRules="1"
+               hideConnectors="1" showDirection="0" widthExaggeration="1.00"
+               streetName_show="0" edgeName_show="0">
+            <colorScheme name="uniform">
+                <entry color="88,90,94" name="road"/>
+                <entry color="196,196,190" name="sidewalk"/>
+                <entry color="192,66,44" name="bike lane"/>
+                <entry color="0,0,0,0" name="green verge"/>
+                <entry color="150,200,200" name="waterway"/>
+                <entry color="120,120,120" name="no passenger"/>
+                <entry color="red" name="closed"/>
+                <entry color="green" name="connector"/>
+            </colorScheme>
+        </edges>
+        <!-- vehicleMode 0 = "given vehicle/type/route color" -->
+        <vehicles vehicleMode="0" vehicleQuality="2" vehicle_minSize="1.00"
+                  vehicle_exaggeration="1.00" vehicle_constantSize="0" showBlinker="1"
+                  vehicleName_show="0">
+            <colorScheme name="given vehicle/type/route color">
+                <entry color="236,236,232"/>
+            </colorScheme>
+        </vehicles>
+        <!-- personMode 6 = "by waiting time" -->
+        <persons personMode="6" personQuality="2" person_minSize="1.00"
+                 person_exaggeration="2.50" person_constantSize="0" personName_show="0">
+            <colorScheme name="by waiting time" interpolated="1">
+                <entry color="20,60,150" threshold="0.00"/>
+                <entry color="255,214,64" threshold="45.00"/>
+                <entry color="226,40,40" threshold="90.00"/>
+            </colorScheme>
+        </persons>
+        <junctions junctionMode="0" drawLinkTLIndex_show="0" drawLinkJunctionIndex_show="0"
+                   showLane2Lane="0" drawShape="1" drawCrossingsAndWalkingareas="1">
+            <colorScheme name="uniform">
+                <entry color="88,90,94"/>
+                <entry color="150,200,200" name="waterway"/>
+            </colorScheme>
+        </junctions>
+        <legend showSizeLegend="1" showColorLegend="0"/>
+    </scheme>
+    <viewport zoom="430" x="261.60" y="125.97"/>
+    <delay value="80"/>
+</viewsettings>

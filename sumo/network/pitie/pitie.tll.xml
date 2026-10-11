@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Signal program of junction C (Bd de l'Hôpital x Bd Saint-Marcel), PROVISIONAL and ASSUMED:
+     lead-architect sketch v7 adapted by WS1, to be replaced by the plan timed on site (data/field).
+     Built into pitie.net.xml by traffic_twin.sim.network and checked by traffic_twin.sim.tls_check,
+     both run with the scenario config configs/pitie_fixed.yaml (tasks.py net tls-check).
+
+     TLS links (netconvert order, SUMO 1.28.0; tls_check.link_table):
+      link  lanes                            movement
+       0  n_in_1 -> w_out_1                  N right
+       1  n_in_1 -> w_out_2                  N right
+       2  n_in_2 -> s_out_1                  N straight
+       3  nb_in_0 -> wb_out_0                bus 91/24 W (nb -> wb)
+       4  nb_in_0 -> s_out_1                 bus 57 S (nb -> s)
+       5  s_in_1 -> nb_out_1                 bus 57 N (s bus lane -> nb)
+       6  s_in_1 -> n_out_1                  S straight (cars on the bus lane, ASSUMED)
+       7  s_in_2 -> n_out_2                  S straight
+       8  s_in_2 -> w_out_2                  S left
+       9  wb_in_1 -> nb_out_1                bus 91/24 E (wb -> nb)
+      10  w_in_1 -> s_out_1                  W right (g: yields to pedestrians on crossing S)
+      11  w_in_1 -> n_out_2                  W left
+      12  crossing :C_c0                     pedestrians across NB (bus road, Bd de l'Hôpital)
+      13  crossing :C_c1                     pedestrians across S (Bd de l'Hôpital)
+      14  crossing :C_c2                     pedestrians across WB (bus road, Bd Saint-Marcel)
+      15  crossing :C_c3                     pedestrians across W (Bd Saint-Marcel)
+
+     Stages (configs/pitie/network.yaml, served in this order; cycle 123 s = 74 s green + 49 s):
+       HOP     phase 0   N straight, S straight, crossings NB, WB, W       clearance 1-3
+       S_LEFT  phase 4   S straight and left, bus 57 N, crossing WB        clearance 5-6
+       STM     phase 7   W, N right, crossings NB, S, WB                   clearance 8-9
+       BUS_91  phase 10  bus 91/24 both ways, N right, crossing S          clearance 11-13
+       BUS_57  phase 14  bus 57 S, bus 91/24 W, N right                    clearance 15-16
+
+     Changes from v7 (tls_check and tests/test_pitie_network.py): bus 91/24 E ends 1 s earlier
+     (phase 11: 1 s, all-red phase 13: 8 s) so a bus leaving the near-side stop clears before bus
+     57 S starts; crossing S stays green through phases 11-12 (8 s before bus 57 S) and crossing W
+     through phase 1, which shortens their red by 4 s and 1 s (phase 11 now shows the BUS_91 state;
+     it is kept so that the phase indices stay those of v7); HOP 36 s and STM 20 s are then the
+     largest greens that keep both at 86 s, 2 s under the bound, at the fixed greens. With v7 (HOP
+     32, STM 18) the N approach was at capacity at the 08:00-09:00 level. With these greens N
+     straight is still near capacity at the calibrated 08:00-09:30 level, and at capacity once the
+     57 S buses dwelling at their in-lane stop block the single s_out lane (configs/pitie/network.yaml
+     assumptions; tests/test_pitie_network.py measures it).
+
+     Design rules (tls_check): no two foe vehicle links green together, a vehicle may be
+     permissive (g) only against a crossing; intergreens cover the path to the conflict point
+     plus the vehicle length at 6 m/s (4 m/s for buses leaving the near-side stop on wb_in) and
+     pedestrians clear a crossing at 1.2 m/s; worst-case crossing red <= 88 s (90 s target minus
+     a 2 s margin). The green durations here equal fixed.green_s; SignalPlan takes the greens
+     from the config and only the clearance durations from this program. -->
+<tlLogics>
+    <tlLogic id="C" type="static" programID="0" offset="0">
+        <phase duration="36" state="rrGrrrGGrrrrGrGG" name="HOP"/>
+        <phase duration="1"  state="rrGrrrGGrrrrrrGG"/>
+        <phase duration="3"  state="rryrrrGGrrrrrrGr"/>
+        <phase duration="5"  state="rrrrrrGGrrrrrrGr"/>
+        <phase duration="6"  state="rrrrrGGGGrrrrrGr" name="S_LEFT"/>
+        <phase duration="3"  state="rrrrryyyyrrrrrGr"/>
+        <phase duration="7"  state="rrrrrrrrrrrrrrGr"/>
+        <phase duration="20" state="GGrrrrrrrrgGGGGr" name="STM"/>
+        <phase duration="3"  state="GGrrrrrrrryyrGrr"/>
+        <phase duration="4"  state="GGrrrrrrrrrrrGrr"/>
+        <phase duration="6"  state="GGrGrrrrrGrrrGrr" name="BUS_91"/>
+        <phase duration="1"  state="GGrGrrrrrGrrrGrr"/>
+        <phase duration="3"  state="GGrGrrrrryrrrGrr"/>
+        <phase duration="8"  state="GGrGrrrrrrrrrrrr"/>
+        <phase duration="6"  state="GGrGGrrrrrrrrrrr" name="BUS_57"/>
+        <phase duration="3"  state="yyryyrrrrrrrrrrr"/>
+        <phase duration="8"  state="rrrrrrrrrrrrrrrr"/>
+    </tlLogic>
+</tlLogics>

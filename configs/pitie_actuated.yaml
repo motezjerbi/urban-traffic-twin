@@ -1,0 +1,5 @@
+# S1 actuated (SUMO-style gap-based) on the Pitié-Salpêtrière junction (node 302).
+# Everything else, demand included, comes from the S0 config (spec 13.3).
+extends: pitie_fixed.yaml
+scenario: pitie_actuated
+controller: actuated

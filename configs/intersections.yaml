@@ -12,13 +12,17 @@ weights:
   filmable: 2
 eliminatory: [sensor]
 
-# Scores below are a first pass from desk research and are meant to be revised
-# once `make explore` has shown which approaches actually have working sensors.
+# Scores are a first pass from desk research. Only the chosen site (Pitié-Salpêtrière,
+# Part 3) has been assessed against the sensor data; the other candidates have not.
 candidates:
   pitie_salpetriere:
-    label: "Bd de l'Hôpital x Bd Vincent Auriol / Pitié-Salpêtrière (13e)"
+    label: "Bd de l'Hôpital x Bd Saint-Marcel / Pitié-Salpêtrière (13e)"
+    note: "chosen site: sensor node 302 (Part 3)"
     scores:
-      sensor: 0
+      # A flow station on each general approach, but shared: 511 (S in) = 509 (N out) =
+      # 5071, 513 (W in) is copied along ~700 m of Bd Saint-Marcel and 510 (N in) is a
+      # copy of 505 north of Gare d'Austerlitz, so N uses 508, upstream of Rue Poliveau.
+      sensor: 3
       signals_3_4_arms: 4
       bus_line: 5
       pedestrian_crossing: 4
@@ -28,6 +32,7 @@ candidates:
       filmable: 4
   lariboisiere:
     label: "Bd de Magenta x rue de Maubeuge / Lariboisière (10e)"
+    note: "not assessed (sensor score left at 0)"
     scores:
       sensor: 0
       signals_3_4_arms: 3
@@ -39,6 +44,7 @@ candidates:
       filmable: 4
   porte_de_pantin:
     label: "Av. Jean Jaurès x Bd Sérurier / Porte de Pantin (19e)"
+    note: "not assessed (sensor score left at 0)"
     scores:
       sensor: 0
       signals_3_4_arms: 3

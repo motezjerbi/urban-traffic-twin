@@ -1,0 +1,75 @@
+# Simulation vs reality validation of the Pitié-Salpêtrière junction (spec 13.3, 13.4, A-02).
+# PRE-REGISTERED (spec 17): fixed on the date below, before any calibrated result existed.
+# Change a threshold only with a dated entry in `changes` at the end of this file (it is
+# rendered in docs/validation.md section 2, which is regenerated and never edited by hand).
+# Decisions D3-D11, D16 of Part 3.
+preregistered: 2026-10-11
+
+# Real side: versioned typical-day sensor extract (no data/processed needed). Typical days
+# come from configs/data.yaml: calendar (Tue-Thu, zone C school term, no public holiday),
+# then a per-arc robust MAD filter (k = mad_k) on the slot values. Fewer than min_days
+# days -> NO_DATA.
+reference: {file: data/reference/pitie_302_hours.csv, day_set: term, min_days: 8, mad_k: 3.5}
+
+# Evaluation seeds (results) and calibration seeds (demand scaling) never overlap.
+seeds: {evaluation: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], calibration: [101, 102, 103]}
+
+# Clock slots. Sensor values are hourly (stamp = END of the hour, D3); a slot straddling two
+# hours weights them uniformly (D5). The A-02 slots cover the simulated window.
+slots:
+  - {name: "07:30-08:30", begin: "07:30", end: "08:30", role: A-02}
+  - {name: "08:30-09:30", begin: "08:30", end: "09:30", role: A-02}
+  - {name: "08:00-09:00", begin: "08:00", end: "09:00", role: control}   # one whole sensor hour
+  - {name: "07:30-09:30", begin: "07:30", end: "09:30", role: control}   # calibration window
+
+# Simulated stations (configs/pitie/measurement.yaml ids) and the Paris arcs they stand
+# in for (D6). `group`: arcs sharing one flow station form one count (GEH share). Only
+# inbound arms are judged for A-02; outbound rows are information only.
+stations:
+  - {station: N_in,  arm: N, direction: in,  iu_ac: "508", alt_iu_ac: "510", group: hop_sb_508, alt_group: copy_of_505,
+     independent: true, a02: true,
+     note: "508 upstream of Rue Poliveau; 510 = copy of 505 (Austerlitz), sensitivity only"}
+  - {station: S_in,  arm: S, direction: in,  iu_ac: "511", group: hop_nb, independent: true, a02: true,
+     note: "509 = 511 = 5071 (one station)"}
+  - {station: W_in,  arm: W, direction: in,  iu_ac: "513", group: stm_eb, independent: true, a02: true,
+     note: "one station copied along ~700 m"}
+  - {station: N_out, arm: N, direction: out, iu_ac: "509", group: hop_nb, independent: false, a02: false,
+     note: "same station as S_in (511)"}
+  - {station: S_out, arm: S, direction: out, iu_ac: "512", group: hop_sb_south, independent: true, a02: false,
+     note: "south of Rue des Wallons"}
+  - {station: W_out, arm: W, direction: out, iu_ac: "514", group: stm_wb, independent: true, a02: false,
+     note: "flow outage since 2026-09-24"}
+
+# D9 (flows), D10 (signal, queues), D16 (equity, alpha).
+thresholds:
+  flow_rel: 0.15        # A-02: |sim / real - 1| <= 15 % per inbound arm and A-02 slot (mean of 10 seeds)
+  geh: 5.0              # GEH < 5 ...
+  geh_share: 0.85       # ... on >= 85 % of distinct counts (station groups counted once), reported
+  cycle_s: 2.0          # S0 only: cycle +- 2 s
+  green_s: 2.0          # green +- 2 s per signal head
+  yellow_s: 0.5
+  all_red_s: 0.5
+  queue_veh: 2          # PASS inside sim p10-p90, or within 2 vehicles of the sim median
+  queue_window_s: 300   # sim sample pools +- 300 s around the observed instant, all seeds
+  equity_pct: 5.0       # equity flag: KPI worse by more than 5 % in its bad direction
+  alpha: 0.05
+  capacity_depart_delay_s: 30  # reporting flag, no verdict: a car arm whose mean depart delay over a run exceeds it is capacity-limited on that seed
+
+# Simulation-in-the-loop demand scaling (S0, calibration seeds, 07:30-09:30 inbound flows).
+calibration_loop: {tolerance: 0.05, max_iter: 4, clip: [0.5, 2.0], freeze_slope: 0.5, min_change: 0.10}
+
+# Paired S0 vs S1 comparison: Holm over these 7 headline KPIs only; `count` KPIs untested.
+compare:
+  headline: [[car, time_loss_mean], [car, wait_p95], [bus, delay_mean], [bus, headway_std],
+             [pedestrian, ped_wait_mean], [pedestrian, ped_wait_single_max], [ambulance, time_loss_mean]]
+
+field: data/field/pitie_measurements.yaml
+
+# Dated changes since pre-registration (date, what, why). Rendered in docs/validation.md.
+changes:
+  - date: 2026-10-11
+    what: "preregistered date corrected from 2026-10-12 to 2026-10-11"
+    why: "2026-10-12 was the plan's target date; the thresholds were written on 2026-10-11, before the calibration loop and the evaluation runs"
+  - date: 2026-10-11
+    what: "added thresholds.capacity_depart_delay_s: 30 (reporting flag only)"
+    why: "flags capacity-limited arms on the evaluation seeds (insertion delay is outside the timeLoss KPIs); same 30 s criterion as the network capacity test; no A-02, signal, queue or S0 vs S1 verdict depends on it"

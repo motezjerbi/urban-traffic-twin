@@ -1,0 +1,41 @@
+# Pitié-Salpêtrière demand: cars from the calibration file (typical school-term Tue-Thu,
+# sensors 508 / 511 / 513; rebuilt from data/reference by `python -m
+# traffic_twin.data.calibrate`), bus lines, pedestrian walks along network.crossings and
+# one ambulance. Fragment of configs/pitie_fixed.yaml (owner WS2). S0 and S1 share it
+# (spec 13.3): the route file is identical for both.
+demand:
+  day_type: tue_wed_thu_term
+  multiplier: 1.0
+  calibration: configs/calibration/pitie_302.yaml # slot flows per arm + turn shares
+  # From docs/calibration_log.yaml (S0, seeds 101-103, 07:30-09:30): converged at
+  # iteration 0, every arm within 5 % at scale 1 (N -1.5 %, S -2.8 %, W -0.1 %)
+  arm_scale: {N: 1.0, S: 1.0, W: 1.0}
+  bus:
+    # The Paris sensors count every vehicle, as the E1 stations of measurement.yaml do, so
+    # each arm's car demand is its calibrated flow minus the buses scheduled to enter by
+    # that arm (57N on S). One convention on the demand and the validation side.
+    counted_by_sensors: true
+    lines: # headways and dwells ASSUMED until GTFS / field count
+      - {id: 91_E, line: "91", from: wb_in, to: nb_out, headway_s: 360, offset_s: 0,   stops: [{stop: stop_SM_E, dwell_s: 20}]}
+      - {id: 91_W, line: "91", from: nb_in, to: wb_out, headway_s: 360, offset_s: 180, stops: [{stop: stop_SM_W, dwell_s: 20}]}
+      - {id: 24_E, line: "24", from: wb_in, to: nb_out, headway_s: 600, offset_s: 300, stops: [{stop: stop_SM_E, dwell_s: 20}]}
+      - {id: 24_W, line: "24", from: nb_in, to: wb_out, headway_s: 600, offset_s: 60,  stops: []}
+      - {id: 57_N, line: "57", from: s_in,  to: nb_out, headway_s: 480, offset_s: 120, stops: [{stop: stop_57_N, dwell_s: 20}]}
+      - {id: 57_S, line: "57", from: nb_in, to: s_out,  headway_s: 480, offset_s: 360, stops: [{stop: stop_57_S, dwell_s: 20}]}
+  pedestrians:
+    flow_ped_h: 100 # per walk (each direction of each crossing; or {S: .., W: ..}); ASSUMED
+  # Rendered into docs/validation.md (section 3); tests/test_demand.py checks the values
+  # against the calibration file and the settings above.
+  assumptions:
+    - "turn shares (D7), not counted: N to S 0.63, N to W 0.37; S to N 0.90, S to W 0.10; W to N 0.85, W to S 0.15"
+    - "N inbound from arc 508 (proxy upstream of Rue Poliveau)"
+    - "bus headways 91: 360 s, 24: 600 s, 57: 480 s (not from GTFS or a count)"
+    - "bus dwell 20 s at every stop served (24 westbound has no stop)"
+    - "pedestrian flows: 100 per hour per walk direction"
+    - "sensors count buses: each arm's car demand is its sensor flow minus the buses scheduled to enter by it (57N on S, 7.5 veh/h); the E1 stations count all vehicles"
+    - "ambulance route N to S (n_in to s_out, Austerlitz towards the hospital main gate), departing 08:10 (Q7)"
+
+emergency:
+  enabled: true
+  depart_s: 2400 # 08:10
+  route: [n_in, s_out] # Austerlitz -> hospital main gate (south); ASSUMED

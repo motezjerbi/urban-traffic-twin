@@ -105,14 +105,49 @@ def _seeds_note(scenarios: list[Scenario]) -> str:
 
 
 # -- 1. headline KPI per user type -----------------------------------------------------
-# (user type, kpi, panel title, axis label)
+# (user type, kpi, panel title, axis label). One panel per title. The pedestrian panel is
+# chosen per scenario (`ped_headline_kpi`), not by which KPI rows the runs happen to have.
 HEADLINE_KPIS = [
     ("car", "time_loss_mean", "Car / student", "Mean time loss (s)"),
     ("bus", "delay_mean", "Bus", "Mean delay (s)"),
     ("bus", "headway_std", "Bus regularity", "Headway std (s)"),
     ("ambulance", "time_loss_mean", "Ambulance", "Time loss (s)"),
+    ("pedestrian", "ped_wait_single_max", "Pedestrian", "Max single wait (s)"),
     ("pedestrian", "ped_wait_max", "Pedestrian", "Max wait (s)"),
 ]
+PED_TARGET_KPIS = ("ped_wait_single_max", "ped_wait_max")
+
+
+def ped_headline_kpi(scenario: Scenario) -> str:
+    """The pedestrian KPI a scenario is judged on. Part 3 scenarios (a `measurement`
+    section: the Pitié junction) use the longest single wait (90 s target, D14). The
+    frozen grid baseline keeps the largest time lost over a walk, as in its README table
+    and its committed figure (Part 2), even though its runs now also report single waits."""
+    return "ped_wait_single_max" if scenario.config.get("measurement") else "ped_wait_max"
+
+
+def headline_panels(scenarios: list[Scenario]) -> list[tuple[str, str, str, str]]:
+    """The HEADLINE_KPIS present in at least one scenario, one per panel title. The
+    pedestrian panel shows the scenarios' `ped_headline_kpi` (single wait only when every
+    scenario is judged on it), falling back to the other pedestrian KPI only for runs that
+    do not report the chosen one."""
+    single = bool(scenarios) and all(
+        ped_headline_kpi(s) == "ped_wait_single_max" for s in scenarios
+    )
+    preferred = ["ped_wait_single_max", "ped_wait_max"]
+    if not single:
+        preferred.reverse()
+    order = [p for p in HEADLINE_KPIS if p[0] != "pedestrian"]
+    ped = {p[1]: p for p in HEADLINE_KPIS if p[0] == "pedestrian"}
+    order += [ped[k] for k in preferred]
+    panels: dict[str, tuple[str, str, str, str]] = {}
+    for p in order:
+        present = any(
+            ((s.kpis["user_type"] == p[0]) & (s.kpis["kpi"] == p[1])).any() for s in scenarios
+        )
+        if present and p[2] not in panels:
+            panels[p[2]] = p
+    return list(panels.values())
 
 
 def _bar_width(ax, n: int, max_px: float = 26.0) -> float:
@@ -128,10 +163,7 @@ def plot_kpi_by_user(scenarios: list[Scenario], out: Path) -> Path:
     multi = len(scenarios) > 1
     colors = colors_of(scenarios)
     target = ped_target(scenarios)
-    panels = [
-        p for p in HEADLINE_KPIS
-        if any(((s.kpis["user_type"] == p[0]) & (s.kpis["kpi"] == p[1])).any() for s in scenarios)
-    ]  # fmt: skip
+    panels = headline_panels(scenarios)
     fig, head, axes = style.figure(
         height=3.3, header_in=_header_in(multi), ncols=max(len(panels), 1), squeeze=False
     )
@@ -161,7 +193,7 @@ def plot_kpi_by_user(scenarios: list[Scenario], out: Path) -> Path:
                 fontsize=style.FONT_SIZE, fontweight="semibold",
             )  # fmt: skip
             top = max(top, mean + std, v.max())
-        if user == "pedestrian" and kpi == "ped_wait_max":
+        if user == "pedestrian" and kpi in PED_TARGET_KPIS:
             style.target_line(ax, target, f"target\n{target:.0f} s")
             top = max(top, target)
         ax.set_ylim(0, top * 1.22 if top > 0 else 1)
@@ -309,6 +341,13 @@ def stage_spans(state: pd.DataFrame, names: dict[int, str]) -> list[tuple[float,
     return spans
 
 
+def approaches_text(config: dict) -> str:
+    """'the N approaches' from `network.approaches` (all incoming legs, bus-only ones
+    included), as the queue column of the state log sums them."""
+    n = len(config.get("network", {}).get("approaches", {}) or {})
+    return f"the {n} approach{'es' if n != 1 else ''}" if n else "all approaches"
+
+
 def _clock(config: dict, t: float) -> str:
     sec = int(config.get("begin_s", 0) + t)
     return f"{sec // 3600 % 24:02d}:{sec // 60 % 60:02d}"
@@ -397,7 +436,8 @@ def plot_queue_timeline(
     style.header(
         head,
         "Intersection queue over time",
-        f"{', '.join(s.name for s in scenarios)} · vehicles halting on the 4 approaches, "
+        f"{', '.join(s.name for s in scenarios)} · vehicles halting on "
+        f"{approaches_text(cfg)}, "
         f"logged every 5 s · {_seeds_note(scenarios)}",
         handles if multi else None,
     )

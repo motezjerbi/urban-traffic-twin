@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2026-10-11T22:06:36.657071+01:00 by Eclipse SUMO netconvert 1.28.0
+<netconvertConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
+
+    <input>
+        <node-files value="sumo/network/pitie/pitie.nod.xml"/>
+        <edge-files value="sumo/network/pitie/pitie.edg.xml"/>
+        <connection-files value="sumo/network/pitie/pitie.con.xml"/>
+        <tllogic-files value="sumo/network/pitie/pitie.tll.xml"/>
+    </input>
+
+    <output>
+        <output-file value="sumo/network/pitie/pitie.net.xml"/>
+        <output.street-names value="true"/>
+    </output>
+
+    <building_defaults>
+        <default.sidewalk-width value="3"/>
+    </building_defaults>
+
+    <tls_building>
+        <tls.default-type value="static"/>
+    </tls_building>
+
+    <junctions>
+        <no-turnarounds value="true"/>
+        <junctions.corner-detail value="5"/>
+    </junctions>
+
+    <pedestrian>
+        <sidewalks.guess value="true"/>
+        <sidewalks.guess.exclude value="nb_in,wb_out"/>
+    </pedestrian>
+
+</netconvertConfiguration>
+-->
+
+<net version="1.20" junctionCornerDetail="5" limitTurnSpeed="5.50" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/net_file.xsd">
+
+    <location netOffset="-452904.07,-5409730.59" convBoundary="0.00,0.00,377.74,333.74" origBoundary="2.353211,48.814561,2.402154,48.843241" projParameter="+proj=utm +zone=31 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"/>
+
+    <edge id=":C_0" function="internal">
+        <lane id=":C_0_0" index="0" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="40.89" shape="268.38,151.27 262.39,142.74 255.28,136.28 246.99,131.10 237.44,126.38"/>
+        <lane id=":C_0_1" index="1" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="40.89" shape="268.38,151.27 262.60,142.29 255.95,134.83 248.13,128.65 238.80,123.48"/>
+    </edge>
+    <edge id=":C_2" function="internal">
+        <lane id=":C_2_0" index="0" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="49.98" shape="271.18,149.72 265.61,138.29 260.22,125.24 255.56,112.87 252.21,103.52"/>
+    </edge>
+    <edge id=":C_3" function="internal">
+        <lane id=":C_3_0" index="0" allow="emergency bus bicycle" speed="8.33" length="48.27" shape="281.86,142.46 274.90,136.81 263.04,127.30 251.05,117.98 243.73,112.90"/>
+    </edge>
+    <edge id=":C_4" function="internal">
+        <lane id=":C_4_0" index="0" allow="emergency bus bicycle" speed="8.33" length="45.04" shape="281.86,142.46 276.06,136.37 266.84,125.34 257.71,113.14 254.23,107.05"/>
+    </edge>
+    <edge id=":C_12" function="internal">
+        <lane id=":C_12_0" index="0" allow="emergency bus bicycle" speed="8.33" length="4.06" shape="254.23,107.05 252.21,103.52"/>
+    </edge>
+    <edge id=":C_5" function="internal">
+        <lane id=":C_5_0" index="0" allow="emergency bus bicycle" speed="8.33" length="42.38" shape="258.25,101.38 263.19,112.41 269.76,123.38 276.84,132.89 280.78,136.93"/>
+    </edge>
+    <edge id=":C_6" function="internal">
+        <lane id=":C_6_0" index="0" allow="emergency passenger bus bicycle" speed="8.33" length="49.19" shape="258.25,101.38 262.23,112.57 266.66,124.38 271.51,136.00 276.77,146.61"/>
+        <lane id=":C_6_1" index="1" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="49.19" shape="255.23,102.45 259.25,113.71 263.75,125.69 268.68,137.48 273.98,148.16"/>
+    </edge>
+    <edge id=":C_8" function="internal">
+        <lane id=":C_8_0" index="0" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="31.01" shape="255.23,102.45 256.64,112.51 253.91,120.55 247.73,124.80 242.92,124.09"/>
+    </edge>
+    <edge id=":C_13" function="internal">
+        <lane id=":C_13_0" index="0" allow="emergency bus bicycle" speed="8.33" length="3.63" shape="280.78,136.93 283.32,139.53"/>
+    </edge>
+    <edge id=":C_14" function="internal">
+        <lane id=":C_14_0" index="0" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="4.17" shape="242.92,124.09 238.80,123.48"/>
+    </edge>
+    <edge id=":C_9" function="internal">
+        <lane id=":C_9_0" index="0" allow="emergency bus bicycle" speed="8.33" length="48.37" shape="245.08,110.00 253.78,115.53 264.68,124.00 275.35,132.85 283.32,139.53"/>
+    </edge>
+    <edge id=":C_10" function="internal">
+        <lane id=":C_10_0" index="0" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="28.92" shape="240.15,120.58 249.04,123.31 254.02,121.37 255.08,114.78 253.20,107.41"/>
+    </edge>
+    <edge id=":C_11" function="internal">
+        <lane id=":C_11_0" index="0" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="44.22" shape="240.15,120.58 248.23,124.83 257.73,131.04 266.89,138.92 273.98,148.16"/>
+    </edge>
+    <edge id=":C_15" function="internal">
+        <lane id=":C_15_0" index="0" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="4.02" shape="253.20,107.41 252.21,103.52"/>
+    </edge>
+    <edge id=":C_c0" function="crossing" crossingEdges="nb_out nb_in">
+        <lane id=":C_c0_0" index="0" allow="pedestrian" speed="2.78" length="7.96" width="4.00" shape="282.78,137.02 282.40,144.97" outlineShape="284.78,137.12 284.40,145.07 280.46,143.60 280.90,134.59"/>
+    </edge>
+    <edge id=":C_c1" function="crossing" crossingEdges="s_out s_in">
+        <lane id=":C_c1_0" index="0" allow="pedestrian" speed="2.78" length="9.60" width="4.00" shape="251.38,105.94 260.42,102.73" outlineShape="250.71,104.05 259.75,100.84 259.85,100.81 259.75,100.84 261.08,104.62 251.45,108.04 250.71,104.05 247.88,105.06 247.03,105.83 245.75,108.54 248.09,109.46 249.81,109.71 250.93,109.29 251.46,108.21 251.45,108.04"/>
+    </edge>
+    <edge id=":C_c2" function="crossing" crossingEdges="wb_out wb_in">
+        <lane id=":C_c2_0" index="0" allow="pedestrian" speed="2.78" length="6.40" width="4.00" shape="244.85,115.20 247.57,109.41" outlineShape="243.00,114.44 245.81,108.47 248.09,109.46 249.65,109.69 246.66,116.05 243.04,114.35 242.09,116.41 240.82,119.13 244.45,120.82 246.66,116.05"/>
+    </edge>
+    <edge id=":C_c3" function="crossing" crossingEdges="w_out w_in">
+        <lane id=":C_c3_0" index="0" allow="pedestrian" speed="2.78" length="9.60" width="4.00" shape="238.58,128.67 242.64,119.97" outlineShape="236.77,127.83 240.82,119.13 240.87,119.03 240.82,119.13 244.45,120.82 240.41,129.47"/>
+    </edge>
+    <edge id=":C_w0" function="walkingarea">
+        <lane id=":C_w0_0" index="0" allow="pedestrian" speed="2.78" length="25.52" width="4.00" shape="236.77,127.83 235.50,130.54 264.36,153.51 266.98,152.05 262.70,144.95 258.87,140.07 254.93,136.66 250.31,133.98 244.45,131.29"/>
+    </edge>
+    <edge id=":C_w1" function="walkingarea">
+        <lane id=":C_w1_0" index="0" allow="pedestrian" speed="2.78" length="2.92" width="4.00" shape="278.17,145.83 280.79,144.38 284.40,145.07 280.31,143.54 279.64,143.71 278.97,144.12 278.42,144.68 278.12,145.28"/>
+    </edge>
+    <edge id=":C_w2" function="walkingarea">
+        <lane id=":C_w2_0" index="0" allow="pedestrian" speed="2.78" length="28.84" width="4.00" shape="284.78,137.12 283.79,137.84 285.68,135.52 262.58,99.84 259.75,100.84 262.97,109.96 265.60,116.78 268.35,122.17 271.91,126.97 277.01,132.06"/>
+    </edge>
+    <edge id=":C_w3" function="walkingarea">
+        <lane id=":C_w3_0" index="0" allow="pedestrian" speed="2.78" length="4.06" width="4.00" shape="250.71,104.05 247.88,105.06 247.03,105.83 245.75,108.54 248.09,109.46 249.81,109.71 250.93,109.29 251.46,108.21 251.38,106.46"/>
+    </edge>
+    <edge id=":C_w4" function="walkingarea">
+        <lane id=":C_w4_0" index="0" allow="pedestrian" speed="2.78" length="4.00" width="4.00" shape="246.66,116.05 243.04,114.35 242.09,116.41 240.82,119.13 244.45,120.82"/>
+    </edge>
+    <edge id=":N_w0" function="walkingarea">
+        <lane id=":N_w0_0" index="0" allow="pedestrian" speed="2.78" length="15.80" width="3.00" shape="361.95,336.63 359.27,337.98 376.05,329.50 373.37,330.85"/>
+    </edge>
+    <edge id=":S_w0" function="walkingarea">
+        <lane id=":S_w0_0" index="0" allow="pedestrian" speed="2.78" length="12.60" width="3.00" shape="214.27,8.98 216.94,7.60 203.08,14.77 205.75,13.39"/>
+    </edge>
+    <edge id=":W_w0" function="walkingarea">
+        <lane id=":W_w0_0" index="0" allow="pedestrian" speed="2.78" length="12.60" width="3.00" shape="30.20,19.40 31.48,16.69 24.81,30.79 26.09,28.07"/>
+    </edge>
+
+    <edge id="n_in" from="N" to="C" name="Boulevard de l&apos;Hôpital" priority="12" shape="367.66,333.74 322.08,243.65 320.93,241.41 315.78,231.06 314.00,227.49 291.32,182.09 280.90,163.92 263.97,133.45">
+        <lane id="n_in_0" index="0" allow="pedestrian" speed="8.33" length="207.68" width="3.00" shape="360.61,337.31 315.03,247.22 313.88,244.97 308.71,234.58 306.93,231.02 284.35,185.82 274.02,167.80 265.67,152.78"/>
+        <lane id="n_in_1" index="1" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="207.68" shape="363.38,335.91 317.80,245.82 316.65,243.58 311.48,233.20 309.71,229.63 287.09,184.36 276.72,166.28 268.38,151.27"/>
+        <lane id="n_in_2" index="2" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="207.68" shape="366.23,334.46 320.65,244.37 319.50,242.13 314.35,231.77 312.57,228.20 289.91,182.85 279.51,164.71 271.18,149.72"/>
+        <param key="osm_edges" value="-25470077#4"/>
+    </edge>
+    <edge id="n_out" from="C" to="N" name="Boulevard de l&apos;Hôpital" priority="12" shape="263.97,133.45 280.90,163.92 291.32,182.09 314.00,227.49 315.78,231.06 320.93,241.41 322.08,243.65 367.66,333.74">
+        <lane id="n_out_0" index="0" allow="pedestrian" speed="8.33" length="208.05" width="3.00" shape="279.48,145.10 287.78,160.04 298.29,178.36 321.07,223.96 322.85,227.54 327.99,237.87 329.12,240.06 374.71,330.17"/>
+        <lane id="n_out_1" index="1" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="208.05" shape="276.77,146.61 285.08,161.56 295.55,179.82 318.29,225.35 320.08,228.92 325.22,239.26 326.36,241.47 371.94,331.57"/>
+        <lane id="n_out_2" index="2" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="208.05" shape="273.98,148.16 282.29,163.13 292.73,181.33 315.43,226.78 317.21,230.35 322.36,240.69 323.51,242.92 369.09,333.02"/>
+        <param key="osm_edges" value="674701113"/>
+    </edge>
+    <edge id="nb_in" from="NB" to="C" name="Boulevard de l&apos;Hôpital" priority="1" shape="377.74,330.49 372.92,321.06 349.79,274.38 330.91,237.11 325.81,226.30 313.49,198.44 301.57,177.93 288.85,154.48 283.43,141.68 280.11,138.97 276.32,132.27 274.37,128.79 272.48,126.04 270.24,123.98 267.58,122.43 259.22,118.48">
+        <lane id="nb_in_0" index="0" allow="emergency bus bicycle" speed="8.33" length="211.22" shape="376.32,331.22 371.49,321.78 348.36,275.10 329.47,237.81 324.35,226.96 312.06,199.17 300.17,178.71 287.41,155.17 282.11,142.67 281.86,142.46"/>
+        <param key="osm_edges" value="-674703656#4"/>
+    </edge>
+    <edge id="nb_out" from="C" to="NB" name="Boulevard de l&apos;Hôpital" priority="1" shape="259.22,118.48 267.58,122.43 270.24,123.98 272.48,126.04 274.37,128.79 276.32,132.27 280.11,138.97 283.43,141.68 288.85,154.48 301.57,177.93 313.49,198.44 325.81,226.30 330.91,237.11 349.79,274.38 372.92,321.06 377.74,330.49">
+        <lane id="nb_out_0" index="0" allow="pedestrian" speed="8.33" length="214.32" width="3.00" shape="284.73,136.68 287.30,138.78 293.09,152.44 305.67,175.63 317.68,196.30 330.09,224.35 335.13,235.04 353.99,272.27 377.12,318.95 381.93,328.35"/>
+        <lane id="nb_out_1" index="1" allow="emergency bus bicycle" speed="8.33" length="214.32" shape="283.32,139.53 284.75,140.69 290.29,153.79 302.97,177.15 314.92,197.71 327.27,225.64 332.35,236.41 351.22,273.66 374.35,320.34 379.16,329.76"/>
+        <param key="osm_edges" value="41469916#0"/>
+    </edge>
+    <edge id="s_in" from="S" to="C" name="Boulevard de l&apos;Hôpital" priority="12" shape="208.59,11.92 212.79,20.03 251.29,96.75 253.21,101.54 259.22,118.48">
+        <lane id="s_in_0" index="0" allow="pedestrian" speed="8.33" length="102.32" width="3.00" shape="215.61,8.29 219.83,16.44 258.50,93.50 260.60,98.75 261.17,100.34"/>
+        <lane id="s_in_1" index="1" allow="emergency passenger bus bicycle" speed="8.33" length="102.32" shape="212.85,9.71 217.07,17.85 255.67,94.78 257.70,99.84 258.25,101.38"/>
+        <lane id="s_in_2" index="2" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="102.32" shape="210.01,11.18 214.22,19.30 252.75,96.09 254.71,100.97 255.23,102.45"/>
+        <param key="osm_edges" value="570738511 79946380#0"/>
+    </edge>
+    <edge id="s_out" from="C" to="S" name="Boulevard de l&apos;Hôpital" priority="12" shape="259.22,118.48 253.21,101.54 251.29,96.75 212.79,20.03 208.59,11.92">
+        <lane id="s_out_0" index="0" allow="pedestrian" speed="8.33" length="101.23" width="3.00" shape="249.29,104.56 248.81,103.20 247.00,98.68 208.60,22.16 204.42,14.08"/>
+        <lane id="s_out_1" index="1" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="101.23" shape="252.21,103.52 251.71,102.11 249.83,97.41 211.36,20.76 207.17,12.66"/>
+        <param key="osm_edges" value="-79946380#1 -570738511"/>
+    </edge>
+    <edge id="w_in" from="W" to="C" name="Boulevard Saint-Marcel" priority="11" shape="28.83,22.29 85.34,49.05 195.32,100.68 231.44,118.28 263.97,133.45">
+        <lane id="w_in_0" index="0" allow="pedestrian" speed="8.33" length="233.04" width="3.00" shape="30.84,18.04 87.34,44.80 197.35,96.44 233.46,114.04 241.46,117.77"/>
+        <lane id="w_in_1" index="1" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="233.04" shape="29.51,20.84 86.02,47.60 196.01,99.24 232.13,116.84 240.15,120.58"/>
+        <param key="osm_edges" value="-430573482#1 -570738509#1"/>
+    </edge>
+    <edge id="w_out" from="C" to="W" name="Boulevard Saint-Marcel" priority="11" shape="263.97,133.45 231.44,118.28 195.32,100.68 85.34,49.05 28.83,22.29">
+        <lane id="w_out_0" index="0" allow="pedestrian" speed="8.33" length="233.09" width="3.00" shape="236.13,129.19 228.04,125.41 191.91,107.81 81.97,56.20 25.45,29.43"/>
+        <lane id="w_out_1" index="1" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="233.09" shape="237.44,126.38 229.37,122.61 193.25,105.01 83.29,53.39 26.78,26.63"/>
+        <lane id="w_out_2" index="2" disallow="pedestrian tram rail_urban rail rail_electric rail_fast ship container cable_car subway aircraft wheelchair scooter drone" speed="8.33" length="233.09" shape="238.80,123.48 230.75,119.72 194.63,102.12 84.66,50.50 28.15,23.74"/>
+        <param key="osm_edges" value="570738509#0 430573482#0"/>
+    </edge>
+    <edge id="wb_in" from="WB" to="C" name="Boulevard Saint-Marcel" priority="1" shape="0.00,0.00 88.76,41.95 173.75,82.57 180.75,84.87 187.79,86.37 193.32,87.94 198.61,89.97 210.61,95.66 227.33,103.44 236.45,107.67 259.22,118.48">
+        <lane id="wb_in_0" index="0" allow="pedestrian" speed="8.33" length="268.92" width="3.00" shape="2.01,-4.25 90.78,37.71 175.50,78.20 181.98,80.33 188.92,81.81 194.81,83.48 200.46,85.65 212.61,91.41 229.31,99.18 238.45,103.42 246.39,107.19"/>
+        <lane id="wb_in_1" index="1" allow="emergency bus bicycle" speed="8.33" length="268.92" shape="0.68,-1.45 89.45,40.50 174.35,81.08 181.17,83.32 188.18,84.82 193.83,86.42 199.24,88.50 211.29,94.21 228.00,101.99 237.13,106.22 245.08,110.00"/>
+        <param key="osm_edges" value="85076166#4"/>
+    </edge>
+    <edge id="wb_out" from="C" to="WB" name="Boulevard Saint-Marcel" priority="1" shape="259.22,118.48 236.45,107.67 227.33,103.44 210.61,95.66 198.61,89.97 193.32,87.94 187.79,86.37 180.75,84.87 173.75,82.57 88.76,41.95 0.00,0.00">
+        <lane id="wb_out_0" index="0" allow="emergency bus bicycle" speed="8.33" length="268.94" shape="243.73,112.90 235.77,109.12 226.66,104.89 209.93,97.11 197.98,91.44 192.81,89.46 187.40,87.92 180.33,86.42 173.15,84.06 88.07,43.40 -0.68,1.45"/>
+        <param key="osm_edges" value="-1474248320#1"/>
+    </edge>
+
+    <tlLogic id="C" type="static" programID="0" offset="0">
+        <phase duration="36" state="rrGrrrGGrrrrGrGG" name="HOP"/>
+        <phase duration="1"  state="rrGrrrGGrrrrrrGG"/>
+        <phase duration="3"  state="rryrrrGGrrrrrrGr"/>
+        <phase duration="5"  state="rrrrrrGGrrrrrrGr"/>
+        <phase duration="6"  state="rrrrrGGGGrrrrrGr" name="S_LEFT"/>
+        <phase duration="3"  state="rrrrryyyyrrrrrGr"/>
+        <phase duration="7"  state="rrrrrrrrrrrrrrGr"/>
+        <phase duration="20" state="GGrrrrrrrrgGGGGr" name="STM"/>
+        <phase duration="3"  state="GGrrrrrrrryyrGrr"/>
+        <phase duration="4"  state="GGrrrrrrrrrrrGrr"/>
+        <phase duration="6"  state="GGrGrrrrrGrrrGrr" name="BUS_91"/>
+        <phase duration="1"  state="GGrGrrrrrGrrrGrr"/>
+        <phase duration="3"  state="GGrGrrrrryrrrGrr"/>
+        <phase duration="8"  state="GGrGrrrrrrrrrrrr"/>
+        <phase duration="6"  state="GGrGGrrrrrrrrrrr" name="BUS_57"/>
+        <phase duration="3"  state="yyryyrrrrrrrrrrr"/>
+        <phase duration="8"  state="rrrrrrrrrrrrrrrr"/>
+    </tlLogic>
+
+    <junction id="C" type="traffic_light" x="261.60" y="125.97" incLanes="n_in_0 n_in_1 n_in_2 nb_in_0 s_in_0 s_in_1 s_in_2 wb_in_0 wb_in_1 w_in_0 w_in_1 :C_w2_0 :C_w3_0 :C_w4_0 :C_w0_0" intLanes=":C_0_0 :C_0_1 :C_2_0 :C_3_0 :C_12_0 :C_13_0 :C_6_0 :C_6_1 :C_14_0 :C_9_0 :C_15_0 :C_11_0 :C_c0_0 :C_c1_0 :C_c2_0 :C_c3_0" shape="264.36,153.51 280.79,144.38 281.38,145.37 281.48,145.47 281.46,145.30 281.30,144.87 281.01,144.18 285.42,135.30 278.54,129.42 273.80,124.60 270.52,120.02 268.01,114.90 265.59,108.44 262.58,99.84 247.88,105.06 248.01,105.77 247.92,105.96 247.72,106.03 247.43,105.98 247.03,105.83 235.50,130.54 242.82,133.83 248.42,136.38 252.84,138.90 256.61,142.12 260.27,146.75">
+        <request index="0"  response="1000000000000000" foes="1000000100000000" cont="0"/>
+        <request index="1"  response="1000000100000000" foes="1000000100000000" cont="0"/>
+        <request index="2"  response="0010010100010000" foes="0010111100011000" cont="0"/>
+        <request index="3"  response="0101010111000100" foes="0101010111000100" cont="0"/>
+        <request index="4"  response="0011011111000100" foes="0011011111000100" cont="1"/>
+        <request index="5"  response="0011000000000000" foes="0011001000000000" cont="1"/>
+        <request index="6"  response="0010000000010000" foes="0010101000011000" cont="0"/>
+        <request index="7"  response="0010000000010000" foes="0010101000011000" cont="0"/>
+        <request index="8"  response="1010000000010111" foes="1010101000011111" cont="1"/>
+        <request index="9"  response="0101010111110100" foes="0101010111110100" cont="0"/>
+        <request index="10" response="1010001000011100" foes="1010001000011100" cont="1"/>
+        <request index="11" response="1000000111000100" foes="1000000111000100" cont="0"/>
+        <request index="12" response="0000000000000000" foes="0000001000111000" cont="0"/>
+        <request index="13" response="0000000000000000" foes="0000010111110100" cont="0"/>
+        <request index="14" response="0000000000000000" foes="0000001000001000" cont="0"/>
+        <request index="15" response="0000000000000000" foes="0000110100000011" cont="0"/>
+        <param key="osm_node" value="cluster_1142990020_411736446"/>
+    </junction>
+    <junction id="N" type="dead_end" x="367.66" y="333.74" incLanes="n_out_0 n_out_1 n_out_2" intLanes="" shape="367.66,333.74 376.05,329.50 367.66,333.74">
+        <param key="osm_node" value="1142990075"/>
+    </junction>
+    <junction id="NB" type="dead_end" x="377.74" y="330.49" incLanes="nb_out_0 nb_out_1" intLanes="" shape="377.74,330.49 383.26,327.67 377.74,330.49">
+        <param key="osm_node" value="13506418406"/>
+    </junction>
+    <junction id="S" type="dead_end" x="208.59" y="11.92" incLanes="s_out_0 s_out_1" intLanes="" shape="208.59,11.92 203.08,14.77 208.59,11.92">
+        <param key="osm_node" value="21648537"/>
+    </junction>
+    <junction id="W" type="dead_end" x="28.83" y="22.29" incLanes="w_out_0 w_out_1 w_out_2" intLanes="" shape="28.83,22.29 24.81,30.79 28.83,22.29">
+        <param key="osm_node" value="21648577"/>
+    </junction>
+    <junction id="WB" type="dead_end" x="0.00" y="0.00" incLanes="wb_out_0" intLanes="" shape="-0.00,0.00 -1.37,2.89 0.00,0.00">
+        <param key="osm_node" value="3375721579"/>
+    </junction>
+
+    <junction id=":C_12_0" type="internal" x="254.23" y="107.05" incLanes=":C_4_0" intLanes=":C_2_0 :C_6_0 :C_6_1 :C_8_0 :C_9_0 :C_10_0 :C_c0_0 :C_c1_0"/>
+    <junction id=":C_13_0" type="internal" x="280.78" y="136.93" incLanes=":C_5_0" intLanes=":C_9_0 :C_c0_0 :C_c1_0"/>
+    <junction id=":C_14_0" type="internal" x="242.92" y="124.09" incLanes=":C_8_0" intLanes=":C_0_0 :C_0_1 :C_2_0 :C_3_0 :C_4_0 :C_9_0 :C_11_0 :C_c1_0 :C_c3_0"/>
+    <junction id=":C_15_0" type="internal" x="253.20" y="107.41" incLanes=":C_10_0" intLanes=":C_2_0 :C_3_0 :C_4_0 :C_9_0 :C_c1_0 :C_c3_0"/>
+
+    <connection from="n_in" to="w_out" fromLane="1" toLane="1" via=":C_0_0" tl="C" linkIndex="0" dir="s" state="o"/>
+    <connection from="n_in" to="w_out" fromLane="1" toLane="2" via=":C_0_1" tl="C" linkIndex="1" dir="s" state="o"/>
+    <connection from="n_in" to="s_out" fromLane="2" toLane="1" via=":C_2_0" tl="C" linkIndex="2" dir="s" state="o"/>
+    <connection from="nb_in" to="wb_out" fromLane="0" toLane="0" via=":C_3_0" tl="C" linkIndex="3" dir="s" state="o"/>
+    <connection from="nb_in" to="s_out" fromLane="0" toLane="1" via=":C_4_0" tl="C" linkIndex="4" dir="l" state="o"/>
+    <connection from="s_in" to="nb_out" fromLane="1" toLane="1" via=":C_5_0" tl="C" linkIndex="5" dir="r" state="o"/>
+    <connection from="s_in" to="n_out" fromLane="1" toLane="1" via=":C_6_0" tl="C" linkIndex="6" dir="s" state="o"/>
+    <connection from="s_in" to="n_out" fromLane="2" toLane="2" via=":C_6_1" tl="C" linkIndex="7" dir="s" state="o"/>
+    <connection from="s_in" to="w_out" fromLane="2" toLane="2" via=":C_8_0" tl="C" linkIndex="8" dir="l" state="o"/>
+    <connection from="w_in" to="s_out" fromLane="1" toLane="1" via=":C_10_0" tl="C" linkIndex="10" dir="r" state="o"/>
+    <connection from="w_in" to="n_out" fromLane="1" toLane="2" via=":C_11_0" tl="C" linkIndex="11" dir="L" state="o"/>
+    <connection from="wb_in" to="nb_out" fromLane="1" toLane="1" via=":C_9_0" tl="C" linkIndex="9" dir="s" state="o"/>
+
+    <connection from=":C_0" to="w_out" fromLane="0" toLane="1" dir="s" state="M"/>
+    <connection from=":C_0" to="w_out" fromLane="1" toLane="2" dir="s" state="M"/>
+    <connection from=":C_2" to="s_out" fromLane="0" toLane="1" dir="s" state="M"/>
+    <connection from=":C_3" to="wb_out" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":C_4" to="s_out" fromLane="0" toLane="1" via=":C_12_0" dir="l" state="m"/>
+    <connection from=":C_12" to="s_out" fromLane="0" toLane="1" dir="l" state="m"/>
+    <connection from=":C_5" to="nb_out" fromLane="0" toLane="1" via=":C_13_0" dir="r" state="m"/>
+    <connection from=":C_13" to="nb_out" fromLane="0" toLane="1" dir="r" state="m"/>
+    <connection from=":C_6" to="n_out" fromLane="0" toLane="1" dir="s" state="M"/>
+    <connection from=":C_6" to="n_out" fromLane="1" toLane="2" dir="s" state="M"/>
+    <connection from=":C_8" to="w_out" fromLane="0" toLane="2" via=":C_14_0" dir="l" state="m"/>
+    <connection from=":C_14" to="w_out" fromLane="0" toLane="2" dir="l" state="m"/>
+    <connection from=":C_9" to="nb_out" fromLane="0" toLane="1" dir="s" state="M"/>
+    <connection from=":C_10" to="s_out" fromLane="0" toLane="1" via=":C_15_0" dir="r" state="m"/>
+    <connection from=":C_15" to="s_out" fromLane="0" toLane="1" dir="r" state="m"/>
+    <connection from=":C_11" to="n_out" fromLane="0" toLane="2" dir="L" state="M"/>
+
+    <connection from=":C_c0" to=":C_w1" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":C_c1" to=":C_w2" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":C_c2" to=":C_w3" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":C_c3" to=":C_w4" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":C_w0" to=":C_c3" fromLane="0" toLane="0" tl="C" linkIndex="15" dir="s" state="M"/>
+    <connection from=":C_w0" to="w_out" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from="n_in" to=":C_w0" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":C_w1" to="n_out" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":C_w2" to=":C_c0" fromLane="0" toLane="0" tl="C" linkIndex="12" dir="s" state="M"/>
+    <connection from=":C_w2" to="nb_out" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from="s_in" to=":C_w2" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":C_w3" to=":C_c1" fromLane="0" toLane="0" tl="C" linkIndex="13" dir="s" state="M"/>
+    <connection from=":C_w3" to="s_out" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from="wb_in" to=":C_w3" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":C_w4" to=":C_c2" fromLane="0" toLane="0" tl="C" linkIndex="14" dir="s" state="M"/>
+    <connection from="w_in" to=":C_w4" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":N_w0" to="n_in" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from="n_out" to=":N_w0" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":S_w0" to="s_in" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from="s_out" to=":S_w0" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":W_w0" to="w_in" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from="w_out" to=":W_w0" fromLane="0" toLane="0" dir="s" state="M"/>
+</net>

@@ -1,0 +1,44 @@
+# Pitié-Salpêtrière control: actuated S1 parameters, control loops and safety guard.
+# Fragment of configs/pitie_fixed.yaml (owner WS4). S1 is defined analytically (D11,
+# D12): SUMO's actuated defaults, max greens derived from the pedestrian bound, nothing
+# tuned on the evaluation seeds.
+detectors:
+  # One E1 loop per incoming vehicle lane at SUMO's default distance (null):
+  # min(detector_gap * v, (min_green / passing_time + 0.5) * 7.5). Every Pitié inbound
+  # lane is 8.33 m/s (30 km/h) and every min green 6 s, so min(2 x 8.33, 27.43): the gap
+  # term binds (the 7.5 m term, 27.43 m, only binds on the 50 km/h grid) and puts the
+  # loops 16.66 m before the stop line (tests/test_actuated.py checks it).
+  # A loop controls a stage when every link of its lane is green there, >= 1 'G'
+  # (SUMO's rule). On the 123 s program (v7 adapted, pitie.tll.xml) this gives:
+  #   HOP: n_in_2 | S_LEFT: s_in_1, s_in_2 | STM: n_in_1, w_in_1
+  #   BUS_91: n_in_1, wb_in_1 | BUS_57: n_in_1, nb_in_0
+  # HOP is extended by N-straight traffic only: s_in_1 also carries link 5 (bus 57N),
+  # red in HOP, and s_in_2 carries the S left (link 8), red in HOP.
+  control: {distance_m: null, detector_gap_s: 2.0, passing_time_s: 1.9}
+
+actuated:
+  max_gap_s: 3.0 # SUMO default
+  min_green_s: {HOP: 6, S_LEFT: 6, STM: 6, BUS_91: 6, BUS_57: 6}
+  # Max greens: the largest values that keep the worst-case red of every crossing
+  # <= ped_max_wait_s - ped_red_margin_s = 88 s (Q3: static bound in Part 3), with every
+  # stage at its max green (sim.tls_check.worst_case_red on the 123 s program, 49 s of
+  # clearance per cycle). HOP first, then STM; S_LEFT and the bus stages keep their
+  # min green when no slack is left:
+  #   crossing S  (link 13, green STM..phase 12): 38 + HOP + S_LEFT + BUS_57 <= 88
+  #                                               -> HOP <= 38
+  #   crossing W  (link 15, green HOP..phase 1):  48 + S_LEFT + STM + BUS_91 + BUS_57 <= 88
+  #                                               -> STM <= 22
+  #   crossings NB, WB (links 12, 14): 30 + BUS_91 + BUS_57 = 42 s, not binding
+  # Result: S and W both at 88 s, so +1 s on any stage breaks the bound; S_LEFT and
+  # the bus stages are effectively fixed at 6 s. The fixed greens (HOP 36, STM 20) stay
+  # within these maxes. Longest cycle 78 + 49 = 127 s (fixed: 123 s). Re-derive after
+  # any change of the program (tests/test_actuated.py checks it).
+  max_green_s: {HOP: 38, S_LEFT: 6, STM: 22, BUS_91: 6, BUS_57: 6}
+
+safety:
+  min_green_s: 6
+  ped_max_wait_s: 90
+  ped_red_margin_s: 2
+  max_green_s: 60 # guard hard cap, any controller
+  max_red_s: 150 # anti-starvation; must exceed the longest legal cycle (127 s)
+  stage_order: strict

@@ -1,0 +1,75 @@
+# Field measurements at the Pitié-Salpêtrière junction (node 302, TLS C), filled in after the
+# site visit. Protocol: docs/field_protocol.md. Check with `tasks.py field-check`.
+#
+# Rules: leave a value null (~) or a list empty ([]) until it is measured: validation then
+# shows NOT_MEASURED rows. Never type an estimate here: model inputs that do not come from
+# the field are ASSUMED in configs/pitie/*.yaml. Clock times are QUOTED strings "HH:MM" or
+# "HH:MM:SS" (phone time; note the camera offset). Names: signal heads = network.signal_groups,
+# approaches = network.approaches (N, S, W, NB, WB), crossings = network.crossings
+# (NB, S, WB, W), bus lines = demand.bus.lines ids.
+schema_version: 1
+site: {name: pitie_302, tls_id: C, description: "Bd de l'Hôpital x Bd Saint-Marcel, Paris 13e"}
+
+sessions:   # Tue-Thu, school term, 07:30-09:30
+  - {id: s1, date: ~, start: "07:30", end: "09:30", observer: ~, positions: [], video: [], camera_offset_s: ~, weather: ~, notes: ~}
+
+signal:
+  source: field            # 'field' once measured; 'assumption' marks values that were not timed on site
+  session: s1
+  cycles_timed: ~          # number of consecutive cycles timed (>= 5, ideally 10)
+  cycle_s: []              # one value per timed cycle (s)
+  stage_order: []          # observed order of stages (names from network.stages, or new names)
+  varies_between_cycles: ~ # true if greens change from cycle to cycle (actuated controller)
+  bus_stages_on_demand: ~  # true if bus phases are skipped when no bus is present
+  ped_only_stage: ~        # true if a stage gives green to pedestrians only
+  heads:                   # keys = network.signal_groups; green_s = one value per green interval timed
+    N_straight: {green_s: [], yellow_s: ~, all_red_after_s: ~}
+    N_right:    {green_s: [], yellow_s: ~, all_red_after_s: ~}
+    S_straight: {green_s: [], yellow_s: ~, all_red_after_s: ~}
+    S_left:     {green_s: [], yellow_s: ~, all_red_after_s: ~}
+    W:          {green_s: [], yellow_s: ~, all_red_after_s: ~}
+    bus_91_E:   {green_s: [], yellow_s: ~}
+    bus_91_W:   {green_s: [], yellow_s: ~}
+    bus_57_N:   {green_s: [], yellow_s: ~}
+    bus_57_S:   {green_s: [], yellow_s: ~}
+    ped_S:      {green_s: [], flashing_s: ~}
+    ped_W:      {green_s: [], flashing_s: ~}
+    ped_WB:     {green_s: [], flashing_s: ~}
+    ped_NB:     {green_s: {HOP: [], STM: []}, flashing_s: ~}   # green twice per cycle in the model: one list per stage
+
+geometry:                  # answers that change the network (WS1 inputs)
+  lanes_at_stop_line: {N: ~, S: ~, W: ~}      # e.g. "2: right | straight"
+  s_bus_lane_length_m: ~
+  s_right_lane_cars_allowed: ~
+  s_left_allowed: ~
+  s_left_protected: ~
+  n_crossing_at_junction: ~                   # is there a crossing over Bd de l'Hôpital north at the junction?
+  crossings:
+    S:  {signalised: ~, distance_m: ~, length_m: ~, refuge: ~}
+    W:  {signalised: ~, distance_m: ~, length_m: ~, refuge: ~}
+    WB: {signalised: ~, distance_m: ~, length_m: ~, refuge: ~}
+    NB: {signalised: ~, distance_m: ~, length_m: ~, refuge: ~}
+
+queues:                    # 2-3 instants per general approach; cycle_max = vehicles queued at the end of red
+  - {session: s1, time: ~, approach: N, kind: cycle_max, vehicles: ~, visible_m: ~, lanes: all, notes: ~}
+  - {session: s1, time: ~, approach: N, kind: cycle_max, vehicles: ~, visible_m: ~, lanes: all, notes: ~}
+  - {session: s1, time: ~, approach: S, kind: cycle_max, vehicles: ~, visible_m: ~, lanes: all, notes: ~}
+  - {session: s1, time: ~, approach: S, kind: cycle_max, vehicles: ~, visible_m: ~, lanes: all, notes: ~}
+  - {session: s1, time: ~, approach: W, kind: cycle_max, vehicles: ~, visible_m: ~, lanes: all, notes: ~}
+  - {session: s1, time: ~, approach: W, kind: cycle_max, vehicles: ~, visible_m: ~, lanes: all, notes: ~}
+
+counts:                    # 15-min bins (copy the item per bin)
+  - {session: s1, begin: ~, end: ~, movements: {N_S: ~, N_W: ~, S_N: ~, S_W: ~, W_N: ~, W_S: ~},
+     buses: {"91_E": ~, "91_W": ~, "24_E": ~, "24_W": ~, "57_N": ~, "57_S": ~}, two_wheelers: ~,
+     pedestrians: {S: ~, W: ~, WB: ~, NB: ~}, poliveau_in: ~, wallons_right: ~}
+
+bus_stops:                 # arrival / departure at Saint-Marcel - La Pitié (dwell)
+  - {session: s1, line: ~, direction: ~, arrive: ~, depart: ~}
+
+saturation:                # discharge headways from vehicle 4 onwards after green
+  - {session: s1, approach: N, lane: 2, headways_s: []}
+
+loops:                     # saw-cut loops visible in the pavement
+  - {iu_ac: ~, approach: ~, lanes: ~, distance_to_stop_line_m: ~}
+
+ambulance: {route_observed: ~, gate: ~, notes: ~}
