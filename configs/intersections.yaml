@@ -1,0 +1,50 @@
+# Intersection selection grid (spec section 2.2).
+# Score each criterion from 0 to 5 after checking the sensor map, Google Street View
+# and the RATP bus map. "sensor" is eliminatory: a candidate scoring 0 there is dropped.
+weights:
+  sensor: 5          # traffic sensor right next to each (main) approach
+  signals_3_4_arms: 4
+  bus_line: 4
+  pedestrian_crossing: 4
+  emergency_service_1km: 3
+  simple_geometry: 3
+  university_or_station: 2
+  filmable: 2
+eliminatory: [sensor]
+
+# Scores below are a first pass from desk research and are meant to be revised
+# once `make explore` has shown which approaches actually have working sensors.
+candidates:
+  pitie_salpetriere:
+    label: "Bd de l'Hôpital x Bd Vincent Auriol / Pitié-Salpêtrière (13e)"
+    scores:
+      sensor: 0
+      signals_3_4_arms: 4
+      bus_line: 5
+      pedestrian_crossing: 4
+      emergency_service_1km: 5
+      simple_geometry: 3
+      university_or_station: 4
+      filmable: 4
+  lariboisiere:
+    label: "Bd de Magenta x rue de Maubeuge / Lariboisière (10e)"
+    scores:
+      sensor: 0
+      signals_3_4_arms: 3
+      bus_line: 5
+      pedestrian_crossing: 5
+      emergency_service_1km: 5
+      simple_geometry: 2
+      university_or_station: 5
+      filmable: 4
+  porte_de_pantin:
+    label: "Av. Jean Jaurès x Bd Sérurier / Porte de Pantin (19e)"
+    scores:
+      sensor: 0
+      signals_3_4_arms: 3
+      bus_line: 5
+      pedestrian_crossing: 4
+      emergency_service_1km: 3
+      simple_geometry: 2
+      university_or_station: 3
+      filmable: 5
