@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lane use on the main axis approaches (indices before sidewalks are added);
+     the N-S approaches use netconvert defaults:
+     lane 0 right + straight, lane 1 straight, lane 2 left only. -->
+<connections>
+    <connection from="w_in" to="s_out" fromLane="0" toLane="0"/>
+    <connection from="w_in" to="e_out" fromLane="0" toLane="0"/>
+    <connection from="w_in" to="e_out" fromLane="1" toLane="1"/>
+    <connection from="w_in" to="n_out" fromLane="2" toLane="0"/>
+    <connection from="e_in" to="n_out" fromLane="0" toLane="0"/>
+    <connection from="e_in" to="w_out" fromLane="0" toLane="0"/>
+    <connection from="e_in" to="w_out" fromLane="1" toLane="1"/>
+    <connection from="e_in" to="s_out" fromLane="2" toLane="0"/>
+</connections>

@@ -13,6 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from traffic_twin.config import load_config
+from traffic_twin.db.env import read_dotenv
 
 log = logging.getLogger(__name__)
 
@@ -25,15 +26,6 @@ on conflict (iu_ac, ts) do update set
     occupancy_pct = excluded.occupancy_pct,
     traffic_state = excluded.traffic_state
 """
-
-
-def _read_dotenv(path: str = ".env") -> None:
-    if not os.path.exists(path):
-        return
-    for line in Path(path).read_text().splitlines():
-        if "=" in line and not line.lstrip().startswith("#"):
-            k, v = line.split("=", 1)
-            os.environ.setdefault(k.strip(), v.strip())
 
 
 def to_rows(df: pd.DataFrame) -> list[tuple]:
@@ -58,7 +50,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--batch", type=int, default=5000)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    _read_dotenv()
+    read_dotenv()
 
     import psycopg  # optional dependency: pip install -e ".[db]"
 

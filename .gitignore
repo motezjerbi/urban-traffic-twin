@@ -11,3 +11,4 @@ data/results/*
 !data/**/.gitkeep
 sumo/demand/*.rou.xml
 *.log
+sumo/demand/*.add.xml

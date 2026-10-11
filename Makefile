@@ -1,10 +1,10 @@
 PY ?= python3
 CONFIG ?= configs/data.yaml
 
-.PHONY: install data explore score db-load lint test sim train eval app
+.PHONY: install data explore score db-load net demand sim sim-gui db-runs lint test train eval app
 
 install:
-	$(PY) -m pip install -e ".[dev,db]"
+	$(PY) -m pip install -e ".[dev,db,sim]"
 
 ## Part 1: download Paris sensors near the candidate zones, clean them, plot hourly profiles
 data:
@@ -22,6 +22,26 @@ score:
 db-load:
 	$(PY) -m traffic_twin.db.load_sensors --config $(CONFIG)
 
+## Part 2: SUMO network, demand and the fixed-time baseline
+SCENARIO ?= configs/scenario_base.yaml
+SEEDS ?= 1 2 3
+
+net:
+	$(PY) -m traffic_twin.sim.network
+
+demand:
+	$(PY) -m traffic_twin.sim.demand --config $(SCENARIO)
+
+sim:
+	$(PY) -m traffic_twin.sim.run_scenario --config $(SCENARIO) --seed $(SEEDS)
+
+sim-gui:
+	$(PY) -m traffic_twin.sim.run_scenario --config $(SCENARIO) --seed 1 --gui
+
+## Load finished runs into Supabase (tables + state logs in Storage)
+db-runs:
+	$(PY) -m traffic_twin.db.load_run data/results/*/
+
 lint:
 	ruff check src tests
 
@@ -29,5 +49,5 @@ test:
 	pytest -q
 
 # Later parts of the roadmap
-sim train eval app:
+train eval app:
 	@echo "'make $@' arrives in a later part of the roadmap"; exit 1
