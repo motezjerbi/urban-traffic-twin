@@ -26,9 +26,10 @@ def find_binary(name: str) -> str:
     try:  # pip install eclipse-sumo ships the binaries inside the package
         import sumo
 
-        candidate = Path(sumo.SUMO_HOME) / "bin" / name
-        if candidate.exists():
-            return str(candidate)
+        for exe in (name, name + ".exe"):  # Windows wheels ship sumo.exe
+            candidate = Path(sumo.SUMO_HOME) / "bin" / exe
+            if candidate.exists():
+                return str(candidate)
     except ImportError:
         pass
     raise FileNotFoundError(f"{name} not found: install SUMO or `pip install eclipse-sumo`")
