@@ -13,6 +13,8 @@ VALIDATION_CONFIG = CONFIG_DIR / "validation.yaml"  # pre-registered validation 
 CALIBRATION_DIR = CONFIG_DIR / "calibration"  # generated demand calibration files
 PITIE_FIXED_CONFIG = CONFIG_DIR / "pitie_fixed.yaml"  # S0 on the real junction
 PITIE_ACTUATED_CONFIG = CONFIG_DIR / "pitie_actuated.yaml"  # S1 on the real junction
+PITIE_RULES_CONFIG = CONFIG_DIR / "pitie_rules.yaml"  # S2 rule based (Part 4)
+EVALUATION_CONFIG = CONFIG_DIR / "evaluation.yaml"  # pre-registered S0/S1/S2 evaluation
 
 REFERENCE_DIR = Path("data") / "reference"  # versioned sensor extracts (no data/processed)
 FIELD_FILE = Path("data/field/pitie_measurements.yaml")  # site-visit measurements
@@ -21,6 +23,8 @@ SUMO_DIR = Path("sumo")
 PLAIN_NET_DIR = SUMO_DIR / "network" / "plain"
 NET_FILE = SUMO_DIR / "network" / "intersection.net.xml"
 DEMAND_DIR = SUMO_DIR / "demand"
+
+EVAL_DIR = Path("data") / "results" / "evaluation"  # evaluation.yaml outputs.dir
 
 # File names inside the `paths.processed` directory of configs/data.yaml
 SENSOR_HOURLY_FILE = "sensor_hourly.parquet"

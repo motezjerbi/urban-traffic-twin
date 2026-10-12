@@ -8,11 +8,16 @@ import pytest
 
 import traffic_twin.sim.results as results_mod
 from traffic_twin.config import load_scenario
+from traffic_twin.control.base import Event
 from traffic_twin.sim.detectors import DetectorLayout, Loop
-from traffic_twin.sim.kpi import KPI_COLUMNS
+from traffic_twin.sim.kpi import KPI_COLUMNS, KPI_VERSION
 from traffic_twin.sim.results import (
     DETECTOR_COLUMNS,
+    EVENT_COLUMNS,
     HEALTH_KEYS,
+    OPTIONAL_TABLES,
+    PREEMPTION_GUARD_KEYS,
+    PREEMPTION_REPORT_KEYS,
     QUEUE_COLUMNS,
     SIGNAL_COLUMNS,
     RunResults,
@@ -20,6 +25,8 @@ from traffic_twin.sim.results import (
     collect_results,
     config_files,
     detector_table,
+    event_table,
+    preemption_block,
     queue_table,
     run_health,
     run_metadata,
@@ -242,3 +249,77 @@ def test_collect_results_with_single_waits_and_routes(sumo_outputs, write_file):
     get = res.kpis.set_index(["user_type", "kpi"])["value"]
     assert get["pedestrian", "ped_wait_single_max"] == 42.0
     assert "headway_std" in set(res.kpis["kpi"]) and "depart_delay_s" in res.trips
+
+
+# -- Part 4 additions ---------------------------------------------------------------------
+def test_collect_results_appends_the_version_2_rows(sumo_outputs, scenario_cfg):
+    waits = pd.Series({"ped_w_in_e_out.0": 3.0})
+    junction = {"box_halt_red_s": 4.0, "crossing_red_entries": 0.0}
+    v1 = collect_results("r", "s", 1, *sumo_outputs, [], waits)
+    v2 = collect_results("r", "s", 1, *sumo_outputs, [], waits, cfg=scenario_cfg,
+                         junction=junction)  # fmt: skip
+    n = len(v1.kpis)
+    pd.testing.assert_frame_equal(v2.kpis.iloc[:n], v1.kpis)  # compute_kpis rows unchanged
+    extra = v2.kpis.iloc[n:]
+    assert list(v2.kpis.columns) == ["run_id", *KPI_COLUMNS]
+    assert (extra["run_id"] == "r").all() and (extra["scenario"] == "s").all()
+    added = set(zip(extra["user_type"], extra["kpi"], strict=True))
+    assert {("car", "throughput_vph"), ("junction", "box_halt_red_s"),
+            ("pedestrian", "crossing_red_entries")} <= added  # fmt: skip
+    pd.testing.assert_frame_equal(v2.trips, v1.trips)
+    assert {"depart_edge", "arrival_edge", "flow"} <= set(v2.trips.columns)
+
+
+def test_collect_results_passes_the_curb_waits(sumo_outputs, scenario_cfg):
+    """KPI version 3: with crossings, the curb waits give their own rows; the Part 3
+    single-wait rows keep the getWaitingTime values."""
+    cfg = copy.deepcopy(scenario_cfg)
+    cfg["network"]["crossings"] = {"X": {"edge": ":C_c0", "link": 0}}
+    waits, curb = pd.Series({"ped_X_0.1": 3.0}), pd.Series({"ped_X_0.1": 5.0})
+    res = collect_results("r", "s", 1, *sumo_outputs, [], waits, cfg=cfg, ped_curb_waits=curb)
+    get = res.kpis.set_index(["user_type", "kpi"])["value"]
+    assert get["pedestrian", "ped_wait_single_max"] == 3.0
+    assert get["pedestrian", "ped_curb_wait_max"] == 5.0
+    assert get["pedestrian", "ped_curb_wait_max__crossing_X"] == 5.0
+    without = collect_results("r", "s", 1, *sumo_outputs, [], waits, cfg=cfg)
+    assert not without.kpis["kpi"].str.startswith("ped_curb").any()
+
+
+def test_event_table_and_its_file(run_results, tmp_path):
+    assert event_table("r", []) is None
+    events = [Event(5.0, "guard", "ped_wait", 1, 2, "crossing S"),
+              Event(3.0, "controller", "tsp_extend", 1, 1),
+              Event(5.0, "preemption", "request", 0, 0, "vid=ambulance_0")]  # fmt: skip
+    df = event_table("r", events)
+    assert list(df.columns) == EVENT_COLUMNS
+    assert df["rule"].tolist() == ["tsp_extend", "ped_wait", "request"]  # by time, stable
+    assert df["detail"].tolist() == ["", "crossing S", "vid=ambulance_0"]
+    assert df["stage_from"].dtype == "int64" and df["t"].dtype == "float64"
+    run_results.events = df
+    write_results(tmp_path, run_results, {"run_id": "run-1"})
+    assert OPTIONAL_TABLES["events"] == "events.parquet"
+    pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "events.parquet"), df)
+
+
+def test_preemption_block():
+    off = preemption_block(None, {"hold_s": 0.0, "jumps": 0, "ped_yield": 0})
+    assert off == {"enabled": False, "requests": 0, "served": 0, "timeouts": 0, "active_s": 0,
+                   "hold_s": 0.0, "jumps": 0, "ped_yield": 0}  # fmt: skip
+    assert preemption_block(None, None) == off
+    report = {"requests": 2, "served": 1, "timeouts": 1, "active_s": 140.0}
+    on = preemption_block(report, {"hold_s": 12.0, "jumps": 1, "ped_yield": 0})
+    assert on["enabled"] is True and on["timeouts"] == 1 and on["hold_s"] == 12.0
+    assert list(on) == ["enabled", *PREEMPTION_REPORT_KEYS, *PREEMPTION_GUARD_KEYS]
+
+
+def test_run_metadata_has_the_part4_keys(scenario_cfg):
+    health, safety = dict.fromkeys(HEALTH_KEYS, 0), {"interventions": {}, "audit": {}}
+    meta = run_metadata(scenario_cfg, "r", 3, "2026-10-12T08:00:00+00:00", 1.0, health, safety)
+    assert meta["kpi_version"] == KPI_VERSION == 3
+    assert meta["preemption"] == preemption_block(None, None) and meta["control"] == {}
+    pre = preemption_block({"requests": 1, "served": 1, "timeouts": 0, "active_s": 9.0}, None)
+    control = {"ped_protect": 2, "tsp": {"calls": 3}}
+    meta = run_metadata(scenario_cfg, "r", 3, "2026-10-12T08:00:00+00:00", 1.0, health, safety,
+                        None, preemption=pre, control=control)  # fmt: skip
+    assert meta["preemption"]["served"] == 1 and meta["control"] == control
+    assert json.loads(json.dumps(meta)) == meta

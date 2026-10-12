@@ -35,10 +35,28 @@ actuated:
   # any change of the program (tests/test_actuated.py checks it).
   max_green_s: {HOP: 38, S_LEFT: 6, STM: 22, BUS_91: 6, BUS_57: 6}
 
+# Safety Guard (control/safety.py, D20), common to every controller. Pedestrian shield
+# (control/pedestrian.py, D21): with theta = ped_max_wait_s - ped_red_margin_s = 88 s,
+# the guard keeps w_c + T_c <= theta for every crossing c, where w_c is the longest
+# current wait at c and T_c the time until c turns green if every stage from now runs at
+# min_green_s in cycle order with its full clearance. A green may last one more step only
+# if w_c + T_c + 1 s <= theta for every c; otherwise the guard requests the next stage
+# (intervention `ped_wait`). The worst red of any crossing at min greens (W: 72 s) must
+# stay <= theta, which tls_check and SafetyGuard.from_config check.
+#   ped_forcing: detected = w_c from TraCI (curb wait of the persons waiting whose next
+#     edge is the crossing; small creeps at the curb do not reset it), i.e. ideal
+#     pedestrian detection, ASSUMED (camera / push button);
+#     red = seconds since the crossing last showed green (no detector: equivalent to the
+#     static bound); off = no shield (refused when a plan's static red exceeds theta).
+# S0 and S1 never trigger it (D22), but S1 sits exactly on the boundary: on the last step
+# of STM at its 22 s max, W has been red 8 + 16 + 21 = 45 s and needs T = 42 s, so the
+# stay check is 45 + 42 + 1 = 88 <= 88 (on HOP at 38 s, crossing S: 62 + 25 + 1 = 88).
+# S2 (rules) relaxes HOP / STM to 50 / 30 s, beyond the static bound, and relies on it.
 safety:
   min_green_s: 6
   ped_max_wait_s: 90
   ped_red_margin_s: 2
+  ped_forcing: detected # D21; ASSUMED ideal pedestrian detection (camera / push button); every Pitié controller
   max_green_s: 60 # guard hard cap, any controller
-  max_red_s: 150 # anti-starvation; must exceed the longest legal cycle (127 s)
+  max_red_s: 150 # anti-starvation, > longest legal cycle (S0/S1: 127 s); S2 overrides it (pitie/rules.yaml)
   stage_order: strict

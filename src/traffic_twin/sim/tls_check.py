@@ -13,20 +13,32 @@ Rules (spec 8.3 / A-04, lessons of the Pitié design runs):
   speed. It is checked with the fixed greens and with the minimum greens (the shortest
   greens any controller can show through the safety guard);
 - the worst-case red of every crossing stays within `safety.ped_max_wait_s -
-  safety.ped_red_margin_s`.
+  safety.ped_red_margin_s` with the fixed greens, the actuated max greens and the
+  minimum greens. The rules controller (S2, Part 4) relaxes its max greens beyond that
+  static bound: its worst-case red is reported, and when it exceeds the bound the
+  scenario must run the pedestrian shield (`safety.ped_forcing` detected or red), which
+  bounds every wait dynamically (D21); that is a warning, not an error.
+
+`cached_requirements` gives the audit (`sim.audit`) the intergreens and foe relations of
+a net, parsed once per net file.
 """
 
 from __future__ import annotations
 
 import argparse
+import functools
 import math
 import sys
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from types import MappingProxyType
+from typing import NamedTuple
 
 from traffic_twin.config import ConfigError, get, load_scenario
+from traffic_twin.control.pedestrian import forcing_mode
+from traffic_twin.control.safety import rules_greens
 from traffic_twin.sim.signal import Stage
 
 GREEN = "Gg"
@@ -280,6 +292,37 @@ def intergreen_requirements(
     return need
 
 
+class Requirements(NamedTuple):
+    """Inputs of the audit's `intergreen_short` and `foe_vehicle_greens` (read-only)."""
+
+    intergreen: Mapping[tuple[int, int], float]  # (ending link, starting foe) -> s
+    foes: Mapping[int, frozenset[int]]  # link -> conflicting links
+
+
+@functools.lru_cache(maxsize=8)
+def _lane_lengths(net_file: str, mtime_ns: int) -> Mapping[str, float]:
+    return MappingProxyType(dict(_geometry(net_file).length))
+
+
+@functools.lru_cache(maxsize=8)
+def _requirements(
+    net_file: str, mtime_ns: int, tls_id: str, stops: tuple[str, ...]
+) -> Requirements:
+    prog = load_program(net_file, tls_id)
+    req = intergreen_requirements(net_file, prog, stop_lanes=stops)
+    return Requirements(MappingProxyType(req), MappingProxyType(dict(prog.foes)))
+
+
+def cached_requirements(net_file: str | Path, cfg: dict) -> Requirements:
+    """Intergreen requirements (with the scenario's near-side bus stops) and foe
+    relations of `network.tls_id` in `net_file`, computed once per net file and
+    modification time."""
+    path = Path(net_file).resolve()
+    mtime = path.stat().st_mtime_ns
+    stops = stop_lanes(cfg, _lane_lengths(str(path), mtime))
+    return _requirements(str(path), mtime, get(cfg, "network.tls_id"), tuple(stops))
+
+
 def _green_edges(prog: Program, i: int) -> tuple[list[float], list[float]]:
     """Times within one cycle where link i turns green (starts) and stops being green."""
     starts, ends, t = [], [], 0.0
@@ -351,6 +394,10 @@ class Report:
     summary: dict[str, int] = field(default_factory=dict)  # counts printed by the CLI
     worst_crossing_red_max: dict[str, float] = field(default_factory=dict)  # actuated max greens
     crossing_bound_s: float | None = None
+    worst_crossing_red_min: dict[str, float] = field(default_factory=dict)  # min greens
+    worst_crossing_red_rules: dict[str, float] = field(default_factory=dict)  # rules max + TSP
+    ped_forcing: str = "off"  # safety.ped_forcing
+    dynamic_crossings: list[str] = field(default_factory=list)  # bounded by the shield only
 
 
 def scenario_stages(cfg: dict) -> list[Stage]:
@@ -372,7 +419,11 @@ def _greens(cfg: dict, key: str, stages: Sequence[Stage]) -> list[float] | None:
 
 
 def _min_greens(cfg: dict, stages: Sequence[Stage]) -> list[float] | None:
-    per_stage = _greens(cfg, "actuated.min_green_s", stages)
+    """Shortest greens the scenario's controller can show: its per-stage min greens
+    (`rules.min_green_s` for the rules controller, else `actuated.min_green_s`), never
+    below `safety.min_green_s`."""
+    key = "rules.min_green_s" if cfg.get("controller") == "rules" else "actuated.min_green_s"
+    per_stage = _greens(cfg, key, stages)
     floor = get(cfg, "safety.min_green_s", None)
     if per_stage is None and floor is None:
         return None
@@ -429,7 +480,10 @@ def _config_errors(cfg: dict, prog: Program) -> list[str]:
 
 def check_scenario(cfg: dict) -> Report:
     """All checks for a scenario, plus crossing red <= ped_max_wait_s - ped_red_margin_s
-    with the fixed greens (and with the actuated max greens for an actuated scenario)."""
+    with the fixed greens, the min greens, and the actuated max greens for an actuated
+    scenario. For a rules scenario the worst-case red of its plan (max greens + TSP
+    extension) is reported; above the bound it needs `safety.ped_forcing` on (error
+    otherwise) and is reported as bounded dynamically by the pedestrian shield."""
     net_file = get(cfg, "network.net_file")
     prog = load_program(net_file, get(cfg, "network.tls_id"))
     stages = scenario_stages(cfg)
@@ -488,13 +542,40 @@ def check_scenario(cfg: dict) -> Report:
             warnings.append(f"fixed greens above actuated.max_green_s for {', '.join(over)}")
     if cfg.get("controller") == "actuated" and maximum is not None:
         worst_max = crossing_red(maximum, "actuated max greens")
+    worst_min = crossing_red(minimum, "min greens") if minimum is not None else {}
+
+    mode = forcing_mode(cfg)
+    worst_rules: dict[str, float] = {}
+    dynamic: list[str] = []
+    rules = rules_greens(cfg, [s.name for s in stages])
+    if cfg.get("controller") == "rules" and rules is not None:
+        red = worst_case_red(prog, stages, rules)
+        worst_rules = {names[i]: red[i] for i in names}
+        for name, r in worst_rules.items():
+            if bound is None or r <= bound + 1e-9:
+                continue
+            if mode == "off":
+                errors.append(
+                    f"crossing {name}: worst-case red {r:g} s > {bound:g} s (rules max greens "
+                    "+ TSP extension) with safety.ped_forcing off: the rules plan needs the "
+                    "pedestrian shield"
+                )
+            else:
+                dynamic.append(name)
+                warnings.append(
+                    f"crossing {name}: worst-case red {r:g} s > {bound:g} s (rules max greens "
+                    f"+ TSP extension): dynamic (pedestrian shield, ped_forcing {mode})"
+                )
 
     summary = {
         "foe_greens": kinds.count("G/G") + kinds.count("ped_major"),
         "permissive_vehicle_vehicle": kinds.count("permissive"),
         "intergreen_violations": len(ig_errors),
     }
-    return Report(errors, warnings, worst, not errors, summary, worst_max, bound)
+    return Report(
+        errors, warnings, worst, not errors, summary, worst_max, bound,
+        worst_min, worst_rules, mode, dynamic,
+    )  # fmt: skip
 
 
 # -- CLI --------------------------------------------------------------------------------
@@ -516,15 +597,23 @@ def _print_report(cfg: dict, report: Report, show_links: bool) -> None:
             f"{s['intergreen_violations']}"
         )
     bound = "-" if report.crossing_bound_s is None else f"{report.crossing_bound_s:g}"
+    columns = [("min greens (s)", report.worst_crossing_red_min),
+               ("actuated max (s)", report.worst_crossing_red_max),
+               ("rules max (s)", report.worst_crossing_red_rules)]  # fmt: skip
+    columns = [(label, values) for label, values in columns if values]
     header = f"{'crossing':10} {'worst red fixed (s)':>20}"
-    if report.worst_crossing_red_max:
-        header += f" {'actuated max (s)':>17}"
+    header += "".join(f" {label:>17}" for label, _ in columns)
     print(f"{header} {'bound (s)':>10}")
     for name, red in report.worst_crossing_red.items():
         row = f"{name:10} {red:20g}"
-        if report.worst_crossing_red_max:
-            row += f" {report.worst_crossing_red_max[name]:17g}"
+        row += "".join(f" {values[name]:17g}" for _, values in columns)
         print(f"{row} {bound:>10}")
+    if report.dynamic_crossings:
+        print(
+            f"rules plan: crossings {', '.join(report.dynamic_crossings)} above the static "
+            f"bound, dynamic (pedestrian shield, safety.ped_forcing {report.ped_forcing}): "
+            "every wait stays <= the bound at run time (D21)"
+        )
     for w in report.warnings:
         print("warning:", w)
     for e in report.errors:

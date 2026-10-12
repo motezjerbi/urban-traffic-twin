@@ -1,0 +1,16 @@
+# Ambulance-probe demand (Part 4, D25): 7 ambulances instead of the single 08:10 one, to
+# attribute the A-05 gain to preemption (secondary analysis). Routes N->S (Austerlitz) and
+# W->S (Saint-Marcel) towards the hospital main gate; ASSUMED. Fragment of
+# configs/pitie_amb_*.yaml only (owner WS2); its own demand_hash, shared by the family.
+emergency:
+  enabled: true
+  depart_s: null
+  route: null
+  trips:
+    - {depart_s: 300,  route: [n_in, s_out]}
+    - {depart_s: 1200, route: [w_in, s_out]}
+    - {depart_s: 2400, route: [n_in, s_out]}
+    - {depart_s: 3300, route: [w_in, s_out]}
+    - {depart_s: 4200, route: [n_in, s_out]}
+    - {depart_s: 5100, route: [w_in, s_out]}
+    - {depart_s: 6000, route: [n_in, s_out]}

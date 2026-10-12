@@ -1,6 +1,7 @@
 """Run one scenario headless with a given controller and seed, then export trips,
 KPIs and a state log (spec 8.2, 9.1), plus the detector, queue and signal tables when
-the scenario has a `measurement` section.
+the scenario has a `measurement` section and the events table when a controller, the
+safety guard or the preemption logged an event (Part 4).
 
     python -m traffic_twin.sim.run_scenario --config configs/scenario_base.yaml --seed 42
 """
@@ -17,10 +18,12 @@ from pathlib import Path
 import pandas as pd
 
 from traffic_twin.config import ConfigError, get, load_scenario
+from traffic_twin.control.base import Controller
 from traffic_twin.control.registry import make_controller
 from traffic_twin.control.safety import INTERVENTION_KEYS
 from traffic_twin.paths import SCENARIO_CONFIG
-from traffic_twin.sim.audit import audit_phases
+from traffic_twin.sim import tls_check
+from traffic_twin.sim.audit import DANGER_KEYS, audit_phases
 from traffic_twin.sim.detectors import E1_FILE, TLS_SWITCH_FILE, read_e1, read_tls_switch
 from traffic_twin.sim.kpi import read_statistics
 from traffic_twin.sim.results import (
@@ -28,6 +31,8 @@ from traffic_twin.sim.results import (
     collect_results,
     config_files,
     detector_table,
+    event_table,
+    preemption_block,
     queue_table,
     run_health,
     run_metadata,
@@ -44,19 +49,56 @@ def run_dir(cfg: dict, seed: int, out_root: Path) -> Path:
 
 
 def safety_block(sim: SimSession) -> dict:
-    """Guard interventions (one per event) and the audit of the phases shown."""
-    crossings = get(sim.cfg, "network.crossings", None) or {}
-    ped_links = [int(c["link"]) for c in crossings.values()] if crossings else None
+    """Guard interventions (one per event), the audit of the phases shown, the number of
+    dangerous audit findings (`danger`, sum of DANGER_KEYS) and the pedestrian shield
+    mode (`ped_forcing`, "off" without a shield).
+
+    With `network.crossings` (Pitié) the audit also gets the programmed durations, the
+    guard's link-safe transitions, the intergreen requirements and the foe links (from
+    `tls_check`); the grid audit keeps its Part 3 inputs."""
+    cfg = sim.cfg
+    crossings = get(cfg, "network.crossings", None) or {}
+    extended = {}
+    if crossings:
+        req = tls_check.cached_requirements(get(cfg, "network.net_file"), cfg)
+        extended = {
+            "durations": sim.plan.durations,
+            "allowed": sim.guard.allowed,
+            "intergreen": req.intergreen,
+            "foes": req.foes,
+        }
     audit = audit_phases(
         sim.phases_shown,
         sim.phase_states,
         sim.plan.stages,
-        float(get(sim.cfg, "safety.min_green_s", 0.0)),
+        float(get(cfg, "safety.min_green_s", 0.0)),
         step_s=sim.dt,
-        ped_links=ped_links,
+        ped_links=[int(c["link"]) for c in crossings.values()] if crossings else None,
+        **extended,
     )
+    audit = {k: int(v) for k, v in audit.items()}
     interventions = {k: int(sim.guard.interventions.get(k, 0)) for k in INTERVENTION_KEYS}
-    return {"interventions": interventions, "audit": {k: int(v) for k, v in audit.items()}}
+    return {
+        "interventions": interventions,
+        "audit": audit,
+        "danger": sum(audit.get(k, 0) for k in DANGER_KEYS),
+        "ped_forcing": getattr(sim.shield, "mode", "off"),
+    }
+
+
+def preemption_summary(sim: SimSession) -> dict:
+    """`run.json` preemption block of a finished run (`results.preemption_block`)."""
+    report = sim.preemption.report() if sim.preemption is not None else None
+    return preemption_block(report, getattr(sim.guard, "preemption", None))
+
+
+def run_events(controller: Controller, sim: SimSession) -> list:
+    """Events of the run: the controller's, then the guard's, then the preemption's."""
+    events = list(controller.events)
+    events += getattr(sim.guard, "events", None) or []
+    if sim.preemption is not None:
+        events += sim.preemption.events
+    return events
 
 
 def add_measurements(results: RunResults, sim: SimSession, run_id: str) -> None:
@@ -72,8 +114,9 @@ def add_measurements(results: RunResults, sim: SimSession, run_id: str) -> None:
         results.signal = signal_table(run_id, switches, layout.switch_links, sim.begin)
 
 
-def health_line(health: dict) -> str:
-    """One-line summary of the health block for the log."""
+def health_line(health: dict, preemption: dict | None = None) -> str:
+    """One-line summary of the health block for the log, with the preemption requests
+    served and timed out when preemption is enabled."""
 
     def num(key: str) -> str:
         v = health.get(key)
@@ -85,6 +128,12 @@ def health_line(health: dict) -> str:
         f"waiting at end {num('vehicles_waiting_end')}, depart delay mean "
         f"{num('depart_delay_mean')} s / max {num('depart_delay_max')} s"
         + (", DRAIN TIMEOUT" if health.get("drain_timeout") else "")
+        + (
+            f", preemption served {preemption['served']}/{preemption['requests']}, "
+            f"timeouts {preemption['timeouts']}"
+            if preemption and preemption.get("enabled")
+            else ""
+        )
     )
 
 
@@ -120,15 +169,22 @@ def run(
     results = collect_results(
         run_id, scenario, seed, sim.tripinfo, sim.stops, sim.state_rows,
         ped_single_waits=pd.Series(sim.ped_wait_max, dtype=float), routes=sim.routes,
+        cfg=cfg, junction=sim.junction.summary() if sim.junction is not None else None,
+        ped_curb_waits=pd.Series(sim.ped_curb_wait_max, dtype=float),
     )  # fmt: skip
     if cfg.get("measurement"):
         add_measurements(results, sim, run_id)
+    results.events = event_table(run_id, run_events(controller, sim))
     health = run_health(read_statistics(sim.statistics), results.trips, sim.drain_timeout)
-    meta = run_metadata(cfg, run_id, seed, started_at, wall, health, safety_block(sim), sources)
+    preemption = preemption_summary(sim)
+    meta = run_metadata(
+        cfg, run_id, seed, started_at, wall, health, safety_block(sim), sources,
+        preemption=preemption, control=controller.report(),
+    )  # fmt: skip
     write_results(out_dir, results, meta)
     n_trips = int((results.trips["type"] != "pedestrian").sum())
     log.info("%s seed %d: %d trips, %.1f s wall -> %s", scenario, seed, n_trips, wall, out_dir)
-    log.info("%s seed %d health: %s", scenario, seed, health_line(health))
+    log.info("%s seed %d health: %s", scenario, seed, health_line(health, preemption))
     return meta
 
 

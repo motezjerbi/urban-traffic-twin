@@ -5,7 +5,8 @@ import pytest
 
 from traffic_twin.control.base import Observation
 from traffic_twin.control.fixed import FixedTimeController
-from traffic_twin.sim.signal import SignalPlan, SignalState, Stage
+from traffic_twin.sim.junction import edge_links, lane_edge, lane_links
+from traffic_twin.sim.signal import SignalPlan, SignalState, Stage, link_stages
 
 # phases: 0 green A, 1 yellow A, 2 all-red, 3 green B, 4 yellow B
 DURATIONS = [30, 3, 2, 30, 3]
@@ -220,3 +221,74 @@ def test_state_is_an_immutable_snapshot():
     with pytest.raises(dataclasses.FrozenInstanceError):
         state.stage = 1
     assert plan.state(14.0) == SignalState(14.0, 1, 6.0, False, (11.0, 0.0))
+
+
+def test_state_part4_fields_default_to_none():
+    """The guard inputs added in Part 4 default to "no pedestrian waits, no preemption":
+    SignalPlan.state() and the Part 3 callers are unchanged."""
+    state = SignalPlan(STAGES, DURATIONS).state(0.0)
+    assert state.ped_wait == () and state.preempt_target is None
+    assert dataclasses.replace(state, ped_wait=(3.0,), preempt_target=1).red_s == state.red_s
+
+
+# -- links, stages, edges --------------------------------------------------------------
+# 3 links (0: A main, 1: A permissive turn / B main, 2: crossing green in B only)
+LINK_STATES = ["GgG", "yyr", "rrr", "rGg", "ryr"]
+
+
+def test_link_stages_splits_full_and_permissive_greens():
+    assert link_stages(STAGES, LINK_STATES, 0) == ((0,), ())
+    assert link_stages(STAGES, LINK_STATES, 1) == ((1,), (0,))
+    assert link_stages(STAGES, LINK_STATES, 2) == ((0,), (1,))
+    never = ["rrr", "yyy", "rrr", "rrr", "rrr"]
+    assert link_stages(STAGES, never, 1) == ((), ())
+    with pytest.raises(ValueError, match="link 3"):
+        link_stages(STAGES, LINK_STATES, 3)
+
+
+class FakeTrafficLight:
+    """`trafficlight.getControlledLinks`: per link index, its (from, to, via) lanes."""
+
+    def __init__(self, links):
+        self.links = links
+
+    def getControlledLinks(self, tls_id):  # noqa: N802 (TraCI name)
+        assert tls_id == "C"
+        return self.links
+
+
+class FakeTraci:
+    def __init__(self, links):
+        self.trafficlight = FakeTrafficLight(links)
+
+
+LINKS = [
+    [("n_in_0", "w_out_0", ":C_0_0"), ("n_in_0", "w_out_1", ":C_0_1")],  # one link, 2 lanes
+    [("n_in_1", "s_out_0", ":C_1_0")],
+    [("s_in_1", "n_out_1", ":C_2_0")],
+    [],  # unused index
+    [("s_in_0", "n_out_0", ":C_3_0")],  # same edges as link 2: the lower index wins
+    [(":C_w0_0", ":C_c0_0", "")],  # pedestrian crossing (internal edges, no via)
+]
+
+
+def test_lane_links_keeps_the_first_connection_of_each_link():
+    assert lane_links(FakeTraci(LINKS), "C") == {
+        0: ("n_in_0", "w_out_0", ":C_0_0"),
+        1: ("n_in_1", "s_out_0", ":C_1_0"),
+        2: ("s_in_1", "n_out_1", ":C_2_0"),
+        4: ("s_in_0", "n_out_0", ":C_3_0"),
+        5: (":C_w0_0", ":C_c0_0", ""),
+    }
+
+
+def test_edge_links_maps_edge_pairs_to_the_first_link():
+    assert edge_links(FakeTraci(LINKS), "C") == {
+        ("n_in", "w_out"): 0,
+        ("n_in", "s_out"): 1,
+        ("s_in", "n_out"): 2,
+        (":C_w0", ":C_c0"): 5,
+    }
+    assert lane_edge("wb_in_12") == "wb_in" and lane_edge(":C_c3_0") == ":C_c3"
+    with pytest.raises(ValueError):
+        lane_edge("no_lane_index")

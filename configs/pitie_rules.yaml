@@ -1,0 +1,6 @@
+# S2 rule based (actuated gaps with relaxed max greens, TSP, box clearing, pedestrian
+# anticipation, emergency preemption) on the Pitié-Salpêtrière junction (Part 4, D19).
+# Everything else, demand included, comes from the S0 config (spec 13.3).
+extends: [pitie_fixed.yaml, pitie/rules.yaml]
+scenario: pitie_rules
+controller: rules

@@ -3,6 +3,7 @@ clearance phases (pedestrian clearance, yellow, all-red) before a new green."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 
@@ -22,6 +23,26 @@ class SignalState:
     time_in_stage: float  # seconds of green of the current stage
     in_transition: bool  # True while clearance phases run
     red_s: tuple[float, ...]  # per stage: seconds since its green last ended (0 while green)
+    # Part 4 guard inputs, set by SimSession.step (defaults: the grid and Part 3 callers)
+    ped_wait: tuple[float, ...] = ()  # per crossing (network.crossings order): shield's w_c
+    preempt_target: int | None = None  # target stage of the active emergency preemption
+
+
+def link_stages(
+    stages: Sequence[Stage], phase_states: Sequence[str], link: int
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """(stages showing 'G' on `link`, stages showing 'g' on it) in their green phase, each
+    in cycle order. A link green in no stage gives two empty tuples."""
+    full, permissive = [], []
+    for k, st in enumerate(stages):
+        state = phase_states[st.green_phase]
+        if not 0 <= link < len(state):
+            raise ValueError(f"link {link} outside the phase state {state!r}")
+        if state[link] == "G":
+            full.append(k)
+        elif state[link] == "g":
+            permissive.append(k)
+    return tuple(full), tuple(permissive)
 
 
 class SignalPlan:

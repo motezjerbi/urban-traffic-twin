@@ -1,0 +1,4 @@
+# S2_noP: S2 without emergency preemption (ablation, D19), same demand as S0/S1/S2.
+extends: pitie_rules.yaml
+scenario: pitie_rules_nopreempt
+preemption: {enabled: false}

@@ -199,3 +199,64 @@ def test_cli_exit_code_and_summary(tmp_path, capsys):
     bad.write_text(yaml.safe_dump({"extends": base, "fixed": {"green_s": {"HOP": 45}}}))
     assert tls_check.main(["--config", str(bad)]) == 1
     assert "FAILED" in capsys.readouterr().out
+
+
+# -- Part 4: min greens, the rules plan and the audit's cached requirements -------------
+def test_min_greens_red_is_reported_and_bounded(pitie_report, pitie_cfg):
+    assert pitie_report.worst_crossing_red_min == {"NB": 42, "S": 56, "WB": 42, "W": 72}
+    pitie_cfg["safety"]["ped_max_wait_s"] = 72  # theta 70 < W's 72 s at min greens
+    report = check_scenario(pitie_cfg)
+    assert any(e == "crossing W: worst-case red 72 s > 70 s (min greens)" for e in report.errors)
+
+
+def test_rules_plan_is_bounded_by_the_shield(rules_scenario):
+    """S2 relaxes HOP to 50 s and STM to 30 s, + 10 s of TSP on the bus stages: S and W
+    exceed the static bound, which the detected shield enforces at run time."""
+    report = check_scenario(rules_scenario)
+    assert report.ok, report.errors
+    assert report.worst_crossing_red_rules == {"NB": 62, "S": 120, "WB": 62, "W": 126}
+    assert report.dynamic_crossings == ["S", "W"] and report.ped_forcing == "detected"
+    assert sum("dynamic (pedestrian shield" in w for w in report.warnings) == 2
+    assert report.worst_crossing_red_max == {}  # actuated maxima: not this controller's
+
+
+def test_rules_plan_without_the_shield_is_an_error(rules_cfg):
+    rules_cfg["safety"]["ped_forcing"] = "off"
+    report = check_scenario(rules_cfg)
+    assert not report.ok and report.dynamic_crossings == []
+    assert [e for e in report.errors if "needs the pedestrian shield" in e] == [
+        "crossing S: worst-case red 120 s > 88 s (rules max greens + TSP extension) with "
+        "safety.ped_forcing off: the rules plan needs the pedestrian shield",
+        "crossing W: worst-case red 126 s > 88 s (rules max greens + TSP extension) with "
+        "safety.ped_forcing off: the rules plan needs the pedestrian shield",
+    ]
+
+
+def test_rules_plan_within_the_static_bound_needs_no_shield(rules_cfg):
+    rules_cfg["safety"]["ped_forcing"] = "off"
+    rules_cfg["rules"]["max_green_s"].update(HOP=38, STM=22)
+    rules_cfg["rules"]["tsp"]["enabled"] = False
+    report = check_scenario(rules_cfg)
+    assert report.ok, report.errors
+    assert max(report.worst_crossing_red_rules.values()) == 88
+
+
+def test_cached_requirements(pitie_scenario):
+    net = pitie_scenario["network"]["net_file"]
+    req = tls_check.cached_requirements(net, pitie_scenario)
+    assert req is tls_check.cached_requirements(REPO_ROOT / net, pitie_scenario)  # cached
+    prog = load_program(net, "C")
+    stops = tls_check.stop_lanes(pitie_scenario, tls_check._geometry(net).length)
+    assert dict(req.intergreen) == intergreen_requirements(net, prog, stop_lanes=stops)
+    assert req.intergreen[(9, 4)] == 11  # the near-side bus stop is taken into account
+    assert dict(req.foes) == prog.foes
+    with pytest.raises(TypeError):
+        req.intergreen[(9, 4)] = 0  # read-only: shared by every run
+
+
+def test_cli_prints_the_dynamic_shield_note(capsys):
+    assert tls_check.main(["--config", str(REPO_ROOT / "configs/pitie_rules.yaml")]) == 0
+    out = capsys.readouterr().out
+    assert "rules max (s)" in out and "min greens (s)" in out
+    assert "rules plan: crossings S, W above the static bound, dynamic (pedestrian shield" in out
+    assert out.rstrip().endswith("OK")

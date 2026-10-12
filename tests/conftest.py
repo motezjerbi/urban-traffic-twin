@@ -12,9 +12,10 @@ from pathlib import Path
 import pytest
 
 from traffic_twin.config import load_scenario
-from traffic_twin.paths import PITIE_FIXED_CONFIG, SCENARIO_CONFIG
+from traffic_twin.paths import CONFIG_DIR, PITIE_FIXED_CONFIG, PITIE_RULES_CONFIG, SCENARIO_CONFIG
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+PROBE_RULES_CONFIG = CONFIG_DIR / "pitie_amb_rules.yaml"  # ambulance-probe family, S2
 
 # Small SUMO outputs: two cars, a bus, a pedestrian walk, and three bus stop arrivals
 TRIPINFO = """<tripinfos>
@@ -82,6 +83,32 @@ def pitie_scenario() -> dict:
 def pitie_cfg(pitie_scenario: dict) -> dict:
     """A private deep copy of the Pitié S0 scenario config that a test may modify."""
     return copy.deepcopy(pitie_scenario)
+
+
+@pytest.fixture(scope="session")
+def rules_scenario() -> dict:
+    """configs/pitie_rules.yaml (S2 rule based on the Pitié junction, `extends` merged),
+    loaded once. Do not mutate: use `rules_cfg`."""
+    return load_scenario(REPO_ROOT / PITIE_RULES_CONFIG)
+
+
+@pytest.fixture
+def rules_cfg(rules_scenario: dict) -> dict:
+    """A private deep copy of the Pitié S2 scenario config that a test may modify."""
+    return copy.deepcopy(rules_scenario)
+
+
+@pytest.fixture(scope="session")
+def probe_scenario() -> dict:
+    """configs/pitie_amb_rules.yaml (ambulance-probe family, S2 with the 7 trips of
+    `emergency.trips`), loaded once. Do not mutate: use `probe_cfg`."""
+    return load_scenario(REPO_ROOT / PROBE_RULES_CONFIG)
+
+
+@pytest.fixture
+def probe_cfg(probe_scenario: dict) -> dict:
+    """A private deep copy of the ambulance-probe S2 scenario config."""
+    return copy.deepcopy(probe_scenario)
 
 
 def scenario_inputs(cfg: dict) -> list[Path]:

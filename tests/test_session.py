@@ -2,6 +2,7 @@
 against a fake TraCI module."""
 
 import copy
+import dataclasses
 import json
 import math
 from pathlib import Path
@@ -13,13 +14,28 @@ import pytest
 import traffic_twin.sim.run_scenario as rs
 import traffic_twin.sim.session as session_mod
 from traffic_twin.config import ConfigError
-from traffic_twin.control.base import EXTRA_CALLS, EXTRA_GAP_S
+from traffic_twin.control.base import (
+    EXTRA_BUS_CALLS,
+    EXTRA_CALLS,
+    EXTRA_EMERGENCY,
+    EXTRA_EXIT_BLOCKED,
+    EXTRA_GAP_S,
+    EXTRA_GAP_S_OPEN,
+    EXTRA_PED_COUNT,
+    EXTRA_PED_SLACK,
+    EXTRA_PED_WAIT,
+    EXTRA_PREEMPT,
+    Controller,
+    EmergencyCall,
+)
 from traffic_twin.control.fixed import FixedTimeController
 from traffic_twin.control.safety import INTERVENTION_KEYS
 from traffic_twin.sim.audit import AUDIT_KEYS
 from traffic_twin.sim.detectors import Area, DetectorLayout, Loop
-from traffic_twin.sim.results import HEALTH_KEYS
+from traffic_twin.sim.kpi import KPI_VERSION
+from traffic_twin.sim.results import EVENT_COLUMNS, HEALTH_KEYS, PREEMPTION_REPORT_KEYS
 from traffic_twin.sim.session import SimSession, SimulationClosed
+from traffic_twin.sim.signal import SignalState
 from traffic_twin.sim.sumo import sumo_command
 
 # phases: 0 green A, 1 yellow A, 2 all-red, 3 green B, 4 yellow B (links: a_0, b_0)
@@ -94,7 +110,7 @@ class FakeTraci:
     class FatalTraCIError(Exception):
         pass
 
-    def __init__(self):
+    def __init__(self, durations=DURATIONS, states=STATES):
         self.time, self.steps, self.shown = 100.0, 0, []
         self.close_at_step: int | None = None
         self.pending, self.connected = 0, False
@@ -104,31 +120,56 @@ class FakeTraci:
         self.hits: dict[int, set[str]] = {}  # step -> loops hit during that step
         self.waits: dict[int, dict[str, float]] = {}  # step -> person -> waiting time
         self.persons: list[str] = []
+        # Part 4: person -> next edge / current edge, TLS links, vehicles per lane
+        self.next_edge: dict[str, str] = {}
+        self.next_edge_calls = 0
+        self.road: dict[str, str] = {}
+        self.links: list = [[("a_0", "x_0", ":C_0_0")], [("b_0", "y_0", ":C_1_0")]]
+        self.lane_vehicles: dict[str, list[str]] = {}  # lane -> vehicles (exit lanes, box)
+        self.veh_pos: dict[str, float] = {}
+        self.veh_speed: dict[str, float] = {}
         logic = SimpleNamespace(
             phases=[
-                SimpleNamespace(duration=d, state=s) for d, s in zip(DURATIONS, STATES, strict=True)
+                SimpleNamespace(duration=d, state=s) for d, s in zip(durations, states, strict=True)
             ]
         )
         self.trafficlight = SimpleNamespace(
             getAllProgramLogics=lambda tls: [logic],
             setPhase=lambda tls, p: self.shown.append(p),
             setPhaseDuration=lambda tls, d: None,
+            getControlledLinks=lambda tls: self.links,
         )
         self.edge = SimpleNamespace(getLastStepHaltingNumber=lambda e: self.halting[e])
         self.simulation = SimpleNamespace(
-            getMinExpectedNumber=lambda: self.pending, getTime=lambda: self.time
+            getMinExpectedNumber=lambda: self.pending,
+            getTime=lambda: self.time,
+            getPendingVehicles=list,
         )
         self.vehicle = SimpleNamespace(
             getIDList=lambda: ["v0"],
             getPosition=lambda v: (1.0, 2.0),
             getTypeID=lambda v: "bus",
-            getSpeed=lambda v: 3.0,
+            getSpeed=lambda v: self.veh_speed.get(v, 3.0),
+            getLanePosition=lambda v: self.veh_pos.get(v, 50.0),
+            getNextTLS=lambda v: [],
+            getStops=lambda v, n=1: [],
         )
+        self.lane = SimpleNamespace(
+            getLinks=lambda lane: [],
+            getLastStepVehicleIDs=lambda lane: list(self.lane_vehicles.get(lane, [])),
+        )
+
+        def next_edge(p: str) -> str:
+            self.next_edge_calls += 1
+            return self.next_edge.get(p, "")
+
         self.person = SimpleNamespace(
             getIDList=lambda: list(self.persons),
             getWaitingTime=lambda p: self.waits.get(self.steps, {}).get(p, 0.0),
             getPosition=lambda p: (5.0, 6.0),
             getSpeed=lambda p: 1.2,
+            getNextEdge=next_edge,
+            getRoadID=lambda p: self.road.get(p, "w_in"),
         )
         self.inductionloop = SimpleNamespace(
             getTimeSinceDetection=lambda d: self.gap[d],
@@ -273,8 +314,9 @@ def test_guard_is_called_once_per_step_and_wins(fake, monkeypatch, tmp_path):
         interventions: dict = {}
 
         @classmethod
-        def from_config(cls, cfg, stages, phase_states):
+        def from_config(cls, cfg, stages, phase_states, durations=None):
             assert [s.name for s in stages] == ["A", "B"] and phase_states == STATES
+            assert durations == DURATIONS  # the program's, read through TraCI
             return cls()
 
         def apply(self, proposed, state):
@@ -440,8 +482,17 @@ def test_run_json_has_hashes_health_and_safety(fake, sumo_outputs, tmp_path):
     assert health["depart_delay_mean"] is None  # fixture trips carry no departDelay
     assert meta["safety"]["interventions"] == dict.fromkeys(INTERVENTION_KEYS, 0)
     assert meta["safety"]["audit"] == dict.fromkeys(AUDIT_KEYS, 0)
+    assert meta["safety"]["danger"] == 0 and meta["safety"]["ped_forcing"] == "off"
+    assert meta["kpi_version"] == KPI_VERSION == 3
+    assert meta["preemption"]["enabled"] is False
+    assert {k: v for k, v in meta["preemption"].items() if k != "enabled"} == dict.fromkeys(
+        (*PREEMPTION_REPORT_KEYS, "hold_s", "jumps", "ped_yield"), 0
+    )
+    assert meta["control"] == {}  # fixed time reports nothing
+    assert not (out / "events.parquet").exists()  # no event in the run
     kpis = pd.read_csv(out / "kpi_run.csv").set_index(["user_type", "kpi"])["value"]
     assert kpis["pedestrian", "ped_wait_single_max"] == 7.0
+    assert ("car", "throughput_vph") in kpis.index  # KPI version 2 rows follow
 
 
 def test_run_writes_measurement_tables(detectors, sumo_outputs, tmp_path):
@@ -474,3 +525,323 @@ def test_cli_reports_config_errors(monkeypatch):
 def test_run_with_no_finished_trip(fake, tmp_path):
     fake.tripinfo_text = "<tripinfos/>"
     rs.run(CFG, 1, tmp_path)
+
+
+# -- Part 4: junction extras, guard inputs, box clearing, run outputs --------------------
+# Links: 0 a_0 -> x_0 (stage A), 1 b_0 -> y_0 (B), 2 crossing X (green with A), 3 c_0 -> z_0
+# (B). The crossing's vehicle foe is link 1.
+P4_STATES = ["GrGr", "yrrr", "rrrr", "rGrG", "ryry"]
+P4_LINKS = [
+    [("a_0", "x_0", ":C_0_0")],
+    [("b_0", "y_0", ":C_1_0")],
+    [(":C_w0_0", ":C_c0_0", "")],
+    [("c_0", "z_0", ":C_3_0")],
+]
+P4_FOES = {0: frozenset(), 1: frozenset({2}), 2: frozenset({1}), 3: frozenset()}
+P4_CFG = copy.deepcopy(MEAS_CFG)
+P4_CFG["network"]["crossings"] = {"X": {"edge": ":C_c0", "link": 2}}
+PART4_KEYS = {EXTRA_GAP_S, EXTRA_CALLS, EXTRA_GAP_S_OPEN, EXTRA_PED_WAIT, EXTRA_PED_COUNT,
+              EXTRA_PED_SLACK, EXTRA_EMERGENCY, EXTRA_PREEMPT, EXTRA_BUS_CALLS,
+              EXTRA_EXIT_BLOCKED}  # fmt: skip
+AMBULANCE = EmergencyCall("amb", 1, 1, 80.0, 0.0, False, "N")
+
+
+class FakeDetector:
+    """Stands for EmergencyDetector / BusDetector: records the times it is asked."""
+
+    def __init__(self, traci, tls_id, stages, phase_states, approaches, **kw):
+        self.kw, self.asked = kw, []
+        self.answer: tuple = ()
+
+    def calls(self, t):
+        self.asked.append(t)
+        return self.answer
+
+
+class FakeManager:
+    """Stands for PreemptionManager: target stage 1 while an emergency call is present."""
+
+    def __init__(self):
+        self.updates: list = []
+        self.events: list = []
+
+    def update(self, t, calls):
+        self.updates.append((t, tuple(calls)))
+        return 1 if calls else None
+
+    def report(self):
+        return {"requests": 1, "served": 1, "timeouts": 0, "active_s": 3.0}
+
+
+class FakeShield:
+    def __init__(self, mode):
+        self.mode = mode
+        self.states: list = []
+
+    def slack(self, state):
+        self.states.append(state)
+        return tuple(88.0 - w for w in state.ped_wait)
+
+
+class RecordingGuard:
+    """Passes every request through and records the SignalState it was given."""
+
+    shield = None
+    allowed = [frozenset({1}), frozenset({0})]
+
+    def __init__(self):
+        self.states: list = []
+        self.interventions: dict = {}
+
+    @classmethod
+    def from_config(cls, cfg, stages, phase_states, durations=None):
+        return cls()
+
+    def apply(self, proposed, state):
+        self.states.append(state)
+        return proposed
+
+
+@pytest.fixture
+def part4(detectors, monkeypatch):
+    """Pitié-like session parts: a 4-link program with crossing X, recorded detectors."""
+    fake = FakeTraci(states=P4_STATES)
+    fake.links = P4_LINKS
+    fake.gap = {"det_a": 0.5, "det_b": 1.0, "det_c": 2.5}
+    monkeypatch.setattr(session_mod, "traci_module", lambda gui: fake)
+    monkeypatch.setattr(session_mod, "program_foes", lambda net, tls: P4_FOES)
+    found = SimpleNamespace(fake=fake, emergency=[], buses=[])
+
+    def emergency(*a, **kw):
+        found.emergency.append(FakeDetector(*a, **kw))
+        return found.emergency[-1]
+
+    def buses(*a, **kw):
+        found.buses.append(FakeDetector(*a, **kw))
+        return found.buses[-1]
+
+    monkeypatch.setattr(session_mod, "EmergencyDetector", emergency)
+    monkeypatch.setattr(session_mod, "BusDetector", buses)
+    return found
+
+
+def test_part4_extras_and_ped_waits_of_the_previous_step(part4, tmp_path):
+    fake = part4.fake
+    fake.persons = ["p0", "p1", "p2"]
+    fake.next_edge = {"p0": ":C_c0", "p1": "w_in", "p2": ":C_c0"}
+    fake.waits = {1: {"p0": 3.0, "p1": 9.0}, 2: {"p0": 4.0, "p2": 6.0}}
+    with SimSession(P4_CFG, 1, tmp_path, log_state=False) as sim:
+        assert sim.emergency is part4.emergency[0] and sim.buses is part4.buses[0]
+        assert part4.emergency[0].kw == {"pending": True, "max_dist_m": None}  # defaults
+        assert sim.preemption is None  # no `preemption.enabled`
+        assert sim.foes == P4_FOES and sim.junction is not None
+        obs = sim.observe()
+        assert set(obs.extras) == PART4_KEYS
+        assert obs.extras[EXTRA_PED_WAIT] == (0.0,) and obs.extras[EXTRA_PED_COUNT] == (0,)
+        assert obs.extras[EXTRA_PED_SLACK] == (math.inf,)  # no shield
+        assert obs.extras[EXTRA_PREEMPT] is None and obs.extras[EXTRA_EMERGENCY] == ()
+        assert obs.extras[EXTRA_EXIT_BLOCKED] == frozenset()
+        sim.step(0)
+        obs = sim.observe()  # waits sampled after step 1; p1 waits elsewhere
+        assert obs.extras[EXTRA_PED_WAIT] == (3.0,) and obs.extras[EXTRA_PED_COUNT] == (1,)
+        sim.step(0)
+        assert sim.observe().extras[EXTRA_PED_WAIT] == (6.0,)
+        assert sim.observe().extras[EXTRA_PED_COUNT] == (2,)
+    assert part4.emergency[0].asked == [0.0, 1.0, 2.0]  # once per step (observe is cached)
+    assert part4.buses[0].asked == [0.0, 1.0, 2.0]
+    assert sim.ped_wait_max == {"p0": 4.0, "p1": 9.0, "p2": 6.0}  # unchanged KPI input
+
+
+def test_preemption_detection_config_reaches_the_detector(part4, tmp_path):
+    cfg = copy.deepcopy(P4_CFG)
+    cfg["preemption"] = {"enabled": False, "detection": {"pending": False, "max_dist_m": 150}}
+    with SimSession(cfg, 1, tmp_path, log_state=False) as sim:
+        assert sim.preemption is None
+    assert part4.emergency[0].kw == {"pending": False, "max_dist_m": 150}
+
+
+@pytest.mark.parametrize("mode", ["detected", "red", "off"])
+def test_signal_state_carries_the_waits_and_the_preemption_target(part4, monkeypatch, tmp_path,
+                                                                  mode):  # fmt: skip
+    guard, manager, shield = RecordingGuard(), FakeManager(), FakeShield(mode)
+    guard.shield = shield
+    monkeypatch.setattr(session_mod.SafetyGuard, "from_config", lambda *a, **kw: guard)
+    monkeypatch.setattr(session_mod.PreemptionManager, "from_config", lambda cfg: manager)
+    fake = part4.fake
+    fake.persons, fake.next_edge = ["p0"], {"p0": ":C_c0"}
+    fake.waits = {k: {"p0": float(k)} for k in range(1, 20)}
+    with SimSession(P4_CFG, 1, tmp_path, log_state=False) as sim:
+        assert sim.preemption is manager
+        sim.step(0)
+        sim.step(0)
+        part4.emergency[0].answer = (AMBULANCE,)
+        obs = sim.observe()
+        assert sim.observe() is obs
+        assert obs.extras[EXTRA_PREEMPT] == 1 and obs.extras[EXTRA_EMERGENCY] == (AMBULANCE,)
+        plain = sim.plan.state(obs.t)
+        sim.step(0)
+        for _ in range(3):  # A's clearance from step 3: crossing X turns red
+            sim.step(1)
+    want = {"detected": [(0.0,), (1.0,), (2.0,)], "red": [(0.0,), (0.0,), (0.0,)],
+            "off": [(), (), ()]}[mode]  # fmt: skip
+    assert [st.ped_wait for st in guard.states[:3]] == want
+    assert [st.preempt_target for st in guard.states] == [None, None, 1, 1, 1, 1]
+    assert dataclasses.replace(guard.states[2], ped_wait=(), preempt_target=None) == plain
+    if mode == "red":
+        assert [st.ped_wait for st in guard.states[3:]] == [(0.0,), (1.0,), (2.0,)]
+    assert [u[0] for u in manager.updates] == [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]  # once per step
+    # the shield's slack is computed from the same waits
+    assert [st.ped_wait for st in shield.states[:3]] == want
+    assert obs.extras[EXTRA_PED_SLACK] == tuple(88.0 - w for w in want[2])
+
+
+def test_curb_wait_survives_creeps_until_the_crossing_turns_green(part4, tmp_path):
+    """SUMO resets getWaitingTime when a waiting pedestrian creeps (> 0.1 m/s) at the
+    curb. The shield's w_c and `ped_curb_wait_max` keep counting from the first wait at
+    the red crossing (an S2 pedestrian stood 91 s at a red crossing while
+    getWaitingTime peaked at 88); `ped_wait_max` stays the Part 3 getWaitingTime value."""
+    fake = part4.fake
+    fake.persons = ["p0", "p1"]
+    fake.next_edge = {"p0": ":C_c0", "p1": ":C_c0"}
+    # getWaitingTime after step k: p0 creeps after steps 3 and 6; p1 after step 4
+    fake.waits = {
+        1: {"p0": 1.0},
+        2: {"p0": 2.0, "p1": 1.0},
+        3: {"p0": 0.0, "p1": 2.0},
+        4: {"p0": 1.0, "p1": 0.0},
+        5: {"p0": 2.0},
+        6: {"p0": 0.0, "p1": 1.0},
+        7: {"p0": 1.0, "p1": 2.0},
+        8: {"p0": 2.0, "p1": 3.0},
+        9: {"p0": 3.0, "p1": 4.0},
+        10: {"p0": 4.0, "p1": 5.0},
+    }
+    seen, shown = [], []
+    with SimSession(P4_CFG, 1, tmp_path, log_state=False) as sim:
+        for k in range(1, 13):
+            if k == 5:
+                fake.next_edge["p1"] = "w_in"  # p1 turns away: its curb wait ends
+            if k == 6:
+                fake.next_edge["p1"] = ":C_c0"  # back at the curb: a new wait starts
+            if k == 12:
+                fake.next_edge["p0"] = ":C_w1"  # p0 is on the crossing
+            shown.append(sim.step(1 if k <= 7 else 0))
+            extras = sim.observe().extras
+            seen.append((extras[EXTRA_PED_WAIT][0], extras[EXTRA_PED_COUNT][0]))
+    # crossing X (link 2) is red in phases 1-4 and green in phase 0
+    assert shown == [1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 0, 0]
+    assert [w for w, _ in seen] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0]
+    assert [n for _, n in seen] == [1, 2, 2, 2, 1, 2, 2, 2, 2, 2, 0, 0]
+    assert sim._curb == {}  # green served p1, p0 left the curb
+    assert sim.ped_wait_max == {"p0": 4.0, "p1": 5.0}  # Part 3 KPI input, unchanged
+    # p0: 10 s at the red curb; p1: 3 s, then (after turning away) 5 s
+    assert sim.ped_curb_wait_max == {"p0": 10.0, "p1": 5.0}
+
+
+def test_curb_wait_counts_the_red_time_of_a_wait_begun_under_green(part4, tmp_path):
+    """A person still waiting when its crossing turns red keeps its getWaitingTime: the
+    curb clock starts at now - getWaitingTime, never below the Part 3 value."""
+    fake = part4.fake
+    fake.persons, fake.next_edge = ["p0"], {"p0": ":C_c0"}
+    fake.waits = {1: {"p0": 1.0}, 2: {"p0": 2.0}, 3: {"p0": 0.0}}
+    waits = []
+    with SimSession(P4_CFG, 1, tmp_path, log_state=False) as sim:
+        for _ in range(3):
+            sim.step(0)  # X green: no curb clock, the wait is getWaitingTime
+            waits.append(sim.observe().extras[EXTRA_PED_WAIT][0])
+        fake.waits.update({4: {"p0": 3.0}, 5: {"p0": 0.0}, 6: {"p0": 1.0}})
+        for _ in range(3):
+            sim.step(1)  # X red from here: the clock starts at 104 - 3
+            waits.append(sim.observe().extras[EXTRA_PED_WAIT][0])
+    assert waits == [1.0, 2.0, 0.0, 3.0, 4.0, 5.0]
+    assert sim.ped_wait_max == {"p0": 3.0} and sim.ped_curb_wait_max == {"p0": 5.0}
+
+
+def test_grid_extras_and_guard_input_are_unchanged(detectors, monkeypatch, tmp_path):
+    guard = RecordingGuard()
+    monkeypatch.setattr(session_mod.SafetyGuard, "from_config", lambda *a, **kw: guard)
+    detectors.persons, detectors.waits = ["p0"], {1: {"p0": 5.0}}
+    with SimSession(MEAS_CFG, 1, tmp_path, log_state=False) as sim:  # no crossings
+        assert set(sim.observe().extras) == {EXTRA_GAP_S, EXTRA_CALLS}
+        sim.step(0)
+        sim.step(0)
+        assert set(sim.observe().extras) == {EXTRA_GAP_S, EXTRA_CALLS}
+        assert sim.emergency is sim.buses is sim.preemption is sim.junction is sim.foes is None
+    assert len(guard.states) == 2
+    assert all(st.ped_wait == () and st.preempt_target is None for st in guard.states)
+    assert guard.states[0] == SignalState(0.0, 0, 0.0, False, (0.0, 0.0))
+    assert detectors.next_edge_calls == 0  # no per-crossing sampling on the grid
+    assert sim.ped_wait_max == {"p0": 5.0} and sim.ped_curb_wait_max == {}  # no curb waits
+
+
+def test_gap_s_open_ignores_loops_that_only_feed_blocked_exits(part4, tmp_path):
+    fake = part4.fake
+    with SimSession(P4_CFG, 1, tmp_path, log_state=False) as sim:
+        extras = sim.observe().extras
+        assert extras[EXTRA_GAP_S] == (0.5, 1.0) and extras[EXTRA_GAP_S_OPEN] == (0.5, 1.0)
+        fake.lane_vehicles = {"y_0": ["q0"]}  # det_b's lane feeds y_0 only: now blocked
+        fake.veh_pos, fake.veh_speed = {"q0": 4.0}, {"q0": 0.0}
+        sim.step(0)
+        extras = sim.observe().extras
+        assert extras[EXTRA_EXIT_BLOCKED] == frozenset({"y_0"})
+        assert extras[EXTRA_GAP_S] == (0.5, 1.0) and extras[EXTRA_GAP_S_OPEN] == (0.5, 2.5)
+        fake.lane_vehicles = {"y_0": ["q0"], "z_0": ["q1"]}  # det_c's exit too
+        fake.veh_pos["q1"], fake.veh_speed["q1"] = 14.0, 0.2
+        sim.step(0)
+        assert sim.observe().extras[EXTRA_GAP_S_OPEN] == (0.5, math.inf)
+        fake.veh_pos["q1"] = 15.0  # beyond the 15 m exit zone
+        sim.step(0)
+        assert sim.observe().extras[EXTRA_GAP_S_OPEN] == (0.5, 2.5)
+
+
+def test_without_the_monitor_no_exit_is_blocked(part4, tmp_path):
+    fake = part4.fake
+    fake.lane_vehicles, fake.veh_pos, fake.veh_speed = {"y_0": ["q0"]}, {"q0": 1.0}, {"q0": 0.0}
+    with SimSession(P4_CFG, 1, tmp_path, log_state=False, junction_monitor=False) as sim:
+        sim.step(0)
+        extras = sim.observe().extras
+        assert sim.junction is None and extras[EXTRA_EXIT_BLOCKED] == frozenset()
+        assert extras[EXTRA_GAP_S_OPEN] == extras[EXTRA_GAP_S]
+
+
+class LoggingController(Controller):
+    """Fixed A/B alternation that logs one event per switch and reports a count."""
+
+    def reset(self, seed):
+        self.clear_events()
+        self.switches = 0
+
+    def decide(self, obs):
+        if obs.in_transition or obs.time_in_stage < 6:
+            return obs.stage
+        self.switches += 1
+        self.log_event(obs.t, "switch", obs.stage, 1 - obs.stage, "test")
+        return 1 - obs.stage
+
+    def report(self):
+        return {"switches": self.switches}
+
+
+def test_run_writes_part4_outputs(part4, sumo_outputs, monkeypatch, tmp_path):
+    part4.fake.tripinfo_text = sumo_outputs[0].read_text(encoding="utf-8")
+    manager = FakeManager()
+    monkeypatch.setattr(session_mod.PreemptionManager, "from_config", lambda cfg: manager)
+    monkeypatch.setattr(rs, "make_controller", lambda cfg: LoggingController())
+    requirements = SimpleNamespace(intergreen={}, foes=P4_FOES)
+    monkeypatch.setattr(rs.tls_check, "cached_requirements", lambda net, cfg: requirements)
+    meta = rs.run(P4_CFG, 1, tmp_path)
+    out = tmp_path / "fake_seed1"
+    assert meta["control"] == {"switches": 2}
+    assert meta["preemption"] == {"enabled": True, "requests": 1, "served": 1, "timeouts": 0,
+                                  "active_s": 3.0, "hold_s": 0, "jumps": 0,
+                                  "ped_yield": 0}  # fmt: skip
+    assert set(meta["safety"]) == {"interventions", "audit", "danger", "ped_forcing"}
+    events = pd.read_parquet(out / "events.parquet")
+    assert list(events.columns) == EVENT_COLUMNS
+    assert events[["t", "source", "rule", "stage_from", "stage_to"]].values.tolist() == [
+        [6.0, "controller", "switch", 0, 1], [17.0, "controller", "switch", 1, 0],
+    ]  # fmt: skip
+    kpis = pd.read_csv(out / "kpi_run.csv")
+    junction = kpis[kpis["user_type"] == "junction"]["kpi"].tolist()
+    assert junction == ["box_halt_red_s", "box_foe_onsets", "exit_blocked_s",
+                        "exit_blocked_green_s"]  # fmt: skip

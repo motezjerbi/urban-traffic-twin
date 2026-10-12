@@ -13,6 +13,11 @@ and `<scenario>.stops.add.xml` (bus stops). Two schemas:
   personFlow, `arrivalPos` on the walk); one ambulance. Elements are sorted by
   departure, as SUMO ignores out-of-order ones.
 
+Both schemas take the ambulances from the `emergency` block: one `ambulance_0`
+(`depart_s`, `route`; output unchanged since Part 3), or a list of `trips` (Part 4, the
+ambulance-probe family, D25) written as `ambulance_0..k` in departure order
+(`emergency_trips`).
+
 Flows use `probability` (cars, pedestrians) or a `period` (buses), so departures change
 with the seed while the expected demand stays identical across scenarios (spec 13.3).
 """
@@ -104,13 +109,8 @@ def ped_flows(cfg: dict, begin: int, end: int) -> list[str]:
 
 
 def ambulance(cfg: dict, begin: int) -> list[str]:
-    e = cfg.get("emergency", {})
-    if not e.get("enabled"):
-        return []
-    return [
-        _elem("vehicle", _route(e["route"]), id="ambulance_0", type="ambulance",
-              depart=begin + e["depart_s"], departLane="best")
-    ]  # fmt: skip
+    """The ambulance vehicles' XML, by departure (`emergency_trips`)."""
+    return [xml for *_, xml in ambulance_elements(cfg, begin)]
 
 
 VTYPES = """    <vType id="car" vClass="passenger" speedDev="0.1"/>
@@ -124,6 +124,78 @@ KIND_ORDER = {"car": 0, "bus": 1, "person": 2, "vehicle": 3}  # same departure: 
 SHARE_TOL = 1e-3  # turn shares of an arm must sum to 1 within this
 
 Element = tuple[int, int, str, str]  # (departure, kind order, id, xml)
+
+
+# -- emergency vehicles (both schemas) -------------------------------------------------
+def _known_edges(cfg: dict) -> set[str]:
+    """In- and out-edges of `network.approaches` (empty when the config has none)."""
+    if not (cfg.get("network") or {}).get("approaches"):
+        return set()
+    ins, outs = approach_in_edges(cfg), approach_out_edges(cfg)
+    return {e for edges in (*ins.values(), *outs.values()) for e in edges}
+
+
+def _trip_route(route: object, where: str, known: set[str]) -> list[str]:
+    if not isinstance(route, list | tuple) or not route:
+        raise ConfigError(f"{where}.route must be a non-empty list of edges, got {route!r}")
+    if not all(isinstance(e, str) and e for e in route):
+        raise ConfigError(f"{where}.route must list edge ids, got {route!r}")
+    unknown = [e for e in route if known and e not in known]
+    if unknown:
+        raise ConfigError(f"{where}.route: unknown edge {', '.join(unknown)}")
+    return list(route)
+
+
+def emergency_trips(cfg: dict) -> list[tuple[float, str, list[str]]]:
+    """(departure after begin_s, vehicle id, route) of every ambulance, by departure.
+
+    Two forms of the `emergency` block (when `enabled`):
+    - single: `depart_s` and `route`, one vehicle `ambulance_0` (Parts 1-3; its XML is
+      frozen);
+    - `trips: [{depart_s, route}, ...]` (Part 4, D25) with `depart_s` and `route` null:
+      `ambulance_{k}`, k the index in the list sorted by `depart_s` (stable). Each trip
+      departs within the demand window, and its route is a non-empty list of
+      `network.approaches` edges (checked against the net by `write_demand`)."""
+    e = cfg.get("emergency") or {}
+    if not e.get("enabled"):
+        return []
+    trips = e.get("trips")
+    if trips is None:
+        if e.get("depart_s") is None or not e.get("route"):
+            raise ConfigError("emergency needs depart_s and route, or trips")
+        return [(e["depart_s"], "ambulance_0", list(e["route"]))]
+    if e.get("depart_s") is not None or e.get("route") is not None:
+        raise ConfigError(
+            "emergency: give either trips or depart_s and route, not both "
+            "(with trips, depart_s and route must be null)"
+        )
+    if not isinstance(trips, list) or not trips:
+        raise ConfigError(f"emergency.trips must be a non-empty list, got {trips!r}")
+    duration = cfg.get("duration_s")
+    known = _known_edges(cfg)
+    parsed = []
+    for i, trip in enumerate(trips):
+        where = f"emergency.trips[{i}]"
+        if not isinstance(trip, dict) or set(trip) != {"depart_s", "route"}:
+            raise ConfigError(f"{where} must be a mapping of depart_s and route, got {trip!r}")
+        depart = trip["depart_s"]
+        if isinstance(depart, bool) or not isinstance(depart, int | float) or depart < 0:
+            raise ConfigError(f"{where}.depart_s must be a number >= 0, got {depart!r}")
+        if duration is not None and depart >= float(duration):
+            raise ConfigError(f"{where}.depart_s {depart} is not in the demand window")
+        parsed.append((depart, i, _trip_route(trip["route"], where, known)))
+    parsed.sort(key=lambda p: (p[0], p[1]))
+    return [(depart, f"ambulance_{k}", route) for k, (depart, _, route) in enumerate(parsed)]
+
+
+def ambulance_elements(cfg: dict, begin: int) -> list[Element]:
+    """One `<vehicle type="ambulance">` per emergency trip, as sortable elements."""
+    out: list[Element] = []
+    for depart, vid, route in emergency_trips(cfg):
+        xml = _elem("vehicle", _route(route), id=vid, type="ambulance", depart=begin + depart,
+                    departLane="best")  # fmt: skip
+        out.append((begin + depart, KIND_ORDER["vehicle"], vid, xml))
+    return out
 
 
 def is_calibrated(cfg: dict) -> bool:
@@ -290,9 +362,7 @@ def calibrated_routes(cfg: dict, cal: dict) -> str:
     end = begin + int(cfg["duration_s"])
     items = slot_car_flows(cfg, cal, begin, end) + bus_line_flows(cfg, begin, end)
     items += crossing_walks(cfg, begin, end)
-    for xml in ambulance(cfg, begin):
-        items.append((begin + int(cfg["emergency"]["depart_s"]), KIND_ORDER["vehicle"],
-                      "ambulance_0", xml))  # fmt: skip
+    items += ambulance_elements(cfg, begin)
     body = [xml for *_, xml in sorted(items, key=lambda i: i[:3])]
     return "<routes>\n" + VTYPES + "\n" + "\n".join(body) + "\n</routes>\n"
 
@@ -376,6 +446,10 @@ def write_demand(cfg: dict, out_dir: Path) -> tuple[Path, Path]:
             lane_lengths[lane] = net.getLane(lane).getLength()
         except (KeyError, IndexError, ValueError) as e:
             raise ConfigError(f"bus stop lane {lane} is not in {net_file}") from e
+    for _depart, vid, route in emergency_trips(cfg):
+        missing = [e for e in route if not net.hasEdge(e)]
+        if missing:
+            raise ConfigError(f"{vid}: route edge {', '.join(missing)} is not in {net_file}")
     out_dir.mkdir(parents=True, exist_ok=True)
     rou = out_dir / f"{cfg['scenario']}.rou.xml"
     add = out_dir / f"{cfg['scenario']}.stops.add.xml"

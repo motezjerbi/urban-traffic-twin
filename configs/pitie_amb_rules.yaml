@@ -1,0 +1,4 @@
+# Ambulance-probe family, S2 rule based with preemption (D25): pitie_rules with 7
+# ambulances.
+extends: [pitie_rules.yaml, pitie/emergency_probe.yaml]
+scenario: pitie_amb_rules

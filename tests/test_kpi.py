@@ -3,9 +3,15 @@ import pytest
 
 from traffic_twin.sim.kpi import (
     BUS_STOP_COLUMNS,
+    JUNCTION_KPIS,
     KPI_COLUMNS,
+    KPI_VERSION,
+    QUALIFIER_SEP,
+    TRIP_COLUMNS,
     bus_lines,
     compute_kpis,
+    crossing_of,
+    extra_kpis,
     read_bus_stop_arrivals,
     read_bus_stops,
     read_statistics,
@@ -229,3 +235,175 @@ def test_read_statistics(write_file):
     assert set(read_statistics(write_file("x/none.xml", "<s/>").parent / "no.xml").values()) == {
         None
     }
+
+
+# -- Part 4 additions (KPI version 2) ----------------------------------------------------
+P4_TRIPS = """<tripinfos>
+  <tripinfo id="car_N_S_00.0" vType="car" depart="27010" departLane="n_in_1" departDelay="4.00"
+            arrival="27100" arrivalLane="s_out_1" duration="90" timeLoss="30" waitingTime="20"
+            waitingCount="1"/>
+  <tripinfo id="car_N_W_00.0" vType="car" depart="27020" departLane="n_in_0" departDelay="0.00"
+            arrival="34190" arrivalLane="w_out_0" duration="7170" timeLoss="10" waitingTime="0"
+            waitingCount="0"/>
+  <tripinfo id="car_W_S_00.0" vType="car" depart="27030" departLane="w_in_0" departDelay="2.00"
+            arrival="34300" arrivalLane="s_out_1" duration="7270" timeLoss="50" waitingTime="40"
+            waitingCount="2"/>
+  <tripinfo id="bus_91_E.0" vType="bus" depart="27000" departLane="wb_in_1" departDelay="1.00"
+            arrival="27200" arrivalLane="nb_out_1" duration="200" timeLoss="40" waitingTime="10"
+            waitingCount="1"/>
+  <tripinfo id="bus_91_E.1" vType="bus" depart="27400" departLane="wb_in_1" departDelay="3.00"
+            arrival="27600" arrivalLane="nb_out_1" duration="200" timeLoss="20" waitingTime="0"
+            waitingCount="0"/>
+  <tripinfo id="bus_57_S.0" vType="bus" depart="27000" departLane="nb_in_0" departDelay="0.00"
+            arrival="27150" arrivalLane="s_out_1" duration="150" timeLoss="15" waitingTime="5"
+            waitingCount="1"/>
+  <tripinfo id="ambulance_0" vType="ambulance" depart="27630" departLane="n_in_1"
+            departDelay="30.00" arrival="27700" arrivalLane="s_out_1" duration="70"
+            timeLoss="35" waitingTime="24" waitingCount="3"/>
+  <personinfo id="ped_S_0.0" depart="27000">
+    <walk depart="27000" arrival="27060" duration="60" routeLength="30" timeLoss="20"/>
+  </personinfo>
+</tripinfos>"""
+P4_CFG = {
+    "begin_s": 27000,
+    "duration_s": 7200,
+    "network": {
+        "approaches": {
+            "N": {"in_edges": ["n_in"], "out_edges": ["n_out"]},
+            "S": {"in_edges": ["s_in"], "out_edges": ["s_out"]},
+            "W": {"in_edges": ["w_in"], "out_edges": ["w_out"]},
+            "WB": {"in_edges": ["wb_in"], "out_edges": ["wb_out"], "bus_only": True},
+        },
+        "crossings": {"NB": {"edge": ":C_c0", "link": 12}, "S": {"edge": ":C_c1", "link": 13},
+                      "W": {"edge": ":C_c3", "link": 15}},
+    },
+}  # fmt: skip
+SINGLE_WAITS = pd.Series({"ped_S_0.0": 20.0, "ped_S_1.4": 40.0, "ped_NB_0.2": 5.0,
+                          "ped_X_0.1": 99.0, "other.3": 77.0})  # fmt: skip
+JUNCTION = {"crossing_complete_rate": 0.99, "crossing_red_entries": 0.0, "box_halt_red_s": 12.0,
+            "box_foe_onsets": 2.0, "exit_blocked_s": 30.0, "exit_blocked_green_s": 8.0}  # fmt: skip
+
+
+def _extra(write_file, junction=JUNCTION, waits=SINGLE_WAITS) -> pd.Series:
+    trips, walks = read_tripinfo(write_file("p4.xml", P4_TRIPS))
+    lines = bus_lines(write_file("r.rou.xml", ROUTES))
+    stops = read_bus_stops(write_file("stops.xml", STOP_EVENTS), lines)
+    df = extra_kpis(trips, walks, stops, P4_CFG, junction, waits)
+    assert list(df.columns) == ["user_type", "kpi", "value"]
+    assert not df.duplicated(["user_type", "kpi"]).any() and df["value"].notna().all()
+    return _kpi_index(df)
+
+
+def test_read_tripinfo_part4_columns(write_file):
+    trips, walks = read_tripinfo(write_file("p4.xml", P4_TRIPS))
+    assert list(trips.columns) == TRIP_COLUMNS
+    assert trips["depart_edge"].tolist()[:3] == ["n_in", "n_in", "w_in"]
+    assert trips["arrival_edge"].tolist()[3] == "nb_out"
+    assert trips["flow"].tolist() == ["car_N_S_00", "car_N_W_00", "car_W_S_00", "bus_91_E",
+                                      "bus_91_E", "bus_57_S", "ambulance_0"]  # fmt: skip
+    assert "flow" not in walks
+    old, _ = read_tripinfo(write_file("old.xml", TRIPS_WITH_DELAY))  # no departLane
+    assert old["depart_edge"].isna().all() and old["arrival_edge"].isna().all()
+
+
+def test_extra_kpis_car_rows(write_file):
+    get = _extra(write_file)
+    # arrivals in [27000, 34200): 27100 and 34190, not 34300
+    assert get["car", "throughput_vph"] == 1.0
+    assert get["car", "delay_total_mean"] == pytest.approx((34 + 10 + 52) / 3)
+    assert get["car", "time_loss_mean__arm_N"] == 20.0
+    assert get["car", "delay_total_mean__arm_N"] == 22.0
+    assert get["car", "time_loss_mean__arm_W"] == 50.0
+    assert get["car", "delay_total_mean__arm_W"] == 52.0
+    assert ("car", "time_loss_mean__arm_S") not in get.index  # no car from S
+
+
+def test_extra_kpis_bus_rows(write_file):
+    get = _extra(write_file)
+    assert get["bus", "delay_total_mean"] == pytest.approx((41 + 23 + 15) / 3)
+    assert get["bus", "delay_mean__flow_91_E"] == 30.0
+    assert get["bus", "delay_mean__flow_57_S"] == 15.0
+    # line 91: stop_SM_E (3 arrivals) and stop_SM_W (3); line 24 has only 2 arrivals
+    sd_e, sd_w = pd.Series([360.0, 420.0]).std(), pd.Series([300.0, 360.0]).std()
+    assert get["bus", "headway_std__line_91"] == pytest.approx((sd_e + sd_w) / 2)
+    assert ("bus", "headway_std__line_24") not in get.index
+
+
+def test_extra_kpis_ambulance_rows(write_file):
+    get = _extra(write_file)
+    assert get["ambulance", "travel_time_total"] == 100.0  # 70 s in the network + 30 s
+    assert get["ambulance", "stop_duration_mean"] == 8.0  # 24 s over 3 stops
+
+
+def test_ambulance_without_a_stop_has_zero_stop_duration():
+    trips = pd.DataFrame([_trip("ambulance_0", "ambulance")]).assign(
+        depart_delay_s=5.0, depart_edge="n_in", flow="ambulance_0"
+    )
+    get = _kpi_index(extra_kpis(trips, pd.DataFrame(), pd.DataFrame(), P4_CFG, None))
+    assert get["ambulance", "stop_duration_mean"] == 0.0
+    assert get["ambulance", "travel_time_total"] == 65.0
+
+
+def test_extra_kpis_pedestrian_and_junction_rows(write_file):
+    get = _extra(write_file)
+    assert get["pedestrian", "ped_wait_single_mean__crossing_S"] == 30.0
+    assert get["pedestrian", "ped_wait_single_max__crossing_S"] == 40.0
+    assert get["pedestrian", "ped_wait_single_max__crossing_NB"] == 5.0
+    assert ("pedestrian", "ped_wait_single_max__crossing_W") not in get.index  # nobody
+    assert not any("crossing_X" in k for _, k in get.index)  # not a configured crossing
+    assert get["pedestrian", "crossing_complete_rate"] == 0.99
+    assert get["pedestrian", "crossing_red_entries"] == 0.0
+    for key in ("box_halt_red_s", "box_foe_onsets", "exit_blocked_s", "exit_blocked_green_s"):
+        assert get["junction", key] == JUNCTION[key]
+
+
+def test_extra_kpis_curb_wait_rows(write_file):
+    """KPI version 3: the curb waits (creeps included) next to the unchanged single waits."""
+    trips, walks = read_tripinfo(write_file("p4.xml", P4_TRIPS))
+    curb = SINGLE_WAITS.copy()
+    curb["ped_S_1.4"] = 43.0  # a creep hid 3 s of this wait from getWaitingTime
+    df = extra_kpis(trips, walks, pd.DataFrame(), P4_CFG, None, SINGLE_WAITS, curb)
+    assert not df.duplicated(["user_type", "kpi"]).any()
+    get = _kpi_index(df)
+    assert get["pedestrian", "ped_wait_single_max__crossing_S"] == 40.0  # unchanged
+    assert get["pedestrian", "ped_curb_wait_max__crossing_S"] == 43.0
+    assert get["pedestrian", "ped_curb_wait_mean__crossing_S"] == 31.5
+    assert get["pedestrian", "ped_curb_wait_max__crossing_NB"] == 5.0
+    assert ("pedestrian", "ped_curb_wait_max__crossing_W") not in get.index  # nobody
+    # every person counts in the run-level rows, as in compute_kpis' single waits
+    assert get["pedestrian", "ped_curb_wait_max"] == 99.0
+    assert get["pedestrian", "ped_curb_wait_mean"] == pytest.approx(curb.mean())
+    assert get["pedestrian", "ped_curb_wait_p95"] == pytest.approx(curb.quantile(0.95))
+    assert not any(k.startswith("ped_curb") for _, k in _extra(write_file).index)  # not given
+    grid = {k: v for k, v in P4_CFG.items() if k != "network"}
+    grid["network"] = {"approaches": {"W": "w_in", "N": "n_in"}}  # no crossings: no rows
+    rows = extra_kpis(trips, walks, pd.DataFrame(), grid, None, SINGLE_WAITS, curb)
+    assert not rows["kpi"].str.startswith("ped_curb").any()
+
+
+def test_extra_kpis_without_monitor_waits_or_crossings(write_file):
+    get = _extra(write_file, junction=None, waits=None)
+    assert not {"pedestrian", "junction"} & set(get.index.get_level_values(0))
+    grid = {k: v for k, v in P4_CFG.items() if k != "network"}
+    grid["network"] = {"approaches": {"W": "w_in", "N": "n_in"}}  # grid form, no crossings
+    trips, walks = read_tripinfo(write_file("p4.xml", P4_TRIPS))
+    rows = _kpi_index(extra_kpis(trips, walks, pd.DataFrame(), grid, None, SINGLE_WAITS))
+    assert rows["car", "time_loss_mean__arm_W"] == 50.0
+    assert "pedestrian" not in set(rows.index.get_level_values(0))
+    trips, walks = read_tripinfo(write_file("e.xml", "<tripinfos/>"))
+    empty = extra_kpis(trips, walks, pd.DataFrame(), P4_CFG, None)
+    assert empty.empty and list(empty.columns) == ["user_type", "kpi", "value"]
+
+
+@pytest.mark.parametrize(
+    ("person", "crossing"),
+    [("ped_S_0.3", "S"), ("ped_NB_1.12", "NB"), ("ped_X_0.1", None), ("ped_w_in_e_out.0", None),
+     ("car_S_0.1", None)],
+)  # fmt: skip
+def test_crossing_of(person, crossing):
+    assert crossing_of(person, P4_CFG["network"]["crossings"]) == crossing
+
+
+def test_kpi_version_and_qualifier():
+    assert KPI_VERSION == 3 and QUALIFIER_SEP == "__"
+    assert set(JUNCTION_KPIS.values()) == {"pedestrian", "junction"}

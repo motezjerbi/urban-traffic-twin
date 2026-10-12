@@ -1,0 +1,108 @@
+preregistered: 2026-10-12   # before any S2 run on seeds 1-10 (D33); change only via `changes`
+seeds: {evaluation: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], calibration: [101, 102, 103],
+        development: [201, 202, 203, 204, 205, 206, 207], rl_training_from: 1000}
+kpi_version: 3   # was 2 (changes 2026-10-12: curb waits)
+headline_from: configs/validation.yaml   # compare.headline (7 KPIs), thresholds.alpha, thresholds.equity_pct
+families:
+  main:
+    scenarios: {S0: configs/pitie_fixed.yaml, S1: configs/pitie_actuated.yaml,
+                S2: configs/pitie_rules.yaml, S2_noP: configs/pitie_rules_nopreempt.yaml}
+    baseline: S0
+    pairs: [{a: S0, b: S1, role: part3}, {a: S0, b: S2, role: confirmatory},
+            {a: S1, b: S2, role: confirmatory}, {a: S2_noP, b: S2, role: exploratory}]
+  ambulance_probe:
+    scenarios: {S0: configs/pitie_amb_fixed.yaml, S2: configs/pitie_amb_rules.yaml,
+                S2_noP: configs/pitie_amb_rules_nopreempt.yaml}
+    baseline: S0
+    pairs: [{a: S0, b: S2, role: secondary}, {a: S2_noP, b: S2, role: secondary}]
+a05:
+  primary: {family: main, a: S0, b: S2, user: ambulance, kpi: travel_time_total, alternative: less, alpha: 0.05}
+  secondary:
+    - {family: ambulance_probe, a: S2_noP, b: S2, user: ambulance, kpi: travel_time_total, alternative: less}
+    - {family: ambulance_probe, a: S0, b: S2, user: ambulance, kpi: travel_time_total, alternative: less}
+  also_report: [travel_time, stops, stop_duration_mean]
+a04:
+  families: [main, ambulance_probe]
+  danger_keys: sim.audit.DANGER_KEYS
+  collisions_max: 0
+  ped_wait_single_max_s: 90                    # pre-registered; reported only since changes 2026-10-12
+  ped_curb_wait_max_s: safety.ped_max_wait_s   # judged (changes 2026-10-12): ped_curb_wait_max <= the scenario's bound
+  zero_interventions: [fixed, actuated]        # D13; rules expected 0, reported
+equity:
+  pct: 5.0
+  rates_pp: {crossing_complete_rate: 1.0, served_share: 1.0}
+  # pedestrian primary / subgroup: ped_wait_single_max / ped_wait_single_mean__crossing_ until changes 2026-10-12
+  primary: {car: time_loss_mean, bus: delay_mean, pedestrian: ped_curb_wait_max, ambulance: travel_time_total}
+  subgroups: {car: "delay_total_mean__arm_", bus: "delay_mean__flow_", pedestrian: "ped_curb_wait_mean__crossing_"}
+  global: {user: all, kpi: person_delay_mean}
+occupancy: {car: 1.3, bus: 25.0, pedestrian: 1.0, ambulance: 1.0}   # ASSUMED (spec 10.3)
+occupancy_sensitivity: {bus: [20.0, 30.0]}
+outputs: {dir: data/results/evaluation, figures: docs/figures/pitie/eval, docs: docs/evaluation.md}
+# Everything above was last written 2026-10-12 01:36 +02:00, before the first seed 1-10 run
+# (pitie_fixed seed 1, started 2026-10-12 00:49 UTC = 02:49 +02:00), except `kpi_version`,
+# the two a04 pedestrian lines and the equity pedestrian primary / subgroup, set by the
+# curb-wait entries below; the entries below came later.
+changes:
+  - date: 2026-10-12
+    what: >-
+      Equity (D29): a KPI whose baseline mean is 0 is flagged worse on any move in its bad
+      direction (its relative change is undefined).
+    why: >-
+      Review finding: the relative rule could never flag a 0 -> >0 change, e.g. pedestrian
+      crossing_red_entries. No result changes: in the seed 1-10 runs no KPI has a 0 baseline
+      and a non-zero scenario mean.
+  - date: 2026-10-12
+    what: >-
+      A-03 checks the (user, kpi) set in every seed, not over the union of the seeds; an
+      A-05 test with fewer pairs than the evaluation seeds, or a run whose planned
+      ambulances did not all arrive, is INVALID, never PASS.
+    why: >-
+      Review finding: a run without the KPI (an ambulance that never arrived) left the paired
+      sample silently, so A-05 could PASS on n = 9 (D26 pre-registers n = 10). No result
+      changes: every pair has 10 seeds and every planned ambulance arrived.
+  - date: 2026-10-12
+    what: >-
+      equity.rates_pp.served_share stays as pre-registered but is not applied: no run
+      produces a served_share KPI (the evaluation page marks it).
+    why: Review finding; the planned served-share KPI was never built.
+  - date: 2026-10-12
+    what: >-
+      A-04 (D27, amending D14) judges the pedestrian curb wait: PASS needs, in every run,
+      `ped_curb_wait_max` <= the scenario's `safety.ped_max_wait_s` (90 s;
+      `a04.ped_curb_wait_max_s`). `ped_wait_single_max` (D14, Part 3) is still computed,
+      unchanged, and reported next to it, but no longer judged. kpi_version 2 -> 3: runs
+      without the curb-wait rows (`ped_curb_wait_{mean,p95,max}` and per crossing) are
+      stale and are rerun by `--run-missing` / `tasks.py rebaseline`. The pedestrian
+      shield's detected w_c (D21) is the same curb wait.
+    why: >-
+      Correctness fix found on the calibration seeds 101-103, before any regenerated seed
+      1-10 run: SUMO resets `person.getWaitingTime` whenever a waiting pedestrian creeps
+      faster than 0.1 m/s at the curb, so the single wait (and the shield input that read
+      it) undercounted the real wait at a red crossing (an S2 pedestrian stood 91 s at a red
+      crossing while getWaitingTime peaked at 88 s). The session now keeps a per-person curb
+      clock that runs through such creeps (never below getWaitingTime).
+  - date: 2026-10-12
+    what: >-
+      Preemption time-out (D24): a request is dropped after `preemption.max_hold_s` (120 s)
+      without the ambulance getting `preemption.progress_m` (1 m) closer to the stop line,
+      instead of 120 s after its first detection. A stationary ambulance still times out
+      120 s after its first detection.
+    why: >-
+      Found on calibration seed 101 (Part 4 gate): the pedestrian shield can cut a hold and
+      force a detour of up to one S2 cycle (177 s > 120 s), and the first-detection clock
+      then dropped an ambulance that was still moving up its queue just before its target
+      stage came back. Ambulance travel times on 101-103 are unchanged; only the served /
+      timeout bookkeeping is.
+  - date: 2026-10-12
+    what: >-
+      Equity (D29): the pedestrian primary KPI is `ped_curb_wait_max` (was
+      `ped_wait_single_max`) and the pedestrian subgroup KPIs are
+      `ped_curb_wait_mean__crossing_*` (were `ped_wait_single_mean__crossing_*`). The
+      single-wait KPIs stay in the equity table as ordinary (non-primary, non-subgroup)
+      KPIs.
+    why: >-
+      Same correctness fix as the A-04 entry, found on the calibration seeds 101-103 before
+      any regenerated seed 1-10 run: `person.getWaitingTime` resets when a waiting
+      pedestrian creeps at the curb, so the single wait undercounts the wait at a red
+      crossing; the curb wait (KPI version 3) is the pedestrian wait that the shield bounds
+      and A-04 judges.

@@ -60,7 +60,7 @@ calibration:
     geh: 0.38
     slope: null
     action: within tolerance
-    config_hash: 1a2e6590875fff7ea52079010097e77e9901b56a77811194fb192dc4f15a333b
+    config_hash: 290b20f0b6f20857840e73cc42fa6d9547981fa465a52ee1ed04498f4dee1740
   - iteration: 0
     arm: S
     scale: 1.0
@@ -71,7 +71,7 @@ calibration:
     geh: 0.54
     slope: null
     action: within tolerance
-    config_hash: 1a2e6590875fff7ea52079010097e77e9901b56a77811194fb192dc4f15a333b
+    config_hash: 290b20f0b6f20857840e73cc42fa6d9547981fa465a52ee1ed04498f4dee1740
   - iteration: 0
     arm: W
     scale: 1.0
@@ -82,4 +82,4 @@ calibration:
     geh: 0.01
     slope: null
     action: within tolerance
-    config_hash: 1a2e6590875fff7ea52079010097e77e9901b56a77811194fb192dc4f15a333b
+    config_hash: 290b20f0b6f20857840e73cc42fa6d9547981fa465a52ee1ed04498f4dee1740

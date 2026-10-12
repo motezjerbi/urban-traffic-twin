@@ -7,7 +7,12 @@ import pytest
 import yaml
 
 from traffic_twin.config import ConfigError, load_scenario
-from traffic_twin.paths import PITIE_ACTUATED_CONFIG, PITIE_FIXED_CONFIG
+from traffic_twin.paths import (
+    CONFIG_DIR,
+    PITIE_ACTUATED_CONFIG,
+    PITIE_FIXED_CONFIG,
+    PITIE_RULES_CONFIG,
+)
 from traffic_twin.sim.demand import PED_WALKS, TURNS, build_additional, build_routes
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -465,3 +470,159 @@ def test_pitie_demand_loads_in_sumo(pitie_cfg, tmp_path, monkeypatch):
     ids = {t.get("id").rsplit(".", 1)[0] for t in root.iter("tripinfo")}
     assert {"bus_91_E", "bus_57_N"} <= ids and any(i.startswith("car_W_N_") for i in ids)
     assert root.find("personinfo") is not None
+
+
+# -- emergency trips (Part 4, ambulance-probe family) ----------------------------------
+# LF-text sha256 of the main Pitié route and stop files, captured before Part 4 (Phase 0):
+# the single-ambulance demand of S0, S1 and S2 must not change.
+PITIE_ROUTES_SHA256 = "19d9bff1ac0c6f6d8412627f50e45791b0b3b42d066562a22c7b0a3fd915c32d"
+PITIE_STOPS_SHA256 = "02ebdd12cda71370efed1da4e9056ed768a82babd1ab79e0b58303abc19d3e5f"
+
+
+def _sha256(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def test_main_pitie_demand_is_unchanged(monkeypatch):
+    monkeypatch.chdir(REPO_ROOT)
+    for path in (PITIE_FIXED_CONFIG, PITIE_RULES_CONFIG):
+        cfg = load_scenario(path)
+        assert _sha256(build_routes(cfg)) == PITIE_ROUTES_SHA256, path
+        assert _sha256(build_additional(cfg)) == PITIE_STOPS_SHA256, path
+
+
+def test_emergency_trips_give_sorted_ambulances(probe_cfg):
+    trips = probe_cfg["emergency"]["trips"]
+    root = routes(probe_cfg)
+    ambs = list(root.iter("vehicle"))
+    assert (
+        [a.get("id") for a in ambs]
+        == [f"ambulance_{k}" for k in range(len(trips))]
+        == [f"ambulance_{k}" for k in range(7)]
+    )
+    begin = probe_cfg["begin_s"]
+    by_time = sorted(trips, key=lambda t: t["depart_s"])
+    assert [int(a.get("depart")) for a in ambs] == [begin + t["depart_s"] for t in by_time]
+    assert [a.find("route").get("edges") for a in ambs] == [" ".join(t["route"]) for t in by_time]
+    assert {a.get("type") for a in ambs} == {"ambulance"}
+    items = [e for e in root if e.tag != "vType"]  # each trip within its time slot
+    times = [float(e.get("begin", e.get("depart"))) for e in items]
+    assert times == sorted(times)
+    assert items.index(ambs[0]) < items.index(ambs[1]) < len(items) - 1
+
+
+def test_emergency_trips_are_numbered_by_departure(probe_cfg):
+    probe_cfg["emergency"]["trips"] = [
+        {"depart_s": 900, "route": ["w_in", "s_out"]},
+        {"depart_s": 100, "route": ["n_in", "s_out"]},
+        {"depart_s": 900, "route": ["n_in", "s_out"]},  # same time: list order
+    ]
+    ambs = {a.get("id"): a for a in routes(probe_cfg).iter("vehicle")}
+    begin = probe_cfg["begin_s"]
+    got = {k: (int(a.get("depart")) - begin, a.find("route").get("edges")) for k, a in ambs.items()}
+    assert got == {
+        "ambulance_0": (100, "n_in s_out"),
+        "ambulance_1": (900, "w_in s_out"),
+        "ambulance_2": (900, "n_in s_out"),
+    }
+
+
+def test_trips_also_work_on_the_legacy_schema(scenario_cfg):
+    trips = [{"depart_s": 600, "route": ["w_in", "e_out"]},
+             {"depart_s": 60, "route": ["s_in", "n_out"]}]  # fmt: skip
+    scenario_cfg["emergency"] = {"enabled": True, "depart_s": None, "route": None, "trips": trips}
+    ambs = list(ET.fromstring(build_routes(scenario_cfg)).iter("vehicle"))
+    begin = scenario_cfg["begin_s"]
+    assert [(a.get("id"), int(a.get("depart")) - begin) for a in ambs] == [
+        ("ambulance_0", 60),
+        ("ambulance_1", 600),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("change", "match"),
+    [
+        ({"depart_s": 2400}, "not both"),
+        ({"route": ["n_in", "s_out"]}, "not both"),
+        ({"trips": []}, "non-empty list"),
+        ({"trips": [{"depart_s": 10, "route": []}]}, r"trips\[0\]\.route must be a non-empty"),
+        ({"trips": [{"depart_s": 10, "route": ["n_in", "nowhere"]}]}, "unknown edge nowhere"),
+        ({"trips": [{"depart_s": 10, "route": "n_in s_out"}]}, "non-empty list of edges"),
+        ({"trips": [{"depart_s": -1, "route": ["n_in", "s_out"]}]}, "depart_s must be"),
+        ({"trips": [{"depart_s": 7200, "route": ["n_in", "s_out"]}]}, "demand window"),
+        ({"trips": [{"depart_s": 10}]}, "mapping of depart_s and route"),
+        ({"trips": [{"depart_s": 10, "route": ["n_in"], "lane": 1}]}, "mapping of"),
+    ],
+)
+def test_bad_emergency_trips_raise(probe_cfg, change, match):
+    probe_cfg["emergency"].update(change)
+    with pytest.raises(ConfigError, match=match):
+        routes(probe_cfg)
+
+
+def test_single_ambulance_needs_its_departure_and_route(scenario_cfg):
+    scenario_cfg["emergency"]["depart_s"] = None
+    with pytest.raises(ConfigError, match="depart_s and route"):
+        build_routes(scenario_cfg)
+    scenario_cfg["emergency"]["enabled"] = False  # disabled: nothing checked
+    assert ET.fromstring(build_routes(scenario_cfg)).find("vehicle") is None
+
+
+def test_probe_family_shares_its_demand(monkeypatch):
+    """The three ambulance-probe configs write the same demand, which differs from the
+    main family's only by the ambulances."""
+    monkeypatch.chdir(REPO_ROOT)
+    names = ("pitie_amb_fixed", "pitie_amb_rules", "pitie_amb_rules_nopreempt")
+    texts = {build_routes(load_scenario(CONFIG_DIR / f"{n}.yaml")) for n in names}
+    assert len(texts) == 1
+    probe = ET.fromstring(texts.pop())
+    main = ET.fromstring(build_routes(load_scenario(PITIE_FIXED_CONFIG)))
+    strip = [ET.tostring(e) for e in probe if e.tag != "vehicle"]
+    assert strip == [ET.tostring(e) for e in main if e.tag != "vehicle"]
+    assert len(list(probe.iter("vehicle"))) == 7 and len(list(main.iter("vehicle"))) == 1
+
+
+def test_write_demand_checks_ambulance_routes_against_the_net(scenario_cfg, tmp_path):
+    pytest.importorskip("sumolib")
+    from traffic_twin.sim.demand import write_demand
+
+    scenario_cfg["emergency"]["route"] = ["s_in", "x_out"]  # single form: checked on the net
+    with pytest.raises(ConfigError, match="x_out is not in"):
+        write_demand(scenario_cfg, tmp_path)
+
+
+@pytest.mark.sumo
+def test_probe_demand_loads_in_sumo(probe_scenario, tmp_path, monkeypatch):
+    """`python -m traffic_twin.sim.demand --config configs/pitie_amb_rules.yaml` writes a
+    demand SUMO keeps entirely (no 'sorted' or 'ignoring' warning), and the 7 ambulances
+    arrive (seed 101, the static program of the net, the whole 2 h window)."""
+    if not PITIE_NET.is_file():
+        pytest.skip("Pitié net not built yet (tasks.py net --scenario configs/pitie_fixed.yaml)")
+    from traffic_twin.sim.demand import main
+    from traffic_twin.sim.sumo import find_binary
+
+    monkeypatch.chdir(REPO_ROOT)
+    main(["--config", str(CONFIG_DIR / "pitie_amb_rules.yaml"), "--out", str(tmp_path)])
+    rou = tmp_path / "pitie_amb_rules.rou.xml"
+    add = tmp_path / "pitie_amb_rules.stops.add.xml"
+    log, trips = tmp_path / "sumo.log", tmp_path / "tripinfo.xml"
+    begin = probe_scenario["begin_s"]
+    end = begin + probe_scenario["duration_s"]  # the last trip departs 1200 s before
+    subprocess.run(
+        [find_binary("sumo"), "-n", str(PITIE_NET), "-r", str(rou), "-a", str(add),
+         "--begin", str(begin), "--end", str(end), "--seed", "101",
+         "--no-step-log", "true", "--tripinfo-output", str(trips), "--log", str(log)],
+        check=True, capture_output=True,
+    )  # fmt: skip
+    text = log.read_text(encoding="utf-8", errors="replace").lower()
+    assert "sorted" not in text and "ignoring" not in text
+    root = ET.parse(trips).getroot()
+    arrived = {
+        t.get("id"): float(t.get("arrival"))
+        for t in root.iter("tripinfo")
+        if t.get("id").startswith("ambulance_")
+    }
+    assert sorted(arrived) == [f"ambulance_{k}" for k in range(7)]
+    assert all(a > 0 for a in arrived.values())

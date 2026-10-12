@@ -1,0 +1,3 @@
+# Ambulance-probe family, S0 fixed time (D25): pitie_fixed with 7 ambulances.
+extends: [pitie_fixed.yaml, pitie/emergency_probe.yaml]
+scenario: pitie_amb_fixed

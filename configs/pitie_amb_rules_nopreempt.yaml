@@ -1,0 +1,4 @@
+# Ambulance-probe family, S2_noP (D25): pitie_amb_rules without emergency preemption.
+extends: pitie_amb_rules.yaml
+scenario: pitie_amb_rules_nopreempt
+preemption: {enabled: false}

@@ -8,19 +8,23 @@ endif
 CONFIG ?= configs/data.yaml
 
 # Part 3 targets run on the Pitié configs unless SCENARIO is given: S0 for most of them,
-# S1 for `compare` (tasks.py does the same). Decided before SCENARIO gets its default.
+# S1 for `compare` (tasks.py does the same); `part4` checks S2. Decided before SCENARIO
+# gets its default.
 ifeq ($(origin SCENARIO),undefined)
 P3_S0 = configs/pitie_fixed.yaml
 P3_S1 = configs/pitie_actuated.yaml
+P4_S2 = configs/pitie_rules.yaml
 else
 P3_S0 = $(SCENARIO)
 P3_S1 = $(SCENARIO)
+P4_S2 = $(SCENARIO)
 endif
 BASELINE ?= configs/pitie_fixed.yaml
 CALIB_SEEDS ?=
 
 .PHONY: install data explore score db-load net demand sim sim-gui db-runs plots baseline
 .PHONY: osm tls-check calib-data field-check calibrate compare validate plots-pitie part3
+.PHONY: evaluate plots-eval part4 provenance rebaseline
 .PHONY: lint format test test-fast check train eval app
 
 install:
@@ -104,6 +108,29 @@ plots-pitie:
 ## The whole Part 3 chain: S0 = BASELINE, S1 = SCENARIO (default configs/pitie_actuated.yaml)
 part3: P3_S0 = $(BASELINE)
 part3: tls-check field-check calibrate compare validate plots-pitie
+
+## Part 4: rule-based control (S2), Safety Guard, per-user evaluation of S0, S1 and S2
+## Pre-registered evaluation (configs/evaluation.yaml) and docs/evaluation.md, running the
+## missing seeds; exit 1 on a pairing error or an A-04 failure
+evaluate:
+	$(PY) -m traffic_twin.evaluation.evaluate --config configs/evaluation.yaml --run-missing --docs docs/evaluation.md
+
+plots-eval:
+	$(PY) -m traffic_twin.viz.evaluation --config configs/evaluation.yaml --out docs/figures/pitie/eval
+
+## The whole Part 4 chain: tls-check on S2 (SCENARIO, default configs/pitie_rules.yaml)
+part4: P3_S0 = $(P4_S2)
+part4: tls-check evaluate plots-eval
+
+## Provenance of the published Pitié runs (in-process steps of tasks.py, stdlib only):
+## exit 1 unless every evaluation run and docs page comes from the clean HEAD
+provenance:
+	$(PY) tasks.py provenance
+
+## After a commit: move the evaluation runs aside, re-make them from HEAD
+## (compare validate part4) and require identical KPI rows
+rebaseline:
+	$(PY) tasks.py rebaseline
 
 lint:
 	$(PY) -m ruff check .

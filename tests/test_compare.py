@@ -17,9 +17,12 @@ from traffic_twin.evaluation.compare import (
     better_if,
     check_pairing,
     compare,
+    incomplete_rows,
     main,
     markdown,
     provenance_path,
+    unit,
+    worse_than,
 )
 from traffic_twin.evaluation.runs import expected_hashes, load_runs
 from traffic_twin.evaluation.stats import holm
@@ -95,6 +98,25 @@ def test_holm_family_is_the_headline_only_and_counts_are_not_tested():
     md = markdown(t, "pitie_fixed", "pitie_actuated")
     assert md.count("\n| ") == 1 + len(HEADLINE)  # header row + one row per headline KPI
     assert "count" in md  # flagged non-headline KPI listed below the table
+
+
+def test_qualified_kpis_take_the_direction_and_unit_of_their_base():
+    """Part 4 KPIs `<base>__<qualifier>` (per arm, flow, line, crossing): direction, test
+    and unit come from the base name; the new rates and counts have their own sense."""
+    assert better_if("time_loss_mean__arm_N") == "lower" and unit("delay_mean__flow_91_E") == "s"
+    assert better_if("count__arm_N") == "higher"
+    assert better_if("throughput_vph") == "higher" and unit("throughput_vph") == "veh/h"
+    assert better_if("crossing_complete_rate") == "higher" and unit("crossing_complete_rate") == ""
+    assert unit("crossing_red_entries") == "" and unit("box_foe_onsets") == ""
+    assert better_if("crossing_red_entries") == "lower" and unit("exit_blocked_s") == "s"
+    assert better_if("dwell_mean__line_91") == "n/a"
+    base = pd.concat([_rows("car", "count__arm_N", [100.0] * 10),
+                      _rows("car", "time_loss_mean__arm_N", np.arange(10.0) + 50)])  # fmt: skip
+    other = base.assign(value=base["value"] * 1.1)
+    t = compare(base, other, []).set_index("kpi")
+    assert np.isnan(t.loc["count__arm_N", "p_value"])  # counts stay untested
+    arm = t.loc["time_loss_mean__arm_N"]
+    assert arm["effect"] == "worse" and arm["equity_flag"] and arm["better_if"] == "lower"
 
 
 def _rows(user: str, kpi: str, values) -> pd.DataFrame:
@@ -279,3 +301,30 @@ def test_stale_runs_are_rerun_or_refused_never_reused(tmp_path, monkeypatch):
     car = t.set_index(["user_type", "kpi"]).loc[("car", "time_loss_mean")]
     expected = fresh.query("user_type == 'car' and kpi == 'time_loss_mean'")["value"].mean()
     assert car["s0_mean"] == pytest.approx(expected)  # from the reruns, not the old runs
+
+
+# -- review fixes ----------------------------------------------------------------------
+def test_a_zero_baseline_is_flagged_on_any_move_in_the_bad_direction():
+    """Relative change is undefined on a 0 baseline: 0 -> 0.1 red entries was never
+    flagged before (rel NaN)."""
+    base = _rows("pedestrian", "crossing_red_entries", [0.0] * 10)
+    worse = _rows("pedestrian", "crossing_red_entries", [0.0] * 9 + [1.0])
+    t = compare(base, worse, [])
+    assert np.isnan(t.loc[0, "rel_change_pct"]) and t.loc[0, "equity_flag"]
+    assert not compare(base, base, []).loc[0, "equity_flag"]
+    rate0 = _rows("pedestrian", "crossing_complete_rate", [0.0] * 10)
+    up = _rows("pedestrian", "crossing_complete_rate", [0.1] * 10)
+    assert not compare(rate0, up, []).loc[0, "equity_flag"]  # higher is better
+    assert worse_than(0.0, 0.1, float("nan"), -1, 5.0)
+    assert not worse_than(0.0, 0.1, float("nan"), 0, 5.0)  # neutral KPI
+    assert worse_than(10.0, 10.6, 6.0, -1, 5.0) and not worse_than(10.0, 10.4, 4.0, -1, 5.0)
+
+
+def test_incomplete_rows_lists_kpis_paired_on_fewer_seeds():
+    a = kpis()
+    b = a[~((a["user_type"] == "ambulance") & (a["seed"] == 3))]
+    t = compare(a, b, HEADLINE)
+    short = incomplete_rows(t, len(SEEDS))
+    assert list(short["kpi"]) == ["time_loss_mean"] and list(short["user_type"]) == ["ambulance"]
+    assert int(short["n_pairs"].iloc[0]) == 9
+    assert incomplete_rows(compare(a, a, HEADLINE), len(SEEDS)).empty

@@ -14,7 +14,9 @@ Hodges-Lehmann estimate and CI, the exact Wilcoxon signed-rank p-value (two-side
 Holm-adjusted p-values over the pre-registered headline KPIs only (`compare.headline` in
 configs/validation.yaml). `count` KPIs are not tested. Equity flag: a KPI more than
 `equity_pct` % worse in its bad direction (spec 13.3: a global gain must not hide a loss
-for one user type).
+for one user type). A qualified KPI `<base>__<qualifier>` (per arm, flow, line or
+crossing, Part 4) takes the direction and unit of its base name. The N-scenario Part 4
+evaluation (evaluation.evaluate) calls `compare()` once per pre-registered pair.
 
 Writes `<results>/comparison/<a>__vs__<b>.csv`, `.md` (headline table) and `.json`
 (provenance: configs, hashes and seeds, checked by the validation report) and
@@ -40,10 +42,20 @@ from traffic_twin.paths import PITIE_ACTUATED_CONFIG, PITIE_FIXED_CONFIG, VALIDA
 log = logging.getLogger(__name__)
 
 FIGURES_DIR = Path("docs/figures/pitie")
-HIGHER_IS_BETTER = {"count"}
+# Direction, test and unit sets hold BASE KPI names: a qualified KPI `<base>__<qualifier>`
+# (e.g. `time_loss_mean__arm_N`, Part 4) is looked up by `base_kpi(kpi)`.
+# `served_share` is reserved for a future preemption / completion share KPI: configs/
+# evaluation.yaml pre-registers a pp rule for it, but no run produces it yet (the
+# evaluation page says so).
+HIGHER_IS_BETTER = {"count", "throughput_vph", "crossing_complete_rate", "served_share"}
 NOT_TESTED = {"count"}  # identical demand and seeds: counts carry no paired signal
 NEUTRAL = {"dwell_mean"}  # set by the stop dwell config, no better direction
-UNITLESS = {"count", "stops"}  # every other KPI is a time in seconds
+UNITLESS = {  # counts and rates; every other KPI is a time in seconds unless in UNITS
+    "count", "stops", "crossing_red_entries", "box_foe_onsets", "crossing_complete_rate",
+    "served_share",
+}  # fmt: skip
+UNITS = {"throughput_vph": "veh/h"}
+QUALIFIER_SEP = "__"
 COMPARE_COLUMNS = [
     "user_type", "kpi", "headline", "better_if", "n_pairs", "s0_mean", "s0_std", "s1_mean",
     "s1_std", "diff_mean", "diff_ci_low", "diff_ci_high", "hl_diff", "hl_ci_low", "hl_ci_high",
@@ -61,10 +73,16 @@ class ComparisonError(ValueError):
     not made with the current config)."""
 
 
+def base_kpi(kpi: str) -> str:
+    """The KPI name without its qualifier: `delay_mean__flow_91_E` -> `delay_mean`."""
+    return kpi.split(QUALIFIER_SEP)[0]
+
+
 def better_if(kpi: str) -> str:
-    if kpi in NEUTRAL:
+    base = base_kpi(kpi)
+    if base in NEUTRAL:
         return "n/a"
-    return "higher" if kpi in HIGHER_IS_BETTER else "lower"  # times, waits, delays, stops
+    return "higher" if base in HIGHER_IS_BETTER else "lower"  # times, waits, delays, stops
 
 
 def _sense(kpi: str) -> int:
@@ -72,7 +90,29 @@ def _sense(kpi: str) -> int:
 
 
 def unit(kpi: str) -> str:
-    return "" if kpi in UNITLESS else "s"
+    base = base_kpi(kpi)
+    if base in UNITS:
+        return UNITS[base]
+    return "" if base in UNITLESS else "s"
+
+
+def worse_than(m0: float, m1: float, rel: float, sense: int, pct: float) -> bool:
+    """Equity flag: more than `pct` % worse than the baseline mean `m0` in the KPI's bad
+    direction. A zero baseline has no relative change (`rel` NaN): any move in the bad
+    direction then counts as worse (e.g. pedestrian red entries 0 -> 1), none otherwise."""
+    if not sense:
+        return False
+    if m0 == 0:
+        return bool((m1 - m0) * sense < 0)
+    return bool(math.isfinite(rel) and rel * sense < -pct)
+
+
+def incomplete_rows(table: pd.DataFrame, n_seeds: int) -> pd.DataFrame:
+    """The rows of a comparison table paired on fewer than `n_seeds` seeds (a run lacks
+    the KPI, e.g. an ambulance that never arrived): never silently fewer pairs."""
+    if table.empty:
+        return table
+    return table[table["n_pairs"] < n_seeds]
 
 
 # -- pairing ---------------------------------------------------------------------------
@@ -146,7 +186,7 @@ def compare(
         if g.empty:
             continue
         d = g["diff"].to_numpy(float)
-        tested = kpi not in NOT_TESTED
+        tested = base_kpi(kpi) not in NOT_TESTED
         w = wilcoxon(d) if tested else None
         ci = t_ci(d)
         hl, hl_lo, hl_hi = hodges_lehmann(d)
@@ -154,7 +194,7 @@ def compare(
         rel = 100.0 * (m1 / m0 - 1) if m0 != 0 else math.nan
         sense = _sense(kpi)
         p = w.pvalue if w else math.nan
-        worse = bool(sense and math.isfinite(rel) and rel * sense < -equity_pct)
+        worse = worse_than(m0, m1, rel, sense, equity_pct)
         if not sense:
             effect = "n/a"
         elif m1 == m0:
@@ -335,6 +375,12 @@ def main(argv: list[str] | None = None) -> None:
     headline = vcfg["compare"]["headline"]
     alpha = float(th.get("alpha", 0.05))
     table = compare(kpi_a, kpi_b, headline, float(th.get("equity_pct", 5.0)), alpha)
+    short = incomplete_rows(table, len(seeds))
+    if len(short):
+        listing = ", ".join(
+            f"{r.user_type}.{r.kpi} ({r.n_pairs})" for r in short.itertuples(index=False)
+        )
+        log.warning("KPIs paired on fewer than %d seeds: %s", len(seeds), listing)
     csv, md, png = output_paths(results, args.figures, a, b)
     csv.parent.mkdir(parents=True, exist_ok=True)
     table.to_csv(csv, index=False)

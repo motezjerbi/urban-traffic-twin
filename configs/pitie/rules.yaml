@@ -1,0 +1,54 @@
+# S2 rule-based control on the Pitié-Salpêtrière junction (Part 4, D19, D23, D24).
+# Fragment of configs/pitie_rules*.yaml and configs/pitie_amb_rules*.yaml only (owner WS3).
+# It touches only `rules`, `preemption` and `safety.max_red_s`, never `demand`,
+# `emergency` or `network`: S0, S1 and S2 share one demand_hash.
+#
+# Tuning (D23, D32): every value below was chosen on the calibration seeds 101-103 only
+# (Part 4 plan section 2: relaxed maxima, TSP extension 5 / 10 / 15 s, ETA with or
+# without the dwell, paid truncation on / off, box rule on / off). The TSP analysis also
+# used the development seeds 201-207 once (bus headways, truncation variants); they are
+# recorded in configs/evaluation.yaml and not used again. Seeds 1-10 tuned nothing.
+#
+# Derivations on the ASSUMED 123 s program (pitie.tll.xml; clearance per stage HOP 9,
+# S_LEFT 10, STM 7, BUS_91 12, BUS_57 11 = 49 s per cycle). Recomputed from the program
+# by tests/test_rules.py; re-derive after any change of the program (D36):
+#   crossing red with greens g (sim.tls_check.worst_case_red):
+#     S      (link 13): 38 + HOP + S_LEFT + BUS_57
+#     W      (link 15): 48 + S_LEFT + STM + BUS_91 + BUS_57
+#     NB, WB (12, 14):  30 + BUS_91 + BUS_57
+#   at min greens (6 s): S 56, W 72, NB/WB 42 s <= 88 s (ped_max_wait_s - margin), so the
+#     pedestrian shield can always serve every crossing in time;
+#   at max greens + TSP extension (S_LEFT, BUS_91, BUS_57 up to 6 + 10 = 16 s):
+#     S 38 + 50 + 16 + 16 = 120 s, W 48 + 16 + 30 + 16 + 16 = 126 s, NB/WB 62 s
+#     -> beyond the static 88 s bound: only the shield (safety.ped_forcing: detected)
+#        keeps every pedestrian curb wait <= 88 s (SafetyGuard.from_config and
+#        tls_check refuse this plan without it);
+#   longest legal cycle: 50 + 16 + 30 + 16 + 16 + 49 = 177 s < safety.max_red_s 180 s.
+rules:
+  max_gap_s: 3.0 # SUMO's actuated default, as S1
+  min_green_s: {HOP: 6, S_LEFT: 6, STM: 6, BUS_91: 6, BUS_57: 6}
+  # beyond the static 88 s bound: worst-case red S 120 s, W 126 s -> requires the shield (from_config checks)
+  # (S1: HOP 38 / STM 22; 50 / 30 gave car time loss -17 % vs S1 with 0 shield forcings)
+  max_green_s: {HOP: 50, S_LEFT: 6, STM: 30, BUS_91: 6, BUS_57: 6}
+  pedestrian: {anticipate: true}           # leave a green when ped_slack < dt (event ped_protect)
+  tsp:
+    enabled: true
+    lines: ["91", "24", "57"]
+    # the stages serving bus links 5 (57N), 9 (91E/24E), 3 (91W/24W) and 4 (57S)
+    extend_stages: [S_LEFT, BUS_91, BUS_57]
+    extension_max_s: 10.0 # 5 s and 15 s were both worse for buses on 101-103
+    # ETA = dist / approach_speed_mps + remaining dwell (+ start_penalty_s if halted or dwelling)
+    approach_speed_mps: 7.0
+    start_penalty_s: 4.0
+    # Paid truncation of car stages while a bus waits for another stage: off at Pitié
+    # (cars +19 % for buses -2 s on 101-103); the caps (S1 maxima) are the configurable
+    # penalty cap, checked <= max_green_s by RuleBasedController.from_config
+    truncation: {enabled: false, max_green_s: {HOP: 38, S_LEFT: 6, STM: 22, BUS_91: 6, BUS_57: 6}}  # penalty cap
+  box: {enabled: true}                     # use gap_s_open instead of gap_s
+preemption:
+  enabled: true
+  detection: {pending: true, max_dist_m: null}   # pending = ASSUMED upstream / V2I detection
+  max_hold_s: 120
+  respects_ped_max_wait: true              # D20; false is refused by from_config in Part 4
+safety:
+  max_red_s: 180                           # longest legal S2 cycle 177 s

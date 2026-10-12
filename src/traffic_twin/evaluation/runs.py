@@ -7,6 +7,10 @@ from those of the current config (a program, demand, calibration or net change s
 ran) is STALE: `run_missing` reruns it like an absent seed, and `check_current` refuses
 to use it. So the documented post-visit rerun (`tasks.py part3`) can never publish
 results of the old program.
+
+A run also records `kpi_version` (the KPI set of `sim.kpi`; runs made before Part 4 have
+none and count as version 1). A caller that needs a KPI set (the Part 4 evaluation:
+`min_kpi_version`) treats an older run as stale too, so `--run-missing` reruns it.
 """
 
 from __future__ import annotations
@@ -23,6 +27,7 @@ from traffic_twin.config import config_hash, demand_hash
 log = logging.getLogger(__name__)
 
 HASH_KEYS = ("config_hash", "demand_hash")
+LEGACY_KPI_VERSION = 1  # run.json without `kpi_version`: made before Part 4
 # Run tables: attribute -> file name
 TABLES = {
     "kpis": "kpi_run.csv",
@@ -30,6 +35,7 @@ TABLES = {
     "queues": "queue.parquet",
     "signal": "signal.parquet",
     "trips": "trip.parquet",
+    "events": "events.parquet",  # controller / guard / preemption events (Part 4, optional)
 }
 
 
@@ -49,6 +55,7 @@ class Runs:
     queues: pd.DataFrame = field(default_factory=pd.DataFrame)
     signal: pd.DataFrame = field(default_factory=pd.DataFrame)
     trips: pd.DataFrame = field(default_factory=pd.DataFrame)
+    events: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 def run_path(results: Path, scenario: str, seed: int) -> Path:
@@ -102,47 +109,66 @@ def short(h: object) -> str:
     return "none" if h is None else str(h)[:12]
 
 
-def stale_reason(meta: dict, expected: dict[str, str]) -> str | None:
-    """Why a run is not a run of the current config (None when it is)."""
+def kpi_version(meta: dict) -> int:
+    """The KPI version a run was made with (LEGACY_KPI_VERSION when run.json has none)."""
+    v = meta.get("kpi_version")
+    return LEGACY_KPI_VERSION if v is None else int(v)
+
+
+def stale_reason(
+    meta: dict, expected: dict[str, str], min_kpi_version: int | None = None
+) -> str | None:
+    """Why a run is not a run of the current config (None when it is). With
+    `min_kpi_version`, a run made with an older KPI set is stale as well."""
     bad = [
         f"{k} {short(meta.get(k))} != current {short(expected[k])}"
         for k in HASH_KEYS
         if meta.get(k) != expected[k]
     ]
+    if min_kpi_version is not None and kpi_version(meta) < int(min_kpi_version):
+        bad.append(f"kpi_version {kpi_version(meta)} < required {int(min_kpi_version)}")
     return "; ".join(bad) or None
 
 
-def stale_seeds(runs: Runs, expected: dict[str, str]) -> dict[int, str]:
-    """Seed -> reason, for the loaded runs that are not runs of the current config."""
+def stale_seeds(
+    runs: Runs, expected: dict[str, str], min_kpi_version: int | None = None
+) -> dict[int, str]:
+    """Seed -> reason, for the loaded runs that are not runs of the current config (or
+    were made with a KPI version below `min_kpi_version`)."""
     out = {}
     for seed, m in sorted(runs.meta.items()):
-        reason = stale_reason(m, expected)
+        reason = stale_reason(m, expected, min_kpi_version)
         if reason:
             out[seed] = reason
     return out
 
 
-def check_current(runs: Runs, cfg: dict) -> dict[str, str]:
+def check_current(runs: Runs, cfg: dict, min_kpi_version: int | None = None) -> dict[str, str]:
     """The hashes shared by every loaded run (one config_hash, one demand_hash, both those
-    of the current `cfg`). Raises StaleRunsError naming the stale seeds otherwise."""
+    of the current `cfg`, and a KPI version >= `min_kpi_version` when given). Raises
+    StaleRunsError naming the stale seeds otherwise."""
     expected = expected_hashes(cfg)
-    stale = stale_seeds(runs, expected)
+    stale = stale_seeds(runs, expected, min_kpi_version)
     if stale:
         listing = "; ".join(f"seed {s}: {r}" for s, r in stale.items())
         raise StaleRunsError(
             f"{runs.scenario}: {len(stale)} run(s) were not made with the current config "
-            f"(program, demand, calibration or net changed since): {listing}. Rerun them "
-            "(--run-missing reruns stale seeds)"
+            f"(program, demand, calibration, net or KPI set changed since): {listing}. "
+            "Rerun them (--run-missing reruns stale seeds)"
         )
     return expected
 
 
 def run_missing(
-    cfg: dict, seeds: list[int], results: Path, config_path: Path | None = None
+    cfg: dict,
+    seeds: list[int],
+    results: Path,
+    config_path: Path | None = None,
+    min_kpi_version: int | None = None,
 ) -> list[int]:
     """Run the absent seeds and rerun the stale ones (made with another config_hash or
-    demand_hash than the current config); a rerun overwrites the run's files. Returns the
-    seeds that were (re)run."""
+    demand_hash than the current config, or with a KPI version below `min_kpi_version`);
+    a rerun overwrites the run's files. Returns the seeds that were (re)run."""
     from traffic_twin.sim.run_scenario import run
 
     expected = expected_hashes(cfg)
@@ -150,7 +176,7 @@ def run_missing(
     for seed in seeds:
         d = run_path(results, cfg["scenario"], seed)
         if is_complete(d):
-            reason = stale_reason(read_meta(d), expected)
+            reason = stale_reason(read_meta(d), expected, min_kpi_version)
             if reason is None:
                 continue
             log.warning("%s seed %d is stale (%s): rerunning", cfg["scenario"], seed, reason)

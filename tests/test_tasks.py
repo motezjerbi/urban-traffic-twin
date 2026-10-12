@@ -1,5 +1,6 @@
 """tasks.py, the cross-platform stand-in for the Makefile."""
 
+import importlib
 import importlib.util
 import json
 import re
@@ -11,6 +12,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 S0, S1 = "configs/pitie_fixed.yaml", "configs/pitie_actuated.yaml"
+S2 = "configs/pitie_rules.yaml"
+EVAL = "configs/evaluation.yaml"
 GRID = "configs/scenario_base.yaml"
 
 
@@ -69,15 +72,20 @@ def test_every_makefile_target_has_a_task(tasks):
     phony = " ".join(re.findall(r"^\.PHONY:(.*)$", makefile, re.M)).split()
     later = {"train", "eval", "app"}  # placeholders for later parts of the roadmap
     assert set(phony) - later == set(tasks.TASKS)
-    assert {"plots", "baseline", "check", "part3"} <= set(phony)
+    assert {"plots", "baseline", "check", "part3", "part4"} <= set(phony)
 
 
 def test_makefile_mirrors_tasks(tasks, monkeypatch):
-    """Each Make target runs the same modules, in the same order, with the same options."""
+    """Each Make target runs the same modules, in the same order, with the same options.
+    A task with in-process steps (stdlib Python inside tasks.py) is delegated whole."""
     monkeypatch.setattr(tasks, "_run_dirs", lambda results: ["data/results/a_seed1"])
     rules = makefile_rules()
     for name in tasks.TASKS:
-        expected = [(c[2], [a for a in c[3:] if a.startswith("--")]) for c in commands(tasks, name)]
+        cmds = commands(tasks, name)
+        if any(isinstance(c, tasks.Step) for c in cmds):
+            assert rules[name] == ([], [f"$(PY) tasks.py {name}"]), name
+            continue
+        expected = [(c[2], [a for a in c[3:] if a.startswith("--")]) for c in cmds]
         assert make_calls(rules, name) == expected, name
 
 
@@ -87,11 +95,17 @@ def test_tasks_use_the_running_interpreter(tasks):
         if name == "db-runs":
             continue  # needs finished runs on disk
         for cmd in commands(tasks, name):
-            assert cmd[0] == sys.executable
+            assert isinstance(cmd, tasks.Step) or cmd[0] == sys.executable
 
 
 def test_default_configs_exist(tasks):
-    for path in (tasks.GRID_SCENARIO, tasks.PITIE_S0, tasks.PITIE_S1):
+    for path in (
+        tasks.GRID_SCENARIO,
+        tasks.PITIE_S0,
+        tasks.PITIE_S1,
+        tasks.PITIE_S2,
+        tasks.EVALUATION_CONFIG,
+    ):
         assert (ROOT / path).is_file(), path
 
 
@@ -216,6 +230,195 @@ def test_part3_scenario_is_s1_and_baseline_is_s0(tasks):
                        "--run-missing"]  # fmt: skip
 
 
+# -- Part 4 tasks ----------------------------------------------------------------------------
+PART4_MODULES = ["traffic_twin.sim.tls_check", "traffic_twin.evaluation.evaluate",
+                 "traffic_twin.viz.evaluation"]  # fmt: skip
+
+
+def test_evaluate_and_plots_eval(tasks):
+    (ev,) = commands(tasks, "evaluate")
+    assert ev[2:] == ["traffic_twin.evaluation.evaluate", "--config", EVAL, "--run-missing",
+                      "--docs", "docs/evaluation.md"]  # fmt: skip
+    (fig,) = commands(tasks, "plots-eval")
+    assert fig[2:] == ["traffic_twin.viz.evaluation", "--config", EVAL,
+                       "--out", "docs/figures/pitie/eval"]  # fmt: skip
+
+
+def test_evaluation_ignores_scenario_options(tasks):
+    """The evaluated scenarios are pre-registered in configs/evaluation.yaml (D33): no
+    command-line option of tasks.py changes them."""
+    for name in ("evaluate", "plots-eval"):
+        assert commands(tasks, name, "--scenario", "x.yaml", "--baseline", "y.yaml",
+                        "--seeds", "1") == commands(tasks, name), name  # fmt: skip
+
+
+@pytest.mark.parametrize("name", ["evaluate", "plots-eval"])
+def test_part4_commands_parse_with_their_cli(tasks, name):
+    """Every flag the task passes is one the module's own parser accepts."""
+    (cmd,) = commands(tasks, name)
+    args = importlib.import_module(cmd[2]).build_parser().parse_args(cmd[3:])
+    assert args.config == Path(EVAL)
+    assert vars(args).get("run_missing", True)  # evaluate: run the missing seeds
+
+
+def test_part4_runs_in_order(tasks):
+    cmds = commands(tasks, "part4")
+    assert modules(cmds) == PART4_MODULES
+    tls, ev, fig = cmds
+    assert tls[3:] == ["--config", S2]  # tls-check on S2 inside part4 ...
+    assert ev == commands(tasks, "evaluate")[0] and fig == commands(tasks, "plots-eval")[0]
+    (alone,) = commands(tasks, "tls-check")
+    assert alone[3:] == ["--config", S0]  # ... and on S0 on its own (Part 3 default)
+
+
+def test_part4_scenario_is_s2(tasks):
+    tls, ev, fig = commands(tasks, "part4", "--scenario", "s2.yaml", "--baseline", "s0.yaml")
+    assert tls[3:] == ["--config", "s2.yaml"]
+    assert "s2.yaml" not in ev + fig and "s0.yaml" not in ev + fig
+
+
+def test_part3_part4_chain(tasks):
+    """`tasks.py part3 part4` (the full Pitié rerun after the field visit) keeps each
+    chain's own defaults."""
+    cmds = commands(tasks, "part3", "part4")
+    assert len(cmds) == len(tasks.PART3_STEPS) + len(tasks.PART4_STEPS)
+    assert cmds[0][3:] == ["--config", S0] and cmds[len(tasks.PART3_STEPS)][3:] == ["--config", S2]
+
+
+# -- provenance of the published runs ------------------------------------------------------------
+SCENARIOS = {"main": {"S0": "pitie_fixed", "S2": "pitie_rules"}, "probe": {"S0": "pitie_amb_fixed"}}
+
+
+@pytest.fixture
+def results(tasks, tmp_path, monkeypatch):
+    """A fake repo: provenance.json of 3 scenarios x 2 seeds, every run made from
+    `abc1234-dirty`, docs pages naming that version; git HEAD abc1234, clean."""
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    head = {"value": ("abc1234", False)}
+    monkeypatch.setattr(tasks, "git_head", lambda: head["value"])
+    prov = {
+        "seeds": [1, 2],
+        "families": {
+            fam: {"scenarios": {k: {"scenario": v} for k, v in sc.items()}}
+            for fam, sc in SCENARIOS.items()
+        },
+    }
+    (tmp_path / tasks.EVAL_PROVENANCE).parent.mkdir(parents=True)
+    (tmp_path / tasks.EVAL_PROVENANCE).write_text(json.dumps(prov), encoding="utf-8")
+    for d in tasks.evaluation_run_dirs():
+        write_run(tmp_path / d, "abc1234-dirty", kpis=f"kpi,value\nx,{d.name}\n")
+    (tmp_path / "docs").mkdir()
+    for doc in tasks.PUBLISHED_DOCS:
+        (tmp_path / doc).write_text("| Code version (git) | abc1234-dirty |\n", encoding="utf-8")
+    return tmp_path, head
+
+
+def write_run(run_dir: Path, version: str, kpis: str, **extra) -> None:
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "kpi_run.csv").write_text(kpis, encoding="utf-8")
+    meta = {"run_id": f"id-{version}", "code_version": version, "started_at": version,
+            "wall_time_s": 1.0, "config_hash": "c", "demand_hash": "d", **extra}  # fmt: skip
+    (run_dir / "run.json").write_text(json.dumps(meta), encoding="utf-8")
+
+
+def test_evaluation_run_dirs_cover_every_scenario_and_seed(tasks, results):
+    dirs = {d.as_posix() for d in tasks.evaluation_run_dirs()}
+    assert dirs == {f"data/results/{s}_seed{n}" for fam in SCENARIOS.values()
+                    for s in fam.values() for n in (1, 2)}  # fmt: skip
+
+
+def test_provenance_refuses_runs_and_pages_of_an_uncommitted_tree(tasks, results, capsys):
+    """The Part 4 runs and pages were published as `18c6cc6-dirty`: `provenance` must
+    fail on a dirty tree, on runs not made from HEAD and on a page naming `-dirty`."""
+    root, head = results
+    assert tasks.check_provenance() == 1
+    err = capsys.readouterr().err
+    assert "not every run was made from abc1234" in err
+    assert all(f"{doc} names an uncommitted tree" in err for doc in tasks.PUBLISHED_DOCS)
+    head["value"] = ("abc1234", True)
+    assert tasks.check_provenance() == 1
+    assert "uncommitted changes" in capsys.readouterr().err
+    # runs and pages from the clean HEAD: accepted
+    head["value"] = ("abc1234", False)
+    for d in tasks.evaluation_run_dirs():
+        write_run(root / d, "abc1234", kpis="kpi,value\n")
+    for doc in tasks.PUBLISHED_DOCS:
+        (root / doc).write_text("| Code version (git) | abc1234 |\n", encoding="utf-8")
+    assert tasks.check_provenance() == 0
+
+
+def test_rebaseline_refuses_an_uncommitted_tree(tasks, results):
+    root, head = results
+    head["value"] = ("abc1234", True)
+    assert tasks.rebaseline_backup() == 1
+    assert all((root / d / "run.json").is_file() for d in tasks.evaluation_run_dirs())
+
+
+def rerun_all(tasks, root: Path, version: str, change: str | None = None) -> None:
+    """Stand-in for `compare validate part4 --run-missing`: re-make every moved run
+    from its backup (identical KPI rows unless it is `change`) and fix the pages."""
+    backup = root / tasks.REBASELINE_DIR / "abc1234"
+    for old in backup.iterdir():
+        kpis = (old / "kpi_run.csv").read_text(encoding="utf-8")
+        write_run(root / tasks.RESULTS / old.name, version,
+                  kpis=kpis + ("y,1\n" if old.name == change else ""))  # fmt: skip
+    for doc in tasks.PUBLISHED_DOCS:
+        (root / doc).write_text(f"| Code version (git) | {version} |\n", encoding="utf-8")
+
+
+def test_rebaseline_moves_reruns_and_accepts_identical_runs(tasks, results, capsys):
+    root, _ = results
+    assert tasks.rebaseline_backup() == 0
+    backup = root / tasks.REBASELINE_DIR / "abc1234"
+    assert len(list(backup.iterdir())) == 6
+    assert not any((root / d).exists() for d in tasks.evaluation_run_dirs())
+    rerun_all(tasks, root, "abc1234")
+    assert tasks.rebaseline_verify() == 0
+    assert "6 of 6 re-made runs identical" in capsys.readouterr().out
+    assert tasks.rebaseline_backup() == 1  # the moved runs are kept, never overwritten
+
+
+def test_rebaseline_fails_when_a_rerun_differs(tasks, results, capsys):
+    root, _ = results
+    assert tasks.rebaseline_backup() == 0
+    rerun_all(tasks, root, "abc1234", change="pitie_rules_seed2")
+    assert tasks.rebaseline_verify() == 1
+    assert "pitie_rules_seed2: kpi_run.csv differs" in capsys.readouterr().err
+
+
+def test_rebaseline_compares_the_run_summary(tasks, results, capsys):
+    root, _ = results
+    assert tasks.rebaseline_backup() == 0
+    rerun_all(tasks, root, "abc1234")
+    write_run(root / "data/results/pitie_fixed_seed1", "abc1234",
+              kpis="kpi,value\nx,pitie_fixed_seed1\n", config_hash="other")  # fmt: skip
+    assert tasks.rebaseline_verify() == 1
+    assert "pitie_fixed_seed1: run.json differs" in capsys.readouterr().err
+
+
+def test_rebaseline_chain(tasks):
+    """Move aside, re-make the published pages with every default, then compare."""
+    cmds = commands(tasks, "rebaseline", "--scenario", "x.yaml", "--baseline", "y.yaml")
+    first, *middle, last = cmds
+    assert (first.name, last.name) == ("rebaseline-backup", "rebaseline-verify")
+    expected = commands(tasks, *tasks.REBASELINE_STEPS)
+    assert middle == expected
+    assert modules(middle) == ["traffic_twin.evaluation.compare",
+                               "traffic_twin.validation.report", *PART4_MODULES]  # fmt: skip
+    assert all("--run-missing" in c for c in middle if "compare" in c[2] or "report" in c[2])
+    assert "x.yaml" not in str(cmds) and "y.yaml" not in str(cmds)
+
+
+def test_steps_print_and_dry_run(tasks, capsys):
+    assert tasks.main(["rebaseline", "-n"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[0] == "+ tasks.py:rebaseline-backup (in-process)"
+    assert out[-1] == "+ tasks.py:rebaseline-verify (in-process)"
+    calls = []
+    step = tasks.Step("probe", lambda: calls.append(1) or 4)
+    assert tasks.run([step, [sys.executable, "-c", "pass"]]) == 4 and calls == [1]
+
+
 # -- runner ------------------------------------------------------------------------------------
 def test_db_runs_lists_finished_runs(tasks, tmp_path, monkeypatch):
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
@@ -248,6 +451,13 @@ def test_part3_dry_run(tasks, capsys):
     assert tasks.main(["part3", "-n"]) == 0
     out = capsys.readouterr().out.splitlines()
     assert len(out) == len(tasks.PART3_STEPS) and all(line.startswith("+ ") for line in out)
+
+
+def test_part4_dry_run(tasks, capsys):
+    assert tasks.main(["part4", "-n"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert len(out) == len(tasks.PART4_STEPS) and all(line.startswith("+ ") for line in out)
+    assert "evaluation.yaml" in out[1] and "evaluation.md" in out[1]
 
 
 # -- pins (D17) --------------------------------------------------------------------------------

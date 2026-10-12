@@ -15,7 +15,8 @@ simulation logs go to the private Storage bucket `sim-logs` as Parquet.
 
 Developer guide (module map, data flow, controller contract, invariants):
 [docs/architecture.md](docs/architecture.md). Simulation vs reality validation:
-[docs/validation.md](docs/validation.md). Site visit checklist:
+[docs/validation.md](docs/validation.md). Controller evaluation S0 vs S1 vs S2:
+[docs/evaluation.md](docs/evaluation.md). Site visit checklist:
 [docs/field_protocol.md](docs/field_protocol.md).
 
 ## Roadmap
@@ -26,15 +27,18 @@ baseline, first KPIs) are done. Part 3 (real junction from OSM, demand calibrati
 reality validation, actuated baseline) is done up to the field visit: of the three checks
 of spec 13.4, the flows pass, while the signal timing and the queues wait for the site
 measurements and the signal program is ASSUMED. Until then the S0 vs S1 comparison is
-provisional. **Part 4** is next.
+provisional. Part 4 (rule-based controller S2, common Safety Guard, ambulance preemption,
+bus priority, per-user evaluation of S0, S1 and S2) is done on the same terms: its results
+rest on the same program and are provisional until the field visit too. **Part 5** is
+next.
 
 | Part | Content | Status |
 | --- | --- | --- |
 | 1 | Repo, Supabase schema, sensor data exploration, intersection choice | done |
 | 2 | SUMO network (signals, crossings, bus), provisional demand, fixed-time baseline, first KPIs | done |
 | 3 | Demand calibration, sim vs reality validation, actuated baseline | done (field visit pending) |
-| 4 | Rule-based controller (preemption, bus TSP, pedestrians), Safety Guard, per-user KPIs | next |
-| 5 | ETA model (XGBoost quantiles), API v1 | |
+| 4 | Rule-based controller (preemption, bus TSP, pedestrians), Safety Guard, per-user KPIs | done (field visit pending) |
+| 5 | ETA model (XGBoost quantiles), API v1 | next |
 | 6-7 | Gymnasium env and RL training | |
 | 8 | Final evaluation (10 seeds) | |
 | 9 | App views and replay, user tests | |
@@ -59,6 +63,7 @@ python -m venv .venv
 python tasks.py install                    # pip install -e .[dev,db,sim]; SUMO via eclipse-sumo
 python tasks.py baseline                   # grid: net + sim (seeds 1 2 3) + plots
 python tasks.py part3                      # Pitié: checks, calibration, S0 vs S1, validation
+python tasks.py part4                      # Pitié: S0 vs S1 vs S2 evaluation (Part 4)
 python tasks.py check                      # lint + tests, what CI runs
 ```
 
@@ -75,7 +80,8 @@ make check
 
 Main tasks (`python tasks.py --help` lists them all; `-n` prints the commands without
 running them; several tasks run in order, e.g. `tasks.py net sim plots`). The Part 3 tasks
-are listed in [Pitié-Salpêtrière junction](#pitié-salpêtrière-junction-part-3).
+are listed in [Pitié-Salpêtrière junction](#pitié-salpêtrière-junction-part-3), the Part 4
+ones in [Part 4 tasks](#part-4-tasks).
 
 | Task | What it does |
 | --- | --- |
@@ -160,7 +166,8 @@ Fixed-time baseline (cycle 100 s, provisional demand 07:30-09:30, mean of seeds 
 | Pedestrian | max wait | 137 s (spec target 90 s) |
 | Ambulance | time loss | 62.5 s |
 
-The ambulance and pedestrian numbers are what the rule-based controller in Part 4 targets.
+The ambulance and pedestrian numbers are what the rule-based controller targets; it runs
+on the Pitié junction ([Part 4](#rule-based-control-and-safety-guard-part-4)).
 
 ![Headline KPI per user type](docs/figures/kpi_by_user.png)
 *Headline KPI per user type: mean of seeds 1-3, whiskers one standard deviation, dots are seeds.*
@@ -288,7 +295,8 @@ clearance):
   actuated logic, step by step, on the grid and on Pitié.
 - **S1 max greens** are HOP 38 s, STM 22 s and 6 s for the other stages: the largest values
   that keep the worst-case red of every crossing at or under 88 s with every stage at its
-  max (a static bound in Part 3; the pedestrian forcing of Part 4 may allow longer maxima).
+  max (a static bound; S2 goes beyond it with the pedestrian shield, see
+  [S2](#s2-the-rules-controller-ef-07-ef-08-ef-09)).
   HOP and STM can therefore run at most 2 s longer than in S0 and the other stages stay at
   6 s, so most of S1's freedom is to end HOP and STM early when no vehicle comes. Nothing is
   tuned on the evaluation seeds.
@@ -298,7 +306,8 @@ clearance):
   intervention. Every run also audits the phases it showed (`sim/audit.py`: vehicle green to
   red without yellow, pedestrian green cut outside clearance, yellow to green, green shorter
   than the minimum, green out of order). Both counts go to the `safety` block of `run.json`.
-  Part 4 adds pedestrian forcing and emergency pre-emption.
+  Part 4 adds the pedestrian shield, emergency preemption and five audit keys: see
+  [Safety Guard and pedestrian shield](#safety-guard-and-pedestrian-shield-ef-11-enf-11).
 
 ### Validation against reality (spec 13.4, A-02)
 
@@ -350,8 +359,8 @@ The simulated cycle against the site timing and the queues against the video are
 NOT_MEASURED, and S0 runs the ASSUMED provisional program (see
 [ASSUMED inputs](#assumed-inputs-until-the-field-visit)). The results below therefore compare
 the two controllers on the modelled junction. They describe the real junction only once
-the visit is done and `tasks.py part3` has been rerun with the measured program (see
-[Field visit](#field-visit)).
+the visit is done and `tasks.py part3 part4` has been rerun with the measured program
+(see [Field visit](#field-visit)).
 
 `tasks.py compare` pairs the runs per seed (seeds 1-10) and refuses to compare unless both
 scenarios have the same seeds and one shared `demand_hash`. Test: exact two-sided Wilcoxon
@@ -371,11 +380,23 @@ Mean ± sd over seeds 1-10, times in seconds:
 
 On the modelled junction, S1 lowers the car time loss and the car wait p95 (significant
 after Holm). The longest single pedestrian wait rises from 85.6 to 87.3 s (significant),
-still under the 90 s target.
+still under the 90 s target. This Part 3 KPI (`ped_wait_single_max`, SUMO
+`person.getWaitingTime`) undercounts the wait at the curb: SUMO resets it whenever a
+waiting pedestrian creeps a few centimetres. Part 4 adds the curb wait
+(`ped_curb_wait_max`), which A-04 judges; see
+[Acceptance](#acceptance-a-03-a-04-a-05).
 Bus delay is 2.5 % worse (p 0.0371, not significant after Holm), under the 5 % equity
 threshold. Outside the headline KPIs, KPIs more than 5 % worse: bus mean insertion delay
 +20.2 % (p 0.0195) and max insertion delay +60.0 % (p 0.0312), both under 5 s, and
 ambulance stops +23.1 % (p 0.3750). The ambulance time loss shows no significant change.
+<!-- REGENERATE: Part 4 numbers -->
+The KPI version 3 rows added in Part 4 (rerun of the same 20 runs, every Part 3 KPI
+unchanged) add to that list: bus delay of flows 24_W (+17.3 %, p 0.0273) and 57_N
+(+25.0 %, p 0.0020), the mean single pedestrian wait at crossings NB, WB and W (+5.5 to
++6.5 %, all under 30 s), and junction exit blocking (`exit_blocked_s` +5.7 %,
+`exit_blocked_green_s` 1.8 to 8.0 s, `box_foe_onsets` 2.4 to 3.0 per run); see
+`data/results/comparison/pitie_fixed__vs__pitie_actuated.md` and the
+[Part 4 equity table](#equity-spec-133).
 
 ![Headline KPI per user type, Pitié](docs/figures/pitie/kpi_by_user.png)
 *Headline KPI per user type, S0 and S1: mean of seeds 1-10, whiskers one standard deviation, dots are seeds.*
@@ -452,8 +473,15 @@ After the visit:
 4. Put the counts into the calibration (`tasks.py calib-data`: turn shares become
    `source: field`). Check in its output that the arms still use 16-18 autumn days and that
    any new spring days are listed as hold-out days.
-5. Rerun `tasks.py part3`. The signal and queue rows become PASS or FAIL; a failure is fixed
-   through the demand or the driving parameters and documented (spec 13.4).
+5. Re-derive the S2 values of `configs/pitie/rules.yaml` from the measured program: max
+   greens, TSP extension and truncation caps, and `safety.max_red_s` above the longest
+   legal cycle (D36; `tests/test_rules.py` recomputes the derivations in its header, so it
+   fails until they match the new program). When the stage structure changed, also run
+   `tasks.py tls-check --scenario configs/pitie_rules.yaml`.
+6. Rerun `tasks.py part3 part4`: the S0 vs S1 comparison and validation, then the S0 vs S1
+   vs S2 evaluation, all rest on the program. The signal and queue rows become PASS or
+   FAIL; a failure is fixed through the demand or the driving parameters and documented
+   (spec 13.4).
 
 ### Part 3 tasks
 
@@ -477,6 +505,291 @@ versioned).
 
 The Makefile has the same targets; `make compare BASELINE=... SCENARIO=...`.
 
+## Rule-based control and Safety Guard (Part 4)
+
+Part 4 adds S2, a rule-based controller with emergency preemption, bus priority and
+pedestrian protection, behind one Safety Guard shared by every controller, and compares S0,
+S1 and S2 per user on a pre-registered evaluation (seeds 1-10, run once after the code was
+frozen).
+
+<!-- REGENERATE: Part 4 numbers -->
+On the modelled junction S2 lowers the car time loss by 26.2 % and the ambulance
+travel time by 27.7 % against S0. A-04 judges the longest pedestrian curb wait against
+the 90 s target (the per-run values are in [docs/evaluation.md](docs/evaluation.md)). The
+guard never had to override a controller's request (0 interventions), but it was not
+idle: its pedestrian shield refused or cut preemption holds, 8 times in the main S2 runs
+and 44 times in the probe S2 runs (`ped_yield`). Verdicts: A-03 3 of 4 controllers, A-04
+PASS, A-05 PASS. Every table (KPIs per user, all pairs, equity, acceptance, guard and controller
+activity) is in the generated page [docs/evaluation.md](docs/evaluation.md).
+
+**Provisional until the field visit.** Like S0 vs S1, every Part 4 result is provisional:
+it rests on the ASSUMED signal program (cycle 123 s), and of the three checks of spec 13.4
+only the flows pass, while the signal timing and the queues are NOT_MEASURED. The S2 max
+greens, the bus priority caps and the crossing reds are all derived from that program, so
+`tasks.py part3 part4` is rerun after the [field visit](#field-visit).
+
+Scenarios, all with the S0 demand and seeds (spec 13.3):
+
+- **S2 `rules`** `configs/pitie_rules.yaml` (`control/rules.py`, `RuleBasedController`). It
+  `extends` S0 and the fragment `configs/pitie/rules.yaml`, which sets only `rules`,
+  `preemption` and `safety.max_red_s`: S0, S1 and S2 share one `demand_hash`.
+- **S2_noP** `configs/pitie_rules_nopreempt.yaml`: S2 without emergency preemption, an
+  ablation.
+- **Ambulance probe** `configs/pitie_amb_{fixed,rules,rules_nopreempt}.yaml`: S0, S2 and
+  S2_noP with 7 ambulances (`configs/pitie/emergency_probe.yaml`) instead of one, its own
+  `demand_hash`, to attribute the ambulance gain to preemption.
+
+Decision numbers D19-D36 refer to
+[Part 4 decisions](docs/architecture.md#part-4-decisions). S2's parameters were tuned on
+the calibration seeds 101-103 (the TSP analysis also used the development seeds 201-207
+once, D23); the evaluation seeds 1-10 ran once, after the code was frozen, and tuned
+nothing.
+
+### Safety Guard and pedestrian shield (EF-11, ENF-11)
+
+One guard (`control/safety.py`) filters every stage request of every controller, in this
+order (D20):
+
+1. an unknown stage is an error;
+2. during yellow and all-red the current stage is kept: clearance is never cut;
+3. min green (6 s), even for an ambulance;
+4. emergency preemption, when an ambulance is detected: the next link-safe hop towards
+   the stage that serves its movement;
+5. the Part 3 rules: anti-starvation (`safety.max_red_s`), stage order and max green,
+   all suspended during preemption. Anti-starvation (head for a stage once it has been
+   red for `safety.max_red_s`) therefore acts only outside preemption. While an ambulance
+   is served, only min green, clearance and the shield stay hard, and the hold ends when
+   the ambulance passes the stop line or after 120 s without it getting 1 m closer, so a
+   slowly moving ambulance or back-to-back ambulances can keep a stage red longer (the
+   evaluation runs never triggered the starvation rule);
+6. the pedestrian shield (`control/pedestrian.py`), last and hard.
+
+The shield keeps every crossing's curb wait under θ = 88 s (`ped_max_wait_s` 90 minus
+`ped_red_margin_s` 2). The curb wait is a per-person clock kept by the session: it starts
+when a pedestrian waits at a red crossing and keeps running when the pedestrian creeps a
+few centimetres, which resets SUMO's `person.getWaitingTime`. A green may go on only
+while, for every crossing, the longest current curb wait plus the time until that
+crossing's next green (every stage at its min green, full clearance) stays at or under θ;
+otherwise the guard moves on to the next stage and counts a `ped_wait` intervention. A
+preemption hop or hold that would break this bound is replaced by the next stage as well
+(`ped_yield`). The shield runs for every Pitié controller (`safety.ped_forcing:
+detected`). S0 and S1 are not meant to trigger it, since their worst-case crossing red
+already respects the static bound (`tests/test_shield_passive.py`). The audit of the phases shown
+gains five danger keys (clearance incomplete, intergreen too short, foe vehicle greens,
+illegal transition, unknown phase); a green out of order becomes information, since
+preemption may skip a stage.
+
+### S2: the rules controller (EF-07, EF-08, EF-09)
+
+- **Base:** the S1 gap logic (max-gap 3 s, min greens 6 s) with relaxed S2 max greens:
+  HOP 50 s, STM 30 s, 6 s for the other stages. These exceed the static 88 s bound of S1
+  (worst-case crossing red S 120 s and W 126 s with the bus extension below); the shield
+  makes them safe, and the controller leaves a green itself at the step where the shield
+  would otherwise force it, so the guard records no intervention (`ped_protect`). `safety.max_red_s` is 180 s in S2 (longest legal
+  cycle 177 s).
+- **Bus priority (TSP):** the green of S_LEFT, BUS_91 or BUS_57 is extended by up to 10 s
+  beyond its max green for a bus of lines 91, 24 or 57 that can reach the stop line in
+  time (distance at 7 m/s, plus its remaining dwell, plus 4 s when stopped). Cutting a car
+  stage short for a bus (paid truncation) is off; its penalty cap (HOP 38 s, STM 22 s)
+  stays configurable.
+- **Box clearing:** a control loop whose lane only feeds a blocked exit (a vehicle halted
+  within 15 m of its start) does not extend the green. Drivers do not enter a blocked
+  junction (SUMO keep-clear); there is no all-red hold (D35).
+- **Emergency preemption:** every vehicle of class `emergency` on an approach, or waiting
+  to enter the network, is detected through TraCI. Requests are served first come, first
+  served and held until the ambulance passes the stop line. A request is dropped after 120 s
+  without the ambulance getting at least 1 m closer to the stop line (a stuck ambulance
+  gives the junction back; one still moving up its queue is not dropped). Every hop goes
+  through the guard, so min green, clearance and the 90 s pedestrian bound hold.
+
+### Evaluation method (spec 13.2, 13.3)
+
+`tasks.py evaluate` follows `configs/evaluation.yaml`, pre-registered on 2026-10-12 before
+any S2 run on the evaluation seeds (6 dated changes since, recorded in
+[docs/evaluation.md](docs/evaluation.md)):
+
+- **Pairs:** S0-S1 (reproduces Part 3), S0-S2 and S1-S2 (confirmatory), S2_noP-S2
+  (exploratory); in the probe family S0-S2 and S2_noP-S2. Exact paired Wilcoxon on seeds
+  1-10, Holm over the 7 Part 3 headline KPIs within each pair; the other KPIs are
+  secondary (unadjusted p).
+- **Per-user KPIs (KPI version 3):** car throughput and delay including the insertion
+  delay, per arm; bus delay per flow and headway per line; ambulance travel time from the
+  planned departure and stop duration; pedestrian complete-crossing rate, waits per
+  crossing and curb waits (`ped_curb_wait_*`, overall and per crossing); box and exit
+  blocking; and a person-weighted delay over all users. The 35 Part 3 KPI rows of every
+  run are unchanged.
+- **A-03:** the controllers that ran on the same scenario and KPI set.
+- **A-04:** over every run of both families, no dangerous phase sequence, no collision,
+  the longest pedestrian curb wait (`ped_curb_wait_max`) at most the scenario's
+  `safety.ped_max_wait_s` (90 s), and no guard intervention for fixed and actuated.
+  `evaluate` exits 1 if any fails. The pre-registration named the single wait
+  (`ped_wait_single_max`); a dated change of 2026-10-12 moved A-04 to the curb wait, which
+  is never shorter, and the single wait is reported alongside.
+- **A-05:** ambulance travel time from its planned departure, S2 below S0 in the main
+  family, exact one-sided Wilcoxon, α = 0.05; the probe family attributes the gain to
+  preemption (S2_noP vs S2).
+- **Equity (13.3):** every KPI against S0 per user; a flag when more than 5 % worse (1
+  point for rates), and a hidden degradation when the person-weighted delay improves
+  significantly while a primary or subgroup KPI (per car arm, bus flow, crossing) is
+  flagged. The pedestrian primary and subgroup KPIs are the curb waits
+  (`ped_curb_wait_max`, `ped_curb_wait_mean__crossing_*`; dated change of 2026-10-12,
+  pre-registered on the single waits).
+
+### S0 vs S1 vs S2 (spec 13.3)
+
+<!-- REGENERATE: Part 4 numbers -->
+Main family, mean ± sd over seeds 1-10, times in seconds. Change and p against S0; p is
+Holm-adjusted within each pair for the 7 headline KPIs and unadjusted (two-sided) for the
+last two rows, which are secondary.
+
+| User | KPI | S0 fixed | S1 actuated | S2 rules | S1 vs S0 | S2 vs S0 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Car | mean time loss | 75.9 ± 12.9 | 65.8 ± 11.3 | 56.0 ± 7.2 | -13.3 %, p 0.0137 | -26.2 %, p 0.0137 |
+| Car | wait p95 | 164.5 ± 26.3 | 140.0 ± 22.7 | 110.5 ± 20.0 | -14.9 %, p 0.0137 | -32.8 %, p 0.0137 |
+| Bus | mean delay | 61.0 ± 1.1 | 62.6 ± 2.6 | 55.3 ± 4.9 | +2.5 %, p 0.1484 | -9.3 %, p 0.0820 |
+| Bus | headway std | 23.4 ± 0.3 | 21.6 ± 3.4 | 23.3 ± 4.2 | -7.9 %, p 0.2520 | -0.4 %, p 1.0000 |
+| Pedestrian | mean wait (time lost) | 21.8 ± 0.7 | 22.2 ± 0.7 | 22.0 ± 0.6 | +1.6 %, p 0.5508 | +0.9 %, p 1.0000 |
+| Pedestrian | longest single wait | 85.6 ± 0.5 | 87.3 ± 0.5 | 88.0 ± 0.0 | +2.0 %, p 0.0137 | +2.8 %, p 0.0137 |
+| Ambulance | time loss | 109.2 ± 52.5 | 112.5 ± 48.7 | 76.3 ± 41.9 | +3.1 %, p 0.9219 | -30.1 %, p 0.0234 |
+| Ambulance | travel time from planned departure (A-05) | 152.2 ± 60.9 | 149.1 ± 55.3 | 110.1 ± 44.0 | -2.0 %, p 0.9219 | -27.7 %, p 0.0039 |
+| All | person-weighted delay | 63.6 ± 14.5 | 57.1 ± 9.4 | 48.3 ± 4.6 | -10.1 %, p 0.0020 | -24.0 %, p 0.0020 |
+
+- **S2 vs S0.** Car time loss and car wait p95 fall by 26.2 % and 32.8 %, and the
+  ambulance time loss by 30.1 % (all significant after Holm). Bus delay falls by 9.3 %
+  (p 0.0273, not significant after Holm). Bus headway std and the mean pedestrian wait do
+  not change. The longest single pedestrian wait rises from 85.6 to 88.0 s; the curb wait
+  that A-04 judges is in [docs/evaluation.md](docs/evaluation.md).
+- **S1 vs S2** (Holm within that pair). S2 is better on car time loss (-15.0 %, p 0.0137),
+  car wait p95 (-21.0 %, p 0.0137), bus delay (-11.6 %, p 0.0488) and ambulance time loss
+  (-32.2 %, p 0.0488). It is worse on the longest single pedestrian wait (87.3 to 88.0 s,
+  p 0.0488). Bus headway std is 8.2 % worse (21.6 to 23.3 s, p 0.5508), the one headline
+  equity flag of the pair.
+- **S0 vs S1** reproduces the [Part 3 comparison](#s0-vs-s1-spec-133) exactly (the 35
+  Part 3 KPI rows of every run are identical).
+- **S2_noP vs S2** (ablation, main family). Only the ambulance changes: time loss 100.2 to
+  76.3 s (-23.8 %, p 0.0273 after Holm). The car, bus and pedestrian headline KPIs move by
+  4 % or less, none significant: with one ambulance in 2 h the cost of preemption to other
+  users is not visible here (see the probe family below).
+- **Activity**, totals over the 10 S2 runs: 10 preemption requests, 10 served, 0 time-outs,
+  260 s held on the target, 8 preemption hops refused by the pedestrian shield
+  (`ped_yield`: 3 holds on the target cut, 5 jumps to the target replaced by the next
+  stage; the probe S2 runs: 44, 16 and 28). The
+  controller left a green 153 times for pedestrians (`ped_protect`), the box rule ended 55
+  greens, and TSP extended 165 greens by 553 s in total for 940 bus calls. The guard made
+  0 interventions (overrides of a controller's request) in every run of every scenario.
+
+![KPIs per user, S0, S1 and S2](docs/figures/pitie/eval/kpi_by_user.png)
+*Headline KPI per user type, S0, S1 and S2: mean of seeds 1-10, whiskers one standard deviation, dots are seeds.*
+
+![Paired differences vs S0](docs/figures/pitie/eval/paired_vs_s0.png)
+*Per-seed paired differences S1 - S0 and S2 - S0 for the 7 headline KPIs and the person-weighted delay, with the mean and its 95 % t interval.*
+
+### Acceptance: A-03, A-04, A-05
+
+<!-- REGENERATE: Part 4 numbers -->
+- **A-03: 3 of 4.** fixed, actuated and rules ran on one scenario per family with the same
+  72 KPIs; RL comes in Parts 6-7.
+- **A-04: PASS** over the 70 runs of both families: 0 collisions, 0 teleports, 0 danger
+  audit counts and 0 guard interventions. The worst pedestrian curb wait per scenario
+  (and the single wait next to it) is in [docs/evaluation.md](docs/evaluation.md),
+  section 10. The 2 out-of-order greens (information) are the 2 preemption jumps of the
+  probe S2 runs.
+- **A-05: PASS.** S2 vs S0, ambulance travel time from its planned departure, main family,
+  n = 10: mean 152.2 to 110.1 s, Hodges-Lehmann -36.0 s [-69.5, -14.0], exact one-sided
+  p 0.0020 (smallest possible 0.0010). 9 of 10 seeds are lower (seed 5: +2 s). The effect
+  is smaller than the -60 to -90 s expected from the 7-ambulance prototype runs on the
+  calibration seeds. Also reported: in-network travel time 142.2 to 109.3 s (p 0.0078),
+  stop duration 60.9 to 34.35 s (p 0.0039), stops 1.3 to 1.2 (p 1.0).
+- **Attribution (probe family, 7 ambulances per run, secondary).** S2 vs S2_noP: 106.7 to
+  86.9 s, Hodges-Lehmann -18.4 s [-33.7, -7.6], one-sided p 0.0049. S2 vs S0: 179.8 to
+  86.9 s, -86.8 s [-125.4, -70.6], p 0.0010. Over 70 requests, 70 were served and none
+  timed out. The cost to the other users of 7 preemptions in 2 h (S2 vs S2_noP): car time
+  loss +6.2 %, car wait p95 +10.2 % and bus delay +6.5 % (p 0.0684 after Holm each, not
+  significant), person-weighted delay +5.5 % (p 0.0020). With that cost the probe S2 bus
+  delay is only 1.2 % under S0 (p 1.0 after Holm).
+
+![Ambulance travel time](docs/figures/pitie/eval/a05_ambulance.png)
+*Ambulance travel time from its planned departure per seed: main family S0 to S2 (left), probe family S0, S2_noP and S2 (right, mean of the run's 7 ambulances).*
+
+### Equity (spec 13.3)
+
+<!-- REGENERATE: Part 4 numbers -->
+The person-weighted delay is significantly lower than S0 for every scenario (S1 -10.1 %,
+S2 -24.0 %, S2_noP -23.9 %, probe S2 -20.1 %, probe S2_noP -24.3 %, all p 0.0020; the
+same with a bus occupancy of 20 or 30), while some subgroup is more than 5 % worse. So the
+13.3 hidden-degradation flag fires for every scenario. No primary KPI is flagged; the
+flagged subgroups are:
+
+| Scenario | Flagged subgroup KPIs (change vs S0, unadjusted p) |
+| --- | --- |
+| S1 | bus flows 24_W +17.3 % (p 0.0273) and 57_N +25.0 % (p 0.0020); mean single wait at crossings NB +6.5 % (p 0.1641), WB +5.5 % (p 0.0488), W +6.3 % (p 0.0195) |
+| S2 | car delay of arm S +8.0 % (44.1 to 47.7 s, p 0.0273); bus flow 57_N +12.3 % (p 0.0645); mean single wait at crossing NB +5.3 % (8.63 to 9.09 s, p 0.1055) |
+| S2_noP | car arm S +12.5 % (p 0.0059); bus flow 57_N +11.9 % (p 0.0137); crossing NB +6.8 % (p 0.1055) |
+| probe S2 | car arm S +12.0 % (p 0.0020); bus flows 24_W +15.8 % (p 0.0195) and 57_N +19.4 % (p 0.0020) |
+| probe S2_noP | car arm S +12.4 % (p 0.0039); bus flow 57_N +16.8 % (p 0.0039); crossings WB +6.3 % (p 0.1934) and W +6.3 % (p 0.0137) |
+
+Other S2 KPIs (main family) more than 5 % worse than S0: line 57 headway std +20.9 %
+(p 0.0645); the longest single wait at crossings NB (40.9 to 45.6 s, worst seed 55 s) and
+WB (40.9 to 44.0 s, worst seed 50 s), both p 0.0039; seconds with a blocked exit while a
+link feeding it is green, 1.8 to 9.6 s per run (p 0.0020); green onsets against a vehicle
+halted in the box, 2.4 to 3.0 per run (p 0.6367); bus insertion delay, mean +17.8 %
+(p 0.0156) and max 3 to 5 s (p 0.0312); pedestrian `ped_wait_max` (walk time loss, which
+can add several waits) 89.6 to 95.2 s (p 0.0020); A-04 judges the curb wait instead
+(`ped_curb_wait_max`, docs/evaluation.md). The pre-stated risk on the NB and WB crossings partly materialised: the
+bus extension lengthens their reds, the NB mean wait is flagged and both maxima rise,
+far under 90 s. These are reported, not tuned away.
+
+![Equity heatmap](docs/figures/pitie/eval/equity_heatmap.png)
+*Change against S0 per user and subgroup, per scenario and family: blue better, red worse, `*` p < 0.05 (two-sided, unadjusted), `!` flagged more than 5 % worse.*
+
+### ASSUMED inputs added in Part 4
+
+- Ideal pedestrian detection (camera or push button): the shield sees each waiting
+  pedestrian and how long it has stood at the curb.
+- Ideal bus detection for TSP (`sim/transit.py`): each bus's TraCI position, line and
+  exact remaining scheduled dwell, standing for AVL or a check-in loop. The S2 bus gain
+  rests on it.
+- Ideal exit-blockage detection for the box rule (`sim/junction.py`): a vehicle under
+  0.5 m/s within 15 m of the start of an exit lane is read from TraCI vehicle positions
+  and speeds, with no modelled detector.
+- The ambulance obeys the signals: no blue-light device, no rescue lane.
+- An ambulance is detected while still waiting to enter the network (upstream or V2I
+  detection), with no dispatch lead time.
+- The probe family's routes, N to S and W to S towards the hospital main gate, and its 7
+  departure times.
+- Occupancies for the person-weighted delay: car 1.3, bus 25 (20 and 30 as sensitivity),
+  pedestrian 1, ambulance 1.
+
+The main demand is the Part 3 demand, frozen: one ambulance per run, the Part 3 bus
+headways without per-seed jitter. Bus delay is SUMO time loss, not lateness against a
+timetable.
+
+### Part 4 tasks
+
+| Task | What it does |
+| --- | --- |
+| `tls-check --scenario configs/pitie_rules.yaml` | check S2's plans: the worst-case red at max greens needs the shield |
+| `evaluate` | the pre-registered evaluation and `docs/evaluation.md` (runs the missing seeds of both families) |
+| `plots-eval` | evaluation figures into `docs/figures/pitie/eval/` |
+| `part4` | `tls-check evaluate plots-eval`, with `tls-check` on S2 (`--scenario`, default `configs/pitie_rules.yaml`) |
+| `provenance` | exit 1 unless every evaluation run, `docs/validation.md` and `docs/evaluation.md` come from the committed HEAD |
+| `rebaseline` | after a commit: move the evaluation runs aside, rerun `compare validate part4` from HEAD, and require every run's KPI rows to be byte-identical |
+
+The Makefile has the same targets; `make part4 SCENARIO=...`. Results go to
+`data/results/evaluation/` (not versioned): `kpis.csv`, the pairs, `equity.csv`, `a04.csv`
+per family, and `a05.json`, `summary.json`, `provenance.json`.
+
+**Provenance.** Every run records the git version it was made from, and the generated
+pages print it. A run made from an uncommitted tree records `<sha>-dirty`, which no commit
+can reproduce. The evaluation runs were made before the Part 4 commit (Q12: no commit
+during the work), so they carry `18c6cc6-dirty` until the re-baseline. After the commit,
+`tasks.py rebaseline` re-makes the 70 runs from the committed tree with the same configs
+and seeds, the same way the Part 3 pages were re-baselined in commit 18c6cc6. This is a
+reproducibility check, not a retune: the outputs are deterministic, and the task fails
+unless every KPI row and run summary is identical. The regenerated pages then name the
+commit, and `tasks.py provenance` (also a test in `tests/test_docs.py` on a clean
+checkout) refuses a published page that names an uncommitted tree.
+
 ## Testing and CI
 
 - `tasks.py test` runs the whole suite; `tasks.py test-fast` (`pytest -m "not sumo"`)
@@ -487,8 +800,16 @@ The Makefile has the same targets; `make compare BASELINE=... SCENARIO=...`.
   `data/field/`, `tests/data/`); none needs `data/raw/`, `data/processed/` or
   `data/results/`.
 - `tests/test_docs.py` checks README statements against the code: the S1 loop distance
-  against the detector layout, and the provisional caveat on S0 vs S1 while the field file
-  has no signal timing or queue.
+  against the detector layout, the S2 numbers of the Part 4 section against its config,
+  the Part 4 tasks against `tasks.py`, the link to the generated `docs/evaluation.md`
+  (which must report A-03 to A-05), and the provisional caveat on S0 vs S1 and on Part 4
+  while the field file has no signal timing or queue.
+- Safety tests of Part 4: a guard fuzz test with adversarial controllers and synthetic
+  pedestrians (`tests/test_guard_fuzz.py`), a random free-order controller behind the
+  guard on Pitié (`tests/test_guard_adversarial.py`: 0 danger audit, 0 collisions, every
+  pedestrian curb wait at or under 90 s), and passivity tests: S1 gives the same KPIs
+  with the shield on or off (`tests/test_shield_passive.py`), and S0 with the junction
+  monitor on or off (`tests/test_monitor_passive.py`).
 - `tests/test_grid_regression.py` runs the grid for seeds 1-3 and compares every KPI with
   `tests/data/grid_baseline_kpis.csv`: exact on Windows, where the fixture was captured,
   within 5 % with a warning elsewhere.
@@ -513,8 +834,11 @@ All tables have row level security on with no policies, so only the service role
 
 ```
 configs/            data.yaml, intersections.yaml, scenario_base.yaml (grid), rl.yaml,
-                    pitie_fixed.yaml (S0), pitie_actuated.yaml (S1), validation.yaml,
-                    pitie/ (S0 fragments), calibration/ (generated demand calibration)
+                    pitie_fixed.yaml (S0), pitie_actuated.yaml (S1), pitie_rules.yaml (S2),
+                    pitie_rules_nopreempt.yaml, pitie_amb_*.yaml (ambulance probe),
+                    validation.yaml, evaluation.yaml (pre-registered Part 4 evaluation),
+                    pitie/ (S0 fragments, rules.yaml, emergency_probe.yaml),
+                    calibration/ (generated demand calibration)
 data/               raw/, processed/, results/ (not versioned),
                     reference/ (versioned sensor extracts), field/ (site measurements)
 sumo/               network/ (grid plain XML, OSM extract, pitie/, generated .net.xml),
@@ -525,17 +849,19 @@ src/traffic_twin/
   data/             download, clean, explore, intersection_score, calendar, calibrate
   db/               Supabase loaders (sensors, runs)
   sim/              network, osm_import, tls_check, demand, signal (SignalPlan), sumo,
-                    session (SimSession), detectors, audit, results, kpi, run_scenario (CLI)
-  control/          Controller interface, registry, fixed time, actuated, safety guard
+                    session (SimSession), detectors, audit, results, kpi, run_scenario (CLI),
+                    emergency and transit (ambulance and bus detection), junction (monitor)
+  control/          Controller interface, registry, fixed time, actuated, rules (S2),
+                    safety guard, pedestrian shield, preemption
   validation/       reference, field, flows, signal, queues, calibration_loop, report
-  evaluation/       paired statistics, scenario comparison
-  viz/              KPI figures (plots), validation figures, the shared figure style
+  evaluation/       paired statistics, scenario comparison, runs, evaluate (Part 4)
+  viz/              KPI figures (plots), validation and evaluation figures, figure style
   rl/ ml/ api/ app/ later parts
 supabase/migrations/
 tests/              pytest; conftest.py skips `sumo` tests when SUMO is missing;
                     data/ holds the grid regression fixture
-docs/               spec, architecture.md, validation.md, field_protocol.md,
-                    calibration_log.yaml, figures/ (grid), figures/pitie/
+docs/               spec, architecture.md, validation.md, evaluation.md, field_protocol.md,
+                    calibration_log.yaml, figures/ (grid), figures/pitie/ (eval/: Part 4)
 .github/workflows/  CI (ci.yml)
 tasks.py            cross-platform task runner (same targets as the Makefile)
 Makefile
