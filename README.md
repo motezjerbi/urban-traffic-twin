@@ -389,12 +389,12 @@ Bus delay is 2.5 % worse (p 0.0371, not significant after Holm), under the 5 % e
 threshold. Outside the headline KPIs, KPIs more than 5 % worse: bus mean insertion delay
 +20.2 % (p 0.0195) and max insertion delay +60.0 % (p 0.0312), both under 5 s, and
 ambulance stops +23.1 % (p 0.3750). The ambulance time loss shows no significant change.
-<!-- REGENERATE: Part 4 numbers -->
 The KPI version 3 rows added in Part 4 (rerun of the same 20 runs, every Part 3 KPI
 unchanged) add to that list: bus delay of flows 24_W (+17.3 %, p 0.0273) and 57_N
 (+25.0 %, p 0.0020), the mean single pedestrian wait at crossings NB, WB and W (+5.5 to
-+6.5 %, all under 30 s), and junction exit blocking (`exit_blocked_s` +5.7 %,
-`exit_blocked_green_s` 1.8 to 8.0 s, `box_foe_onsets` 2.4 to 3.0 per run); see
++6.5 %, all under 30 s), the mean curb wait at the same crossings (+5.6 to +6.2 %, all
+under 31 s), and junction exit blocking (`exit_blocked_s` +5.7 %, `exit_blocked_green_s`
+1.8 to 8.0 s, `box_foe_onsets` 2.4 to 3.0 per run); see
 `data/results/comparison/pitie_fixed__vs__pitie_actuated.md` and the
 [Part 4 equity table](#equity-spec-133).
 
@@ -512,15 +512,19 @@ pedestrian protection, behind one Safety Guard shared by every controller, and c
 S1 and S2 per user on a pre-registered evaluation (seeds 1-10, run once after the code was
 frozen).
 
-<!-- REGENERATE: Part 4 numbers -->
-On the modelled junction S2 lowers the car time loss by 26.2 % and the ambulance
-travel time by 27.7 % against S0. A-04 judges the longest pedestrian curb wait against
-the 90 s target (the per-run values are in [docs/evaluation.md](docs/evaluation.md)). The
-guard never had to override a controller's request (0 interventions), but it was not
-idle: its pedestrian shield refused or cut preemption holds, 8 times in the main S2 runs
-and 44 times in the probe S2 runs (`ped_yield`). Verdicts: A-03 3 of 4 controllers, A-04
-PASS, A-05 PASS. Every table (KPIs per user, all pairs, equity, acceptance, guard and controller
-activity) is in the generated page [docs/evaluation.md](docs/evaluation.md).
+On the modelled junction S2 lowers the car time loss by 25.4 % and the ambulance
+travel time by 27.4 % against S0. A-04 judges the longest pedestrian curb wait against
+the 90 s target: at most 88.0 s in every run (per-run values in
+[docs/evaluation.md](docs/evaluation.md)). The guard never had to override a controller's
+request (0 interventions), but it was not idle: its pedestrian shield refused a
+preemption hop or cut a hold 8 times in the main S2 runs and 50 times in the probe S2
+runs (`ped_yield`). Verdicts: A-03 3 of 4 controllers, A-04 PASS, A-05 PASS. The 13.3
+hidden-degradation flag fires for every scenario (S1, S2 and S2_noP in the main family,
+S2 and S2_noP in the probe family): the person-weighted delay improves significantly
+while some car arm, bus flow or crossing is more than 5 % worse than S0 (see
+[Equity](#equity-spec-133)). Every table (KPIs per user, all pairs, equity, acceptance,
+guard and controller activity) is in the generated page
+[docs/evaluation.md](docs/evaluation.md).
 
 **Provisional until the field visit.** Like S0 vs S1, every Part 4 result is provisional:
 it rests on the ASSUMED signal program (cycle 123 s), and of the three checks of spec 13.4
@@ -637,45 +641,47 @@ any S2 run on the evaluation seeds (6 dated changes since, recorded in
 
 ### S0 vs S1 vs S2 (spec 13.3)
 
-<!-- REGENERATE: Part 4 numbers -->
 Main family, mean ± sd over seeds 1-10, times in seconds. Change and p against S0; p is
 Holm-adjusted within each pair for the 7 headline KPIs and unadjusted (two-sided) for the
-last two rows, which are secondary.
+last three rows, which are secondary.
 
 | User | KPI | S0 fixed | S1 actuated | S2 rules | S1 vs S0 | S2 vs S0 |
 | --- | --- | --- | --- | --- | --- | --- |
-| Car | mean time loss | 75.9 ± 12.9 | 65.8 ± 11.3 | 56.0 ± 7.2 | -13.3 %, p 0.0137 | -26.2 %, p 0.0137 |
-| Car | wait p95 | 164.5 ± 26.3 | 140.0 ± 22.7 | 110.5 ± 20.0 | -14.9 %, p 0.0137 | -32.8 %, p 0.0137 |
-| Bus | mean delay | 61.0 ± 1.1 | 62.6 ± 2.6 | 55.3 ± 4.9 | +2.5 %, p 0.1484 | -9.3 %, p 0.0820 |
-| Bus | headway std | 23.4 ± 0.3 | 21.6 ± 3.4 | 23.3 ± 4.2 | -7.9 %, p 0.2520 | -0.4 %, p 1.0000 |
-| Pedestrian | mean wait (time lost) | 21.8 ± 0.7 | 22.2 ± 0.7 | 22.0 ± 0.6 | +1.6 %, p 0.5508 | +0.9 %, p 1.0000 |
+| Car | mean time loss | 75.9 ± 12.9 | 65.8 ± 11.3 | 56.6 ± 7.2 | -13.3 %, p 0.0137 | -25.4 %, p 0.0137 |
+| Car | wait p95 | 164.5 ± 26.3 | 140.0 ± 22.7 | 111.6 ± 19.9 | -14.9 %, p 0.0137 | -32.1 %, p 0.0137 |
+| Bus | mean delay | 61.0 ± 1.1 | 62.6 ± 2.6 | 56.1 ± 4.0 | +2.5 %, p 0.1484 | -8.0 %, p 0.0293 |
+| Bus | headway std | 23.4 ± 0.3 | 21.6 ± 3.4 | 23.3 ± 3.2 | -7.9 %, p 0.2520 | -0.4 %, p 0.9219 |
+| Pedestrian | mean wait (time lost) | 21.8 ± 0.7 | 22.2 ± 0.7 | 22.3 ± 0.8 | +1.6 %, p 0.5508 | +2.4 %, p 0.2617 |
 | Pedestrian | longest single wait | 85.6 ± 0.5 | 87.3 ± 0.5 | 88.0 ± 0.0 | +2.0 %, p 0.0137 | +2.8 %, p 0.0137 |
-| Ambulance | time loss | 109.2 ± 52.5 | 112.5 ± 48.7 | 76.3 ± 41.9 | +3.1 %, p 0.9219 | -30.1 %, p 0.0234 |
-| Ambulance | travel time from planned departure (A-05) | 152.2 ± 60.9 | 149.1 ± 55.3 | 110.1 ± 44.0 | -2.0 %, p 0.9219 | -27.7 %, p 0.0039 |
-| All | person-weighted delay | 63.6 ± 14.5 | 57.1 ± 9.4 | 48.3 ± 4.6 | -10.1 %, p 0.0020 | -24.0 %, p 0.0020 |
+| Ambulance | time loss | 109.2 ± 52.5 | 112.5 ± 48.7 | 76.7 ± 41.6 | +3.1 %, p 0.9219 | -29.7 %, p 0.0234 |
+| Pedestrian | longest curb wait (A-04) | 85.6 ± 0.5 | 87.4 ± 0.5 | 88.0 ± 0.0 | +2.1 %, p 0.0020 | +2.8 %, p 0.0020 |
+| Ambulance | travel time from planned departure (A-05) | 152.2 ± 60.9 | 149.1 ± 55.3 | 110.5 ± 43.7 | -2.0 %, p 0.9219 | -27.4 %, p 0.0039 |
+| All | person-weighted delay | 63.6 ± 14.5 | 57.1 ± 9.4 | 48.9 ± 4.4 | -10.1 %, p 0.0020 | -23.1 %, p 0.0020 |
 
-- **S2 vs S0.** Car time loss and car wait p95 fall by 26.2 % and 32.8 %, and the
-  ambulance time loss by 30.1 % (all significant after Holm). Bus delay falls by 9.3 %
-  (p 0.0273, not significant after Holm). Bus headway std and the mean pedestrian wait do
-  not change. The longest single pedestrian wait rises from 85.6 to 88.0 s; the curb wait
-  that A-04 judges is in [docs/evaluation.md](docs/evaluation.md).
-- **S1 vs S2** (Holm within that pair). S2 is better on car time loss (-15.0 %, p 0.0137),
-  car wait p95 (-21.0 %, p 0.0137), bus delay (-11.6 %, p 0.0488) and ambulance time loss
-  (-32.2 %, p 0.0488). It is worse on the longest single pedestrian wait (87.3 to 88.0 s,
-  p 0.0488). Bus headway std is 8.2 % worse (21.6 to 23.3 s, p 0.5508), the one headline
+- **S2 vs S0.** Car time loss and car wait p95 fall by 25.4 % and 32.1 %, bus delay by
+  8.0 % and the ambulance time loss by 29.7 % (all significant after Holm). Bus headway
+  std and the mean pedestrian wait show no significant change. The longest single
+  pedestrian wait rises from 85.6 to 88.0 s (significant), and so does the longest curb
+  wait that A-04 judges (85.6 to 88.0 s, p 0.0020), on θ = 88 s in every S2 run.
+- **S1 vs S2** (Holm within that pair). S2 is better on car time loss (-14.0 %, p 0.0137),
+  car wait p95 (-20.2 %, p 0.0137), bus delay (-10.3 %, p 0.0488) and ambulance time loss
+  (-31.8 %, p 0.0488). It is worse on the longest single pedestrian wait (87.3 to 88.0 s,
+  p 0.0488). Bus headway std is 8.1 % worse (21.6 to 23.3 s, p 0.4648), the one headline
   equity flag of the pair.
 - **S0 vs S1** reproduces the [Part 3 comparison](#s0-vs-s1-spec-133) exactly (the 35
   Part 3 KPI rows of every run are identical).
-- **S2_noP vs S2** (ablation, main family). Only the ambulance changes: time loss 100.2 to
-  76.3 s (-23.8 %, p 0.0273 after Holm). The car, bus and pedestrian headline KPIs move by
-  4 % or less, none significant: with one ambulance in 2 h the cost of preemption to other
-  users is not visible here (see the probe family below).
+- **S2_noP vs S2** (ablation, main family). Only the ambulance changes: time loss 100.6 to
+  76.7 s (-23.7 %, p 0.0273 after Holm), travel time from planned departure 134.4 to
+  110.5 s (-17.8 %, p 0.0039). The car, bus and pedestrian headline KPIs move by 2 % or
+  less, none significant, and the person-weighted delay does not change (-0.1 %,
+  p 0.9219): with one ambulance in 2 h the cost of preemption to other users is not
+  visible here (see the probe family below).
 - **Activity**, totals over the 10 S2 runs: 10 preemption requests, 10 served, 0 time-outs,
   260 s held on the target, 8 preemption hops refused by the pedestrian shield
   (`ped_yield`: 3 holds on the target cut, 5 jumps to the target replaced by the next
-  stage; the probe S2 runs: 44, 16 and 28). The
-  controller left a green 153 times for pedestrians (`ped_protect`), the box rule ended 55
-  greens, and TSP extended 165 greens by 553 s in total for 940 bus calls. The guard made
+  stage; the probe S2 runs: 50, 20 and 30). The
+  controller left a green 168 times for pedestrians (`ped_protect`), the box rule ended 62
+  greens, and TSP extended 166 greens by 554 s in total for 940 bus calls. The guard made
   0 interventions (overrides of a controller's request) in every run of every scenario.
 
 ![KPIs per user, S0, S1 and S2](docs/figures/pitie/eval/kpi_by_user.png)
@@ -686,58 +692,66 @@ last two rows, which are secondary.
 
 ### Acceptance: A-03, A-04, A-05
 
-<!-- REGENERATE: Part 4 numbers -->
 - **A-03: 3 of 4.** fixed, actuated and rules ran on one scenario per family with the same
-  72 KPIs; RL comes in Parts 6-7.
+  83 KPIs; RL comes in Parts 6-7.
 - **A-04: PASS** over the 70 runs of both families: 0 collisions, 0 teleports, 0 danger
-  audit counts and 0 guard interventions. The worst pedestrian curb wait per scenario
-  (and the single wait next to it) is in [docs/evaluation.md](docs/evaluation.md),
+  audit counts and 0 guard interventions. Worst pedestrian curb wait per scenario, against
+  the 90 s bound: S0 86 s, S1 88 s, S2 88 s, S2_noP 88 s; probe S0 86 s, probe S2 88 s,
+  probe S2_noP 88 s. The worst single wait (reported, no longer judged) is the same in
+  every scenario. Per-seed values: `a04.csv` and [docs/evaluation.md](docs/evaluation.md),
   section 10. The 2 out-of-order greens (information) are the 2 preemption jumps of the
   probe S2 runs.
 - **A-05: PASS.** S2 vs S0, ambulance travel time from its planned departure, main family,
-  n = 10: mean 152.2 to 110.1 s, Hodges-Lehmann -36.0 s [-69.5, -14.0], exact one-sided
+  n = 10: mean 152.2 to 110.5 s, Hodges-Lehmann -36.5 s [-70.0, -14.0], exact one-sided
   p 0.0020 (smallest possible 0.0010). 9 of 10 seeds are lower (seed 5: +2 s). The effect
   is smaller than the -60 to -90 s expected from the 7-ambulance prototype runs on the
-  calibration seeds. Also reported: in-network travel time 142.2 to 109.3 s (p 0.0078),
-  stop duration 60.9 to 34.35 s (p 0.0039), stops 1.3 to 1.2 (p 1.0).
-- **Attribution (probe family, 7 ambulances per run, secondary).** S2 vs S2_noP: 106.7 to
-  86.9 s, Hodges-Lehmann -18.4 s [-33.7, -7.6], one-sided p 0.0049. S2 vs S0: 179.8 to
-  86.9 s, -86.8 s [-125.4, -70.6], p 0.0010. Over 70 requests, 70 were served and none
+  calibration seeds. Also reported: in-network travel time 142.2 to 109.7 s (p 0.0078),
+  stop duration 60.9 to 34.75 s (p 0.0039), stops 1.3 to 1.2 (p 1.0).
+- **Attribution (probe family, 7 ambulances per run, secondary).** S2 vs S2_noP: 106.0 to
+  87.0 s, Hodges-Lehmann -15.8 s [-33.8, -7.0], one-sided p 0.0010. S2 vs S0: 179.8 to
+  87.0 s, -83.1 s [-135.3, -67.0], p 0.0010. Over 70 requests, 70 were served and none
   timed out. The cost to the other users of 7 preemptions in 2 h (S2 vs S2_noP): car time
-  loss +6.2 %, car wait p95 +10.2 % and bus delay +6.5 % (p 0.0684 after Holm each, not
-  significant), person-weighted delay +5.5 % (p 0.0020). With that cost the probe S2 bus
-  delay is only 1.2 % under S0 (p 1.0 after Holm).
+  loss +4.6 % (p 0.0234 after Holm, significant), car wait p95 +5.6 % (p 0.3125 after
+  Holm, an equity flag) and bus delay +2.6 % (p 1.0 after Holm), person-weighted delay
+  +3.1 % (p 0.0645). With that cost the probe S2 bus delay is 3.4 % under S0 (p 0.8262
+  after Holm), against 8.0 % in the main family.
 
 ![Ambulance travel time](docs/figures/pitie/eval/a05_ambulance.png)
 *Ambulance travel time from its planned departure per seed: main family S0 to S2 (left), probe family S0, S2_noP and S2 (right, mean of the run's 7 ambulances).*
 
 ### Equity (spec 13.3)
 
-<!-- REGENERATE: Part 4 numbers -->
 The person-weighted delay is significantly lower than S0 for every scenario (S1 -10.1 %,
-S2 -24.0 %, S2_noP -23.9 %, probe S2 -20.1 %, probe S2_noP -24.3 %, all p 0.0020; the
-same with a bus occupancy of 20 or 30), while some subgroup is more than 5 % worse. So the
-13.3 hidden-degradation flag fires for every scenario. No primary KPI is flagged; the
-flagged subgroups are:
+S2 -23.1 %, S2_noP -23.0 %, probe S2 -20.9 %, probe S2_noP -23.2 %, all p 0.0020; the
+same with a bus occupancy of 20 or 30), while some subgroup KPI is more than 5 % worse.
+So the 13.3 hidden-degradation flag fires for every scenario: main S1, main S2, main
+S2_noP, probe S2 and probe S2_noP. No primary KPI is flagged (car time loss, bus delay,
+longest curb wait and ambulance travel time are each better or less than 5 % worse). The
+flag needs only the 5 % threshold, not significance; the subgroup KPIs that trigger it
+are:
 
 | Scenario | Flagged subgroup KPIs (change vs S0, unadjusted p) |
 | --- | --- |
-| S1 | bus flows 24_W +17.3 % (p 0.0273) and 57_N +25.0 % (p 0.0020); mean single wait at crossings NB +6.5 % (p 0.1641), WB +5.5 % (p 0.0488), W +6.3 % (p 0.0195) |
-| S2 | car delay of arm S +8.0 % (44.1 to 47.7 s, p 0.0273); bus flow 57_N +12.3 % (p 0.0645); mean single wait at crossing NB +5.3 % (8.63 to 9.09 s, p 0.1055) |
-| S2_noP | car arm S +12.5 % (p 0.0059); bus flow 57_N +11.9 % (p 0.0137); crossing NB +6.8 % (p 0.1055) |
-| probe S2 | car arm S +12.0 % (p 0.0020); bus flows 24_W +15.8 % (p 0.0195) and 57_N +19.4 % (p 0.0020) |
-| probe S2_noP | car arm S +12.4 % (p 0.0039); bus flow 57_N +16.8 % (p 0.0039); crossings WB +6.3 % (p 0.1934) and W +6.3 % (p 0.0137) |
+| S1 | bus flows 24_W +17.3 % (49.1 to 57.6 s, p 0.0273) and 57_N +25.0 % (53.5 to 66.9 s, p 0.0020); mean curb wait at crossings NB +5.6 % (p 0.1602), WB +5.8 % (p 0.0488), W +6.2 % (29.1 to 30.9 s, p 0.0195) |
+| S2 | car delay of arm S +9.8 % (44.1 to 48.4 s, p 0.0020); bus flow 57_N +11.8 % (53.5 to 59.9 s, p 0.0645); mean curb wait at crossings WB +5.9 % (7.00 to 7.42 s, p 0.3223) and W +6.0 % (29.1 to 30.9 s, p 0.0371) |
+| S2_noP | car delay of arm S +11.4 % (44.1 to 49.2 s, p 0.0059); bus flow 57_N +16.8 % (53.5 to 62.6 s, p 0.0371) |
+| probe S2 | car delay of arm S +10.6 % (43.5 to 48.1 s, p 0.0020); bus flows 24_W +19.8 % (p 0.0645) and 57_N +15.3 % (p 0.0371); mean curb wait at crossings NB +5.6 % (p 0.0488), WB +6.1 % (p 0.2324), W +5.2 % (p 0.0840) |
+| probe S2_noP | car delay of arm S +12.2 % (43.5 to 48.8 s, p 0.0020); bus flow 57_N +16.8 % (p 0.0039); mean curb wait at crossings WB +5.8 % (p 0.2754) and W +7.5 % (29.1 to 31.3 s, p 0.0020) |
 
-Other S2 KPIs (main family) more than 5 % worse than S0: line 57 headway std +20.9 %
-(p 0.0645); the longest single wait at crossings NB (40.9 to 45.6 s, worst seed 55 s) and
-WB (40.9 to 44.0 s, worst seed 50 s), both p 0.0039; seconds with a blocked exit while a
-link feeding it is green, 1.8 to 9.6 s per run (p 0.0020); green onsets against a vehicle
-halted in the box, 2.4 to 3.0 per run (p 0.6367); bus insertion delay, mean +17.8 %
-(p 0.0156) and max 3 to 5 s (p 0.0312); pedestrian `ped_wait_max` (walk time loss, which
-can add several waits) 89.6 to 95.2 s (p 0.0020); A-04 judges the curb wait instead
-(`ped_curb_wait_max`, docs/evaluation.md). The pre-stated risk on the NB and WB crossings partly materialised: the
-bus extension lengthens their reds, the NB mean wait is flagged and both maxima rise,
-far under 90 s. These are reported, not tuned away.
+The car arm S and bus flow 57_N are flagged in every S2 and S2_noP scenario, the arm S
+delay significantly each time. Other S2 KPIs (main family) more than 5 % worse than S0:
+line 57 headway std +18.1 % (23.4 to 27.7 s, p 0.0488); the mean single wait at
+crossings NB, WB and W (+5.6 to +6.3 %); the longest curb wait at crossings NB (41.2 to
+45.9 s, worst seed 55 s, p 0.0117) and WB (40.9 to 45.2 s, worst seed 51 s, p 0.0039),
+and the longest single wait there (NB 40.9 to 45.3 s, WB 40.9 to 44.8 s); seconds with a
+blocked exit, 24.5 to 26.7 s per run (p 0.3555), and while a link feeding it is green,
+1.8 to 10.8 s per run (p 0.0020); bus insertion delay, mean +17.1 % (p 0.0156) and max 3.0
+to 5.2 s (p 0.0156). Pedestrian `ped_wait_max` (walk time loss, which can add several
+waits) rises from 89.6 to 93.6 s (+4.5 %, p 0.0020), under the 5 % flag; A-04 judges the
+curb wait instead (`ped_curb_wait_max`, docs/evaluation.md). The pre-stated risk on the
+NB and WB crossings partly materialised: the bus extension lengthens their reds, the WB
+mean curb wait is flagged and both maxima rise, far under 90 s. These are reported, not
+tuned away.
 
 ![Equity heatmap](docs/figures/pitie/eval/equity_heatmap.png)
 *Change against S0 per user and subgroup, per scenario and family: blue better, red worse, `*` p < 0.05 (two-sided, unadjusted), `!` flagged more than 5 % worse.*
@@ -781,14 +795,14 @@ per family, and `a05.json`, `summary.json`, `provenance.json`.
 
 **Provenance.** Every run records the git version it was made from, and the generated
 pages print it. A run made from an uncommitted tree records `<sha>-dirty`, which no commit
-can reproduce. The evaluation runs were made before the Part 4 commit (Q12: no commit
-during the work), so they carry `18c6cc6-dirty` until the re-baseline. After the commit,
-`tasks.py rebaseline` re-makes the 70 runs from the committed tree with the same configs
-and seeds, the same way the Part 3 pages were re-baselined in commit 18c6cc6. This is a
-reproducibility check, not a retune: the outputs are deterministic, and the task fails
-unless every KPI row and run summary is identical. The regenerated pages then name the
-commit, and `tasks.py provenance` (also a test in `tests/test_docs.py` on a clean
-checkout) refuses a published page that names an uncommitted tree.
+can reproduce. The evaluation runs were first made from uncommitted trees (Q12: no commit
+during the work), 50 of them recording `bbad58d-dirty`. `tasks.py rebaseline` re-made the
+70 runs from the committed tree (f43a57d) with the same configs and seeds, the same way the
+Part 3 pages were re-baselined in commit 18c6cc6. This is a reproducibility check, not a
+retune: the outputs are deterministic, and the task fails unless every KPI row and run
+summary is identical. `docs/validation.md` and `docs/evaluation.md` now name f43a57d, and
+`tasks.py provenance` (also a test in `tests/test_docs.py` on a clean checkout) refuses a
+published page that names an uncommitted tree.
 
 ## Testing and CI
 
