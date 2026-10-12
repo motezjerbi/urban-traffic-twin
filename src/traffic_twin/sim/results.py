@@ -250,7 +250,9 @@ def code_version() -> str:
     """Git short hash of HEAD in the working directory (the repo root), with `-dirty`
     appended when the tree differs from that commit: a modified, staged, deleted or new
     untracked file (ignored files such as data/results do not count). A run made from an
-    uncommitted tree is then not credited to a commit that cannot reproduce it.
+    uncommitted tree is then not credited to a commit that cannot reproduce it. Files
+    under docs/ (generated pages, figures and prose) cannot change a run and do not
+    count, so regenerating the pages mid-way does not mark later runs dirty.
     "unknown" when git or the repository is not available."""
     git = ["git", "--no-optional-locks"]  # read-only: never takes .git/index.lock
     try:
@@ -258,7 +260,15 @@ def code_version() -> str:
             [*git, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
         ).stdout.strip()
         status = subprocess.run(
-            [*git, "status", "--porcelain", "--untracked-files=normal"],
+            [
+                *git,
+                "status",
+                "--porcelain",
+                "--untracked-files=normal",
+                "--",
+                ".",
+                ":(exclude)docs",
+            ],
             capture_output=True,
             text=True,
             check=True,

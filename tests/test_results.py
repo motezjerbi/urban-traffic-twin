@@ -128,6 +128,10 @@ def test_code_version_of_a_real_repo(tmp_path, monkeypatch):
     assert code_version() == head
     (tmp_path / "b.py").write_text("y = 1\n", encoding="utf-8")
     assert code_version() == f"{head}-dirty"
+    (tmp_path / "b.py").unlink()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "page.md").write_text("generated\n", encoding="utf-8")
+    assert code_version() == head  # generated pages cannot change a run
 
 
 @pytest.mark.parametrize("error", [OSError("no git"), subprocess.CalledProcessError(128, ["git"])])

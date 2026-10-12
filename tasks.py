@@ -110,7 +110,8 @@ def _run_dirs(results: Path) -> list[str]:
 # -- provenance of the published Pitié runs ------------------------------------------------
 def git_head() -> tuple[str, bool]:
     """(short HEAD hash, tree has uncommitted changes), computed as
-    `sim.results.code_version` does (ignored files such as data/results do not count)."""
+    `sim.results.code_version` does (ignored files such as data/results and files under
+    docs/ do not count)."""
     git = ["git", "--no-optional-locks"]
     try:
         head = subprocess.run(
@@ -118,7 +119,8 @@ def git_head() -> tuple[str, bool]:
             cwd=ROOT, capture_output=True, text=True, check=True,
         ).stdout.strip()  # fmt: skip
         status = subprocess.run(
-            [*git, "status", "--porcelain", "--untracked-files=normal"],
+            [*git, "status", "--porcelain", "--untracked-files=normal", "--", ".",
+             ":(exclude)docs"],
             cwd=ROOT, capture_output=True, text=True, check=True,
         ).stdout  # fmt: skip
     except (OSError, subprocess.CalledProcessError) as exc:
