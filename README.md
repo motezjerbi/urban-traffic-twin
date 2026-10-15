@@ -438,9 +438,14 @@ The checklist is [docs/field_protocol.md](docs/field_protocol.md); results go in
 `data/field/pitie_measurements.yaml`. That file is an empty template: a null value is
 NOT_MEASURED, and no estimate is ever typed into it.
 
-- **When:** Tue 13, Wed 14 or Thu 15 Oct 2026, 07:30-09:30, before the Toussaint holidays
-  (17 Oct to 1 Nov). Otherwise Tue 3, Wed 4 or Thu 5 Nov 2026 (Wed 11 Nov is a public
-  holiday).
+- **When:** planned for Tue 3, Wed 4 or Thu 5 Nov 2026, 07:30-09:30, the first typical
+  school-term days after the Toussaint holidays (the October window was not used; Wed 11 Nov
+  is a public holiday).
+- **Sheets:** `tasks.py field-sheets` prints the field kit to
+  [docs/field/pitie_field_sheets.pdf](docs/field/pitie_field_sheets.pdf): checklist and
+  schedule, a site map drawn from the model network, timing sheets for 10 cycles, 15-min
+  counting grids, queue, lane-use, bus-dwell sheets and a sheet-to-YAML guide. Every name on
+  it comes from the scenario config, so the columns match `pitie_measurements.yaml`.
 - **Within a week after:** download the sensor data again (the dataset is rolling) to get
   the same-day values of arcs 508, 511 and 513. The 08:00-09:00 video count should match the
   sensor value stamped 09:00, which confirms the end-of-hour convention. The download covers

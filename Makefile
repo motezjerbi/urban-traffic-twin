@@ -23,7 +23,7 @@ BASELINE ?= configs/pitie_fixed.yaml
 CALIB_SEEDS ?=
 
 .PHONY: install data explore score db-load net demand sim sim-gui db-runs plots baseline
-.PHONY: osm tls-check calib-data field-check calibrate compare validate plots-pitie part3
+.PHONY: osm tls-check calib-data field-check field-sheets calibrate compare validate plots-pitie part3
 .PHONY: evaluate plots-eval part4 provenance rebaseline
 .PHONY: lint format test test-fast check train eval app
 
@@ -89,6 +89,10 @@ calib-data:
 
 field-check:
 	$(PY) -m traffic_twin.validation.field --check --scenario $(P3_S0)
+
+## Printable field-visit sheets (docs/field/pitie_field_sheets.pdf)
+field-sheets:
+	$(PY) -m traffic_twin.validation.field_sheets --scenario $(P3_S0)
 
 ## Simulation-in-the-loop demand scaling (CALIB_SEEDS, else the calibration seeds)
 calibrate:

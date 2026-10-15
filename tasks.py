@@ -305,6 +305,10 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
         "Pitie: check the field measurement file",
         lambda o: [_m("traffic_twin.validation.field", "--check", "--scenario", _s0(o))],
     ),
+    "field-sheets": (
+        "Pitie: printable field-visit sheets (docs/field/pitie_field_sheets.pdf)",
+        lambda o: [_m("traffic_twin.validation.field_sheets", "--scenario", _s0(o))],
+    ),
     "calibrate": (
         "Pitie: simulation-in-the-loop demand scaling (--seeds, else calibration seeds)",
         lambda o: [

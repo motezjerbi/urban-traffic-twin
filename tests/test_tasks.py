@@ -177,6 +177,13 @@ def test_part3_tasks_default_to_pitie(tasks):
     }  # fmt: skip
 
 
+def test_field_sheets_task(tasks):
+    (cmd,) = commands(tasks, "field-sheets")
+    assert cmd[2:] == ["traffic_twin.validation.field_sheets", "--scenario", S0]
+    (cmd,) = commands(tasks, "field-sheets", "--scenario", "x.yaml")
+    assert cmd[-1] == "x.yaml"
+
+
 def test_part3_tasks_take_the_scenario(tasks):
     for name in ("osm", "tls-check", "field-check", "calibrate", "validate"):
         (cmd,) = commands(tasks, name, "--scenario", "x.yaml")

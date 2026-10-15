@@ -9,8 +9,8 @@ and turning counts. Results go into `data/field/pitie_measurements.yaml`, then i
 ## When
 
 - A typical morning: **Tuesday, Wednesday or Thursday in school term, 07:30-09:30**.
-  - Before Toussaint: Tue 13, Wed 14 or Thu 15 Oct 2026 (holidays 17 Oct-1 Nov).
-  - Otherwise from Tue 3 Nov 2026 (Wed 11 Nov is a public holiday).
+  - Planned: Tue 3, Wed 4 or Thu 5 Nov 2026, after the Toussaint holidays (17 Oct-1 Nov;
+    the October window was not used). Wed 11 Nov is a public holiday.
 - Within a week after the visit, re-download the sensor data (the dataset is rolling)
   so the same-day values of arcs 508, 511 and 513 exist. The 08:00-09:00 video count
   should match the sensor value stamped 09:00 (stamps mark the END of the hour).
@@ -21,6 +21,10 @@ and turning counts. Results go into `data/field/pitie_measurements.yaml`, then i
   never mixed into the demand.
 
 ## Equipment and set-up
+
+- Print the field kit: `tasks.py field-sheets` writes `docs/field/pitie_field_sheets.pdf`
+  (12 A4 pages: checklist and schedule, site map, timing sheets, counting grids, queues,
+  lane use, bus dwell, sheet-to-YAML guide). Bring a second copy of the timing pages.
 
 - One or two phones on small tripods, filming the stop lines and the signal heads.
   Note each camera's position and what it sees (`sessions[].positions`, `video`).
