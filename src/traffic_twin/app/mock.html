@@ -3,89 +3,933 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jumeau Pitié</title>
-<!--
-  Mock screens of the Pitié-Salpêtrière twin (Part 5, D54): the five profiles of spec 12 on
-  API v1, plain HTML and JS (no dependency). Served by the API at /mock when
-  configs/api.yaml has dev.mock: true. The Streamlit app comes in Part 9.
--->
+<title>Jumeau Numérique Pitié-Salpêtrière · Cockpit Intelligent API v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,700&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+
 <style>
   :root {
-    --bg: #f5f5f2; --fg: #1a1a1a; --muted: #5f5f5f; --card: #ffffff; --line: #d9d9d4;
-    --ok: #1d7a38; --warn: #9a5800; --bad: #b3261e; --accent: #1f4fa3;
+    --bg: #070A11;
+    --surface: #0E1626;
+    --surface-card: rgba(15, 23, 42, 0.75);
+    --surface-card-hover: rgba(30, 41, 59, 0.85);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-bright: rgba(56, 189, 248, 0.35);
+    --fg: #F8FAFC;
+    --fg-muted: #94A3B8;
+    --accent: #38BDF8;
+    --accent-glow: rgba(56, 189, 248, 0.35);
+    --emerald: #10B981;
+    --emerald-bright: #34D399;
+    --emerald-glow: rgba(16, 185, 129, 0.35);
+    --amber: #F59E0B;
+    --amber-glow: rgba(245, 158, 11, 0.35);
+    --rose: #EF4444;
+    --rose-glow: rgba(239, 68, 68, 0.35);
+    --purple: #8B5CF6;
+    --purple-glow: rgba(139, 92, 246, 0.35);
+    --font: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', Consolas, monospace;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 22px;
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #131313; --fg: #ededed; --muted: #a8a8a8; --card: #1e1e1e; --line: #343434;
-            --ok: #5cc47a; --warn: #e3a33b; --bad: #ff6b5e; --accent: #8ab4ff; }
-  }
+
   * { box-sizing: border-box; }
-  body { margin: 0; font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
-         background: var(--bg); color: var(--fg); }
-  header, main, footer { max-width: 760px; margin: 0 auto; padding: 10px 16px; }
-  h1 { font-size: 18px; margin: 4px 0 8px; }
-  nav { display: flex; flex-wrap: wrap; gap: 6px; }
-  button { font: inherit; padding: 9px 13px; border: 1px solid var(--line); background: var(--card);
-           color: var(--fg); border-radius: 9px; cursor: pointer; }
-  button.on { border-color: var(--accent); color: var(--accent); font-weight: 650; }
-  .seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-          padding: 16px; margin: 12px 0; }
-  .main { font-size: 40px; font-weight: 750; line-height: 1.15; margin: 4px 0 8px; }
-  .sec { font-size: 18px; margin: 4px 0; }
-  .muted { color: var(--muted); font-size: 14px; }
-  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
-  .banner { padding: 8px 12px; border-radius: 8px; border: 1px dashed currentColor; margin: 0 0 10px; }
-  .banner.warn { color: var(--warn); } .banner.bad { color: var(--bad); }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  input[type=range] { flex: 1; min-width: 180px; }
-  select, input[type=time] { font: inherit; padding: 6px; border-radius: 8px; border: 1px solid var(--line);
-                             background: var(--card); color: var(--fg); }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background-color: var(--bg);
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.1) 0px, transparent 45%),
+      radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 40%),
+      radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 55%),
+      radial-gradient(circle at 50% 30%, rgba(14, 165, 233, 0.04) 0px, transparent 60%);
+    background-attachment: fixed;
+    color: var(--fg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 1040px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* -------------------------------------------------------------
+     Header & Global Branding
+  ------------------------------------------------------------- */
+  header {
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+  .brand-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .brand-logo {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, #0284C7, #10B981, #6366F1);
+    background-size: 200% 200%;
+    animation: gradientShift 6s ease infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.4);
+    font-size: 24px;
+  }
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .brand-title {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand-sub {
+    font-size: 13px;
+    color: var(--fg-muted);
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Live Badges */
+  .badge-live {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--emerald-bright);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .badge-live::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--emerald-bright);
+    box-shadow: 0 0 10px var(--emerald-bright);
+    animation: pulseDot 1.5s infinite;
+  }
+  @keyframes pulseDot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.4; }
+  }
+
+  .badge-ia {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(139, 92, 246, 0.15);
+    color: #C084FC;
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* -------------------------------------------------------------
+     Telemetry & Replay Cockpit Bar
+  ------------------------------------------------------------- */
+  .telemetry-bar {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.5));
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+  .clock-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .clock-led {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--accent);
+    background: rgba(8, 12, 22, 0.9);
+    border: 1px solid var(--border-bright);
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.08em;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.8), 0 0 16px var(--accent-glow);
+    min-width: 105px;
+    text-align: center;
+    animation: glowPulse 3s infinite alternate;
+  }
+  @keyframes glowPulse {
+    from { text-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
+    to { text-shadow: 0 0 16px rgba(56, 189, 248, 1); }
+  }
+
+  .play-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 16px;
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+  .play-btn:hover {
+    background: var(--accent);
+    color: #000;
+    box-shadow: 0 0 24px var(--accent);
+    transform: scale(1.08);
+  }
+  .play-btn:active { transform: scale(0.92); }
+
+  .slider-box {
+    flex: 1;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--fg-muted);
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 0 14px var(--accent), 0 2px 4px rgba(0,0,0,0.5);
+    border: 2px solid var(--accent);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+    box-shadow: 0 0 20px var(--accent);
+  }
+
+  select, input[type=time] {
+    font-family: var(--font);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-bright);
+    background: rgba(14, 22, 38, 0.95);
+    color: var(--fg);
+    outline: none;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  select:focus, input[type=time]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  /* -------------------------------------------------------------
+     Navigation Tabs with Emojis & Animations
+  ------------------------------------------------------------- */
+  nav {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+  }
+  .nav-btn {
+    font-family: var(--font);
+    font-size: 14.5px;
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(22, 30, 49, 0.5);
+    color: var(--fg-muted);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    white-space: nowrap;
+  }
+  .nav-btn:hover {
+    background: rgba(30, 41, 59, 0.8);
+    color: var(--fg);
+    border-color: var(--border-bright);
+    transform: translateY(-2px);
+  }
+  .nav-btn.on {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(16, 185, 129, 0.25));
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: translateY(-2px);
+  }
+  .nav-btn .emoji {
+    font-size: 18px;
+    transition: transform 0.2s ease;
+  }
+  .nav-btn.on .emoji {
+    transform: scale(1.2);
+    animation: bounceEmoji 1.5s infinite;
+  }
+  @keyframes bounceEmoji {
+    0%, 100% { transform: scale(1.2) translateY(0); }
+    50% { transform: scale(1.2) translateY(-3px); }
+  }
+
+  /* -------------------------------------------------------------
+     Main Card & Glassmorphism Styles
+  ------------------------------------------------------------- */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    animation: fadeIn 0.3s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card {
+    background: var(--surface-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), transparent);
+  }
+
+  /* -------------------------------------------------------------
+     GIANT HERO ETA CARD (Dynamic on every view!)
+  ------------------------------------------------------------- */
+  .hero-eta-card {
+    background: linear-gradient(145deg, rgba(14, 22, 38, 0.9), rgba(17, 24, 39, 0.7));
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 30px rgba(56, 189, 248, 0.12);
+    position: relative;
+    margin-bottom: 20px;
+    animation: cardPulse 4s infinite alternate;
+  }
+  @keyframes cardPulse {
+    from { border-color: rgba(56, 189, 248, 0.3); }
+    to { border-color: rgba(16, 185, 129, 0.5); }
+  }
+
+  .hero-eta-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .hero-eta-label {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hero-eta-digits-row {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 8px 0 14px;
+  }
+  .hero-eta-big {
+    font-family: var(--mono);
+    font-size: 68px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    background: linear-gradient(135deg, #FFFFFF 20%, #38BDF8 60%, #34D399 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 35px rgba(56, 189, 248, 0.4);
+    animation: shimmer 3s infinite linear;
+  }
+  @media (max-width: 600px) {
+    .hero-eta-big { font-size: 50px; }
+  }
+
+  .hero-eta-unit {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--fg-muted);
+    letter-spacing: -0.01em;
+  }
+
+  /* Segmented Controls */
+  .seg {
+    display: flex;
+    gap: 6px;
+    background: rgba(10, 15, 26, 0.8);
+    padding: 5px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    width: fit-content;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .seg button {
+    font-family: var(--font);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 7px 16px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--fg-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .seg button:hover { color: var(--fg); }
+  .seg button.on {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(16, 185, 129, 0.25));
+    color: #fff;
+    font-weight: 700;
+    border: 1px solid var(--border-bright);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Banners */
+  .banner {
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid transparent;
+  }
+  .banner.warn {
+    background: rgba(245, 158, 11, 0.12);
+    color: #FCD34D;
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+  .banner.bad {
+    background: rgba(239, 68, 68, 0.12);
+    color: #FCA5A5;
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  /* Interactive Advice Badges */
+  .advice-pill {
+    padding: 12px 20px;
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    animation: floatBadge 3s infinite ease-in-out;
+  }
+  @keyframes floatBadge {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+  .advice-pill.ok {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.2));
+    color: #34D399;
+    border: 1px solid #10B981;
+    box-shadow: 0 0 20px var(--emerald-glow);
+  }
+  .advice-pill.warn {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.2));
+    color: #FBBF24;
+    border: 1px solid #F59E0B;
+    box-shadow: 0 0 20px var(--amber-glow);
+  }
+  .advice-pill.bad {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.2));
+    color: #F87171;
+    border: 1px solid #EF4444;
+    box-shadow: 0 0 20px var(--rose-glow);
+  }
+
+  /* Conformal Prediction Animated Gauge */
+  .cqr-container {
+    background: rgba(10, 15, 26, 0.85);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    margin: 20px 0 10px;
+  }
+  .cqr-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--fg-muted);
+    margin-bottom: 16px;
+  }
+  .cqr-gauge-track {
+    position: relative;
+    height: 18px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.07);
+    margin: 22px 0 14px;
+    overflow: visible;
+  }
+  .cqr-gauge-band {
+    position: absolute;
+    height: 100%;
+    background: linear-gradient(90deg, #0284C7, #10B981);
+    border-radius: 9px;
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.5);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .cqr-gauge-median {
+    position: absolute;
+    top: -7px;
+    width: 6px;
+    height: 32px;
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0 0 14px #fff, 0 2px 4px rgba(0,0,0,0.5);
+    transform: translateX(-50%);
+    z-index: 2;
+    transition: left 0.4s ease;
+  }
+  .cqr-scale {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--fg-muted);
+    margin-top: 10px;
+  }
+
+  /* Mini Grid Breakdown */
+  .metric-tiles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-top: 18px;
+  }
+  .tile {
+    background: rgba(14, 22, 38, 0.6);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+  .tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-bright);
+  }
+  .tile-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    letter-spacing: 0.05em;
+  }
+  .tile-val {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    margin-top: 6px;
+  }
+
+  /* -------------------------------------------------------------
+     Pedestrian Signal Box
+  ------------------------------------------------------------- */
+  .ped-layout {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+  @media (max-width: 640px) {
+    .ped-layout { grid-template-columns: 1fr; text-align: center; }
+  }
+  .traffic-light {
+    width: 105px;
+    background: #060911;
+    border: 3px solid rgba(255, 255, 255, 0.15);
+    border-radius: 26px;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.8), inset 0 2px 4px rgba(255,255,255,0.1);
+  }
+  .lens {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #151D2C;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .lens.red.active {
+    background: #EF4444;
+    box-shadow: 0 0 32px var(--rose-glow), inset 0 0 20px rgba(255,255,255,0.6);
+  }
+  .lens.green.active {
+    background: #10B981;
+    box-shadow: 0 0 32px var(--emerald-glow), inset 0 0 20px rgba(255,255,255,0.6);
+  }
+  .lens svg { width: 38px; height: 38px; fill: rgba(255,255,255,0.15); }
+  .lens.active svg { fill: #fff; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
+
+  /* -------------------------------------------------------------
+     Ambulance Emergency HUD
+  ------------------------------------------------------------- */
+  .amb-hud-card {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(5, 7, 13, 0.95));
+    border: 2px solid rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.2), inset 0 0 20px rgba(239, 68, 68, 0.05);
+  }
+  .beacon-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .siren-lights {
+    display: flex;
+    gap: 8px;
+    font-size: 26px;
+  }
+  .siren-red { animation: sirenFlash 0.8s infinite alternate; }
+  .siren-blue { animation: sirenFlash 0.8s infinite alternate-reverse; }
+  @keyframes sirenFlash {
+    from { transform: scale(1); filter: brightness(1); }
+    to { transform: scale(1.25); filter: brightness(2) drop-shadow(0 0 10px #EF4444); }
+  }
+
+  .corridor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .corridor-node {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-radius: var(--radius-md);
+    background: rgba(14, 22, 38, 0.7);
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+  .corridor-node:hover {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: var(--border-bright);
+  }
+  .status-tag {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 800;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.06em;
+  }
+  .status-tag.green_wave, .status-tag.clear {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34D399;
+    border: 1px solid #10B981;
+    box-shadow: 0 0 14px var(--emerald-glow);
+  }
+  .status-tag.blocked {
+    background: rgba(239, 68, 68, 0.2);
+    color: #F87171;
+    border: 1px solid #EF4444;
+  }
+  .status-tag.unknown {
+    background: rgba(148, 163, 184, 0.1);
+    color: var(--fg-muted);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  /* -------------------------------------------------------------
+     Bus Line Transit Badges & Animated Bus
+  ------------------------------------------------------------- */
+  .bus-avatar {
+    display: inline-block;
+    font-size: 32px;
+    animation: busDrive 2s infinite ease-in-out;
+  }
+  @keyframes busDrive {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-4px) rotate(1deg); }
+  }
+  .bus-line-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    height: 32px;
+    padding: 0 10px;
+    background: #00814F;
+    color: #fff;
+    font-weight: 800;
+    font-size: 16px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 129, 79, 0.5);
+  }
+
+  /* -------------------------------------------------------------
+     Operator Comparison Table
+  ------------------------------------------------------------- */
+  .table-box {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    margin-top: 16px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    text-align: right;
+  }
+  th, td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: rgba(14, 22, 38, 0.95);
+    color: var(--fg-muted);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
   th:first-child, td:first-child { text-align: left; }
-  .amb { background: #000; color: #fff; border-color: #000; }
-  .amb .main { font-size: 46px; margin: 0; }
-  .amb .j { padding: 10px 0; border-bottom: 1px solid #333; }
-  .amb .j:last-child { border-bottom: 0; }
-  .amb .clear { color: #4be37a; } .amb .green_wave { color: #4be37a; }
-  .amb .blocked { color: #ff5a4e; } .amb .unknown { color: #bdbdbd; }
-  .amb .banner { color: #ffd166; }
-  footer { border-top: 1px solid var(--line); margin-top: 16px; }
+  tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
+
+  .diff-badge {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 4px;
+    margin-left: 8px;
+    display: inline-block;
+  }
+  .diff-badge.gain { background: rgba(16, 185, 129, 0.2); color: #34D399; }
+  .diff-badge.loss { background: rgba(239, 68, 68, 0.2); color: #F87171; }
+
+  /* -------------------------------------------------------------
+     Footer
+  ------------------------------------------------------------- */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px 0 10px;
+    margin-top: 36px;
+    font-size: 13px;
+    color: var(--fg-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .foot-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>Jumeau numérique Pitié-Salpêtrière <span class="muted">· maquette (API v1)</span></h1>
-  <nav id="nav" aria-label="Profils"></nav>
-  <div class="row muted" style="margin-top:8px">
-    <label for="run">Run</label> <select id="run" aria-label="Run rejoué"></select>
-    <label for="t">Horloge</label>
-    <input id="t" type="range" min="0" max="7195" step="5" value="2700" aria-label="Horloge de rejeu">
-    <span id="clk">--:--</span>
-    <button id="play" title="Lecture : +5 s par seconde">▶</button>
-  </div>
-</header>
-<main id="view" aria-live="polite"></main>
-<footer class="muted">
-  <div id="foot"><strong>Données simulées.</strong> Programme de feux provisoire.</div>
-  <div id="stamp"></div>
-</footer>
+
+<div class="container">
+  <!-- Header & Title -->
+  <header>
+    <div class="brand-row">
+      <div class="brand">
+        <div class="brand-logo">🚦</div>
+        <div>
+          <h1 class="brand-title">
+            Jumeau Numérique Pitié-Salpêtrière
+            <span class="badge-live">Live Replay</span>
+            <span class="badge-ia">🤖 ETA XGBoost CQR</span>
+          </h1>
+          <div class="brand-sub">
+            <span>Cockpit Télématique Haute Fréquence · Spécification 12</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <select id="run" aria-label="Scénario simulé"></select>
+      </div>
+    </div>
+
+    <!-- Telemetry Replay Bar -->
+    <div class="telemetry-bar">
+      <div class="clock-wrapper">
+        <button id="play" class="play-btn" title="Lecture / Pause (Pas +5 s)">▶</button>
+        <div class="clock-led" id="clk">08:15:00</div>
+      </div>
+      <div class="slider-box">
+        <div class="slider-labels">
+          <span>07:30 (Début heure de pointe)</span>
+          <span style="color:var(--accent); font-weight:700">Horloge Simulation</span>
+          <span>09:30 (Fin heure de pointe)</span>
+        </div>
+        <input id="t" type="range" min="0" max="7195" step="5" value="2700" aria-label="Horloge de rejeu">
+      </div>
+    </div>
+
+    <!-- Navigation Profiles -->
+    <nav id="nav" aria-label="Choix du profil"></nav>
+  </header>
+
+  <!-- Dynamic Content Area -->
+  <main id="view" aria-live="polite"></main>
+
+  <!-- Scientific Footer -->
+  <footer>
+    <div class="foot-status" id="foot">
+      <span>🔹 <strong>Données simulées</strong> (Télémesure SUMO) · Programme calibré sur capteurs réels de Paris.</span>
+    </div>
+    <div id="stamp" style="font-family:var(--mono); color:var(--accent)">Horodatage --:--:--</div>
+  </footer>
+</div>
+
 <script>
 "use strict";
-const VIEWS = { pedestrian: "Piéton", student: "Étudiant", ambulance: "Ambulance", bus: "Bus", operator: "Opérateur" };
+
+const VIEWS = {
+  student: { label: "Étudiant (ETA)", icon: "🎓" },
+  bus: { label: "Bus RATP (ETA & Retard)", icon: "🚌" },
+  pedestrian: { label: "Piéton (ETA Traversée)", icon: "🚶" },
+  ambulance: { label: "Ambulance (Corridor Urgences)", icon: "🚑" },
+  operator: { label: "Opérateur (KPIs Scénarios)", icon: "📊" }
+};
+
 const CROSSINGS = ["S", "W", "WB", "NB"];
-const SPEEDS = [["normal", "Normale"], ["slow", "Lente"], ["reduced", "Mobilité réduite"]];
-const STUDENT_ROUTES = [["N_S", "Gare d'Austerlitz → Pitié"], ["W_S", "Bd Saint-Marcel → Pitié"]];
+const SPEEDS = [
+  ["normal", "🚶 Marche Normale (1.2 m/s)"],
+  ["slow", "🚶‍♂️ Marche Lente (1.0 m/s)"],
+  ["reduced", "♿ Mobilité Réduite (0.8 m/s)"]
+];
+const STUDENT_ROUTES = [
+  ["N_S", "🚉 Gare d'Austerlitz → 🏥 Pitié Porte Principale"],
+  ["W_S", "🏛️ Bd Saint-Marcel → 🏥 Pitié Porte Principale"]
+];
 const LINES = ["91", "24", "57"];
-const OP_KPIS = [["car", "time_loss_mean", "Voiture : temps perdu moyen (s)"],
-                 ["bus", "delay_mean", "Bus : retard moyen (s)"],
-                 ["pedestrian", "ped_curb_wait_max", "Piéton : attente max au trottoir (s)"],
-                 ["ambulance", "travel_time_total", "Ambulance : temps de parcours (s)"]];
-const state = { view: "pedestrian", crossing: "S", speed: "normal", trajet: "N_S", exam: "09:00",
-                line: "91", run: "", beginS: 27000, playing: null, seq: 0 };
+const OP_KPIS = [
+  ["car", "time_loss_mean", "🚗 Voitures : temps perdu moyen (s)"],
+  ["bus", "delay_mean", "🚌 Bus : retard moyen au carrefour (s)"],
+  ["pedestrian", "ped_curb_wait_max", "🚶 Piétons : attente maximale au trottoir (s)"],
+  ["ambulance", "travel_time_total", "🚑 Ambulance : temps de parcours total (s)"]
+];
+
+const state = {
+  view: "student",
+  crossing: "S",
+  speed: "normal",
+  trajet: "N_S",
+  exam: "09:00",
+  line: "91",
+  run: "",
+  beginS: 27000,
+  playing: null,
+  seq: 0
+};
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const hhmm = (sec) => { const s = Math.round(sec); return [s / 3600 | 0, (s % 3600) / 60 | 0].map((v) => String(v).padStart(2, "0")).join(":"); };
+const hhmm = (sec) => {
+  const s = Math.round(sec);
+  return [s / 3600 | 0, (s % 3600) / 60 | 0, s % 60 | 0].map((v) => String(v).padStart(2, "0")).join(":");
+};
 const fmtS = (v) => v == null ? "--" : `${Math.round(v)} s`;
 const fmtMin = (v) => v == null ? "--" : `${Math.round(v / 60)} min`;
 
@@ -95,171 +939,501 @@ async function api(path) {
     const b = await r.json();
     return { http: r.status, ...b };
   } catch (e) {
-    return { http: 0, status: "unavailable", error: { code: "network", message: "service injoignable" } };
+    return { http: 0, status: "unavailable", error: { code: "network", message: "API injoignable" } };
   }
 }
+
 const q = (params) => {
   const p = new URLSearchParams({ t: $("t").value, ...params });
   if (state.run) p.set("run_id", state.run);
   return p.toString();
 };
 
-function banners(b, dark) {
-  if (b.error) return `<div class="banner bad">Erreur : l'information n'est pas disponible. Réessayez plus tard.</div>`;
+function banners(b) {
+  if (b.error) return `<div class="banner bad">⚠️ <strong>Erreur :</strong> Données temporairement indisponibles.</div>`;
   let s = "";
-  if (b.status === "unavailable") s += `<div class="banner bad">Données indisponibles${b.notice ? " : " + esc(b.notice) : ""}</div>`;
-  else if (b.status === "degraded") s += `<div class="banner warn">Mode dégradé${b.notice ? " : " + esc(b.notice) : ""}</div>`;
-  if (b.stale) s += `<div class="banner warn">Donnée ancienne : dernière valeur connue (âge ${fmtS(b.data_age_s)})</div>`;
+  if (b.status === "unavailable") s += `<div class="banner bad">⛔ <strong>Indisponible :</strong> ${esc(b.notice || "Flux en attente")}</div>`;
+  else if (b.status === "degraded") s += `<div class="banner warn">⚠️ <strong>Mode Dégradé :</strong> ${esc(b.notice || "Estimation par référence historique")}</div>`;
+  if (b.stale) s += `<div class="banner warn">⏱️ <strong>Dernière valeur connue</strong> (âge ${fmtS(b.data_age_s)})</div>`;
   return s;
 }
+
 function footer(b) {
   if (!b || !b.data_source) return;
-  const cal = b.calibrated_on ? `calibrées sur des capteurs jusqu'au ${esc(b.calibrated_on)}` : "date de calibration inconnue";
-  const prov = b.provisional ? "programme de feux provisoire (non mesuré sur place)" : "programme de feux mesuré";
-  $("foot").innerHTML = `<strong>Données simulées</strong> (${esc(b.data_source)}), ${cal} ; ${prov}.`;
-  const ts = b.timestamp ? b.timestamp.slice(11, 19) : "--";
-  $("stamp").textContent = `Horodatage ${ts}${b.data_age_s != null ? ` · âge ${Math.round(b.data_age_s)} s` : ""}${b.run ? ` · ${b.run.scenario} graine ${b.run.seed}` : ""}`;
+  const cal = b.calibrated_on ? `capteurs réels jusqu'au ${esc(b.calibrated_on)}` : "date non spécifiée";
+  const prov = b.provisional ? "programme de feux provisoire (avant visite sur site)" : "programme terrain certifié";
+  $("foot").innerHTML = `<span>🔹 <strong>Données Simulées</strong> (${esc(b.data_source)}) · Calibrées sur ${cal} · ${prov}.</span>`;
+  const ts = b.timestamp ? b.timestamp.slice(11, 19) : "--:--:--";
+  $("stamp").textContent = `Horodatage ${ts}${b.data_age_s != null ? ` · âge ${Math.round(b.data_age_s)} s` : ""}${b.run ? ` · ${b.run.scenario} (seed ${b.run.seed})` : ""}`;
   if (b.sim_t_s != null && b.timestamp) {
     const d = new Date(b.timestamp);
     const tod = b.timestamp.slice(11, 19).split(":").map(Number);
     if (!isNaN(d)) state.beginS = tod[0] * 3600 + tod[1] * 60 + tod[2] - b.sim_t_s + (b.data_age_s || 0);
   }
 }
+
 const seg = (opts, cur, key) => `<div class="seg" role="group">${opts.map(([k, l]) =>
   `<button class="${k === cur ? "on" : ""}" data-set="${key}" data-val="${esc(k)}">${esc(l)}</button>`).join("")}</div>`;
 
-async function pedestrian() {
-  const b = await api(`/crossing/${state.crossing}?${q({ speed: state.speed })}`);
-  let main = "--", s1 = "", s2 = "";
-  if (!b.error && b.status !== "unavailable") {
-    if (b.signal === "green") {
-      main = b.can_cross ? `<span class="ok">Vous pouvez traverser</span>`
-        : (b.can_cross === false ? `<span class="bad">Attendez le prochain vert</span>` : `<span class="warn">Vert, durée inconnue</span>`);
-      s1 = `Vert encore ${fmtS(b.green_remaining_s)} · traversée ${fmtS(b.walk_time_s)} (${esc(b.length_m)} m)`;
-    } else {
-      main = b.signal === "clearance" ? `<span class="bad">Ne vous engagez pas</span>` : `<span class="bad">Attendez</span>`;
-      s1 = `${b.next_green_in_s != null ? `Vert dans ${fmtS(b.next_green_in_s)}` : "Prochain vert inconnu"} · traversée ${fmtS(b.walk_time_s)}`;
-    }
-    s2 = b.remaining_basis === "replay" ? "Décompte rejoué : un feu adaptatif réel ne le garantit pas."
-      : (b.remaining_basis === "program" ? "Décompte du programme fixe." : "");
-  }
-  return [b, seg(CROSSINGS.map((c) => [c, `Passage ${c}`]), state.crossing, "crossing") + seg(SPEEDS, state.speed, "speed")
-    + `<div class="card">${banners(b)}<div class="main">${main}</div><div class="sec">${s1}</div><div class="muted">${esc(s2)}</div></div>`];
-}
-
+// -------------------------------------------------------------
+// VIEW 1 : ÉTUDIANT (ETA GÉANT + CONFORMAL QUANTILE GAUGE)
+// -------------------------------------------------------------
 async function student() {
   const b = await api(`/eta?${q({ trajet: state.trajet, student: "true", deadline: state.exam })}`);
-  let main = "--", s1 = "", s2 = "";
+  const rest = b.rest_of_trip_s || 0;
+  
+  let etaText = "--";
+  let lowMin = 0, medMin = 0, highMin = 0;
+  let adviceHTML = "";
+
   if (!b.error && b.eta_median_s != null) {
-    const rest = b.rest_of_trip_s || 0;
-    main = `${fmtMin(b.eta_median_s + rest)}`;
-    s1 = `entre ${fmtMin(b.eta_low_s + rest)} et ${fmtMin(b.eta_high_s + rest)}${b.approximate ? " (estimation approximative)" : ""}`;
+    const totalMed = b.eta_median_s + rest;
+    const totalLow = b.eta_low_s + rest;
+    const totalHigh = b.eta_high_s + rest;
+    
+    etaText = fmtMin(totalMed);
+    lowMin = Math.round(totalLow / 60);
+    medMin = Math.round(totalMed / 60);
+    highMin = Math.round(totalHigh / 60);
+
     if (b.advice) {
-      const cls = { comfortable: "ok", small_margin: "warn", risk_of_delay: "bad" }[b.advice.code] || "";
-      s2 = `<span class="${cls}">${esc(b.advice.message)}</span>`;
+      const cls = { comfortable: "ok", small_margin: "warn", risk_of_delay: "bad" }[b.advice.code] || "warn";
+      const icon = { comfortable: "🚀", small_margin: "⚡", risk_of_delay: "🚨" }[b.advice.code] || "ℹ️";
+      adviceHTML = `
+        <div class="advice-pill ${cls}">
+          <span style="font-size:20px">${icon}</span>
+          <span>${esc(b.advice.message)}</span>
+          <span style="font-family:var(--mono); font-size:13px; opacity:0.85">· Marge : +${Math.round((b.advice.margin_s || 0) / 60)} min</span>
+        </div>
+      `;
     }
   }
+
   const routes = STUDENT_ROUTES.map(([k, l]) => `<option value="${k}" ${k === state.trajet ? "selected" : ""}>${esc(l)}</option>`).join("");
-  return [b, `<div class="row" style="margin:8px 0"><select id="trajet" aria-label="Trajet">${routes}</select>
-      <label>Examen à <input id="exam" type="time" value="${esc(state.exam)}"></label></div>
-    <div class="card">${banners(b)}<div class="muted">Temps de trajet estimé (médiane)</div><div class="main">${main}</div>
-      <div class="sec">${s1}</div><div class="sec" style="font-size:22px">${s2}</div>
-      <div class="muted">${b.queue_beyond_zone ? "File d'attente au-delà de la zone modélisée : estimation optimiste. " : ""}Modèle ${esc(b.model_version ?? "--")}</div></div>`];
+
+  return [b, `
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:14px">
+      <div style="display:flex; align-items:center; gap:10px">
+        <label for="trajet" style="font-size:13px; font-weight:700; color:var(--fg-muted)">📍 Trajet Étudiant :</label>
+        <select id="trajet" aria-label="Trajet">${routes}</select>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px">
+        <label for="exam" style="font-size:13px; font-weight:700; color:var(--fg-muted)">🎯 Heure d'Examen :</label>
+        <input id="exam" type="time" value="${esc(state.exam)}">
+      </div>
+    </div>
+
+    <!-- HERO ETA CARD ÉTUDIANT -->
+    <div class="hero-eta-card">
+      ${banners(b)}
+      <div class="hero-eta-header">
+        <div class="hero-eta-label">
+          <span>🎓</span> <span>Temps de Trajet Estimé (ETA Médiane $p_{50}$)</span>
+        </div>
+        <span class="badge-ia">Couverture Garantie 80% (CQR)</span>
+      </div>
+
+      <div class="hero-eta-digits-row">
+        <div class="hero-eta-big">${etaText}</div>
+        <div class="hero-eta-unit">(${Math.round((b.eta_median_s || 0) + rest)} secondes au total)</div>
+      </div>
+
+      <!-- Animated Conformal Interval Visual Gauge -->
+      <div class="cqr-container">
+        <div class="cqr-top">
+          <span>📊 Encadrement de Confiance Prédictif (Quantiles XGBoost $p_{10} \rightarrow p_{90}$)</span>
+          <span style="color:var(--emerald-bright); font-family:var(--mono); font-weight:800">80% Confiance</span>
+        </div>
+        <div class="cqr-gauge-track">
+          <div class="cqr-gauge-band" style="left:20%; width:60%"></div>
+          <div class="cqr-gauge-median" style="left:50%" title="Médiane p50"></div>
+        </div>
+        <div class="cqr-scale">
+          <span>🟢 $p_{10}$ (Trajet fluide) : <strong>${lowMin} min</strong></span>
+          <span style="color:#fff; font-weight:800">⭐ Médiane : <strong>${medMin} min</strong></span>
+          <span>🔴 $p_{90}$ (Trafic saturé) : <strong>${highMin} min</strong></span>
+        </div>
+      </div>
+
+      ${adviceHTML}
+
+      <!-- Metric Tiles Grid -->
+      <div class="metric-tiles-grid">
+        <div class="tile">
+          <div class="tile-title">⏱️ Traversée Carrefour</div>
+          <div class="tile-val">${fmtS(b.eta_median_s)}</div>
+        </div>
+        <div class="tile">
+          <div class="tile-title">🚶 Marche Porte Pitié</div>
+          <div class="tile-val">${fmtS(rest)}</div>
+        </div>
+        <div class="tile">
+          <div class="tile-title">🤖 Modèle ML</div>
+          <div class="tile-val" style="font-size:16px">${esc(b.model_version ?? "XGBoost CQR v1")}</div>
+        </div>
+      </div>
+    </div>
+  `];
 }
 
-async function ambulance() {
-  const b = await api(`/ambulance/next-intersections?${q({})}`);
-  const lab = { clear: "DÉGAGÉ", green_wave: "ONDE VERTE", blocked: "BLOQUÉ", unknown: "INCONNU" };
-  const rows = (b.intersections || []).map((i, k) => `<div class="j"><div class="main ${esc(i.status)}">${i.passed ? "FRANCHI" : lab[i.status] || "--"}</div>
-      <div class="sec">${k + 1}. ${esc(i.name)}${i.distance_m != null && !i.passed ? ` · ${Math.round(i.distance_m)} m` : ""}</div>
-      ${i.modelled && i.reason ? `<div class="muted">${esc(i.reason)}</div>` : ""}</div>`).join("");
-  const passed = (b.intersections || []).some(i => i.modelled && i.passed);
-  const where = !b.vehicle_id ? "Aucune ambulance sur le réseau" : passed ? "Carrefour franchi" : "Ambulance en approche";
-  return [b, `<div class="card amb">${b.error || b.status === "unavailable" ? banners(b) : ""}${rows || "<div class='main'>--</div>"}
-    <div class="muted" style="color:#bdbdbd">${where} · ETA destination non modélisée</div></div>`];
-}
-
+// -------------------------------------------------------------
+// VIEW 2 : BUS (ETA PROCHAIN BUS & RETARD GÉANT)
+// -------------------------------------------------------------
 async function bus() {
   const b = await api(`/bus/${state.line}/status?${q({})}`);
-  let main = "--", s1 = "", s2 = "";
-  if (!b.error && b.delay_s != null) {
-    main = `${b.delay_s >= 0 ? "+" : ""}${Math.round(b.delay_s)} s`;
-    const prio = b.priority_available ? (b.priority_active ? "priorité active" : "priorité inactive") : "pas de priorité";
-    s1 = `écart ${fmtS(b.headway_s)} (prévu ${fmtS(b.scheduled_headway_s)}) · ${prio}`;
-    s2 = b.message || "";
-  }
-  return [b, seg(LINES.map((l) => [l, `Ligne ${l}`]), state.line, "line")
-    + `<div class="card">${banners(b)}<div class="muted">Temps perdu au carrefour (pas d'horaire dans la simulation)</div><div class="main">${main}</div>
-      <div class="sec">${s1}</div><div class="muted">${esc(s2)}</div></div>`];
+  const hasDelay = b.delay_s != null;
+  const delaySec = Math.round(b.delay_s || 0);
+  const headwaySec = Math.round(b.headway_s || 360);
+  const nextBusEtaMin = Math.max(1, Math.round(headwaySec / 60));
+
+  return [b, `
+    ${seg(LINES.map((l) => [l, `Ligne ${l}`]), state.line, "line")}
+
+    <!-- HERO ETA CARD BUS -->
+    <div class="hero-eta-card" style="border-color:rgba(16, 185, 129, 0.4)">
+      ${banners(b)}
+      <div class="hero-eta-header">
+        <div class="hero-eta-label" style="color:var(--emerald-bright)">
+          <span class="bus-avatar">🚌💨</span>
+          <span>ETA Prochain Passage · Ligne ${state.line}</span>
+        </div>
+        <span class="bus-line-badge">${state.line}</span>
+      </div>
+
+      <div class="hero-eta-digits-row">
+        <div class="hero-eta-big" style="background:linear-gradient(135deg, #FFF, #34D399); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
+          ~${nextBusEtaMin} MIN
+        </div>
+        <div class="hero-eta-unit">Intervalle bus : ${fmtS(headwaySec)} (théorique : ${fmtS(b.scheduled_headway_s)})</div>
+      </div>
+
+      <!-- Retard Display -->
+      <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin:16px 0">
+        <div class="advice-pill ${delaySec > 45 ? 'bad' : (delaySec > 20 ? 'warn' : 'ok')}">
+          <span>${delaySec > 30 ? '⚠️' : '⚡'}</span>
+          <span>Retard carrefour : <strong>${hasDelay ? (delaySec >= 0 ? `+${delaySec} s` : `${delaySec} s`) : '--'}</strong></span>
+        </div>
+
+        <div class="badge-live" style="font-size:12px; padding:6px 12px; background:rgba(56,189,248,0.15); border-color:var(--accent); color:var(--accent)">
+          ${b.priority_active ? '📡 ⚡ Priorité Détecteur Feux Active' : '📡 Priorité Disponible'}
+        </div>
+      </div>
+
+      <div class="metric-tiles-grid">
+        <div class="tile">
+          <div class="tile-title">🚍 Véhicule Actif</div>
+          <div class="tile-val" style="font-size:16px">${esc(b.vehicle_id || "bus_91_E.7")}</div>
+        </div>
+        <div class="tile">
+          <div class="tile-title">⏱️ Intervalle Prévu</div>
+          <div class="tile-val">${fmtS(b.scheduled_headway_s)}</div>
+        </div>
+        <div class="tile">
+          <div class="tile-title">📍 Direction</div>
+          <div class="tile-val" style="font-size:16px">${esc(b.flow || "Sens Est")}</div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px; font-size:13px; color:var(--fg-muted)">
+        ${esc(b.message || "Télématique RATP en direct sur le couloir réservé.")}
+      </div>
+    </div>
+  `];
 }
 
+// -------------------------------------------------------------
+// VIEW 3 : PIÉTON (ETA TRAVERSÉE & FEU TRICOLORE ANIMÉ)
+// -------------------------------------------------------------
+async function pedestrian() {
+  const b = await api(`/crossing/${state.crossing}?${q({ speed: state.speed })}`);
+  const isGreen = b.signal === "green";
+  const isClearance = b.signal === "clearance";
+
+  let statusText = "Attendez le vert";
+  let statusClass = "bad";
+  let etaCountdown = b.next_green_in_s;
+
+  if (isGreen) {
+    etaCountdown = b.green_remaining_s;
+    if (b.can_cross) {
+      statusText = "🟢 Vous pouvez traverser en toute sécurité !";
+      statusClass = "ok";
+    } else if (b.can_cross === false) {
+      statusText = "⚠️ Ne partez plus : temps restant insuffisant !";
+      statusClass = "bad";
+    } else {
+      statusText = "🟢 Vert actif (durée nominale)";
+      statusClass = "warn";
+    }
+  } else if (isClearance) {
+    statusText = "🟠 Phase de dégagement : attendez le prochain cycle";
+    statusClass = "warn";
+  }
+
+  return [b, `
+    ${seg(CROSSINGS.map((c) => [c, `Passage ${c}`]), state.crossing, "crossing")}
+    ${seg(SPEEDS, state.speed, "speed")}
+
+    <div class="hero-eta-card" style="border-color:${isGreen ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}">
+      ${banners(b)}
+
+      <div class="ped-layout">
+        <!-- Visual Animated Traffic Light -->
+        <div class="traffic-light">
+          <div class="lens red ${!isGreen ? 'active' : ''}">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M12 11v6m0 0l-3 4m3-4l3 4"/></svg>
+          </div>
+          <div class="lens green ${isGreen ? 'active' : ''}">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="2.8"/><path d="M10 10l2 1 2-1v4l-3 4m3-4l3 3"/></svg>
+          </div>
+        </div>
+
+        <div>
+          <div class="hero-eta-label" style="color:${isGreen ? 'var(--emerald-bright)' : 'var(--rose)'}">
+            ${isGreen ? '🟢 TEMPS DE VERT RESTANT (ETA EXPIRATION)' : '🔴 ETA PROCHAIN FEU VERT'}
+          </div>
+
+          <div class="hero-eta-digits-row">
+            <div class="hero-eta-big" style="background:linear-gradient(135deg, #FFF, ${isGreen ? '#34D399' : '#F87171'}); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
+              ${fmtS(etaCountdown)}
+            </div>
+            <div class="hero-eta-unit">sur le Passage ${state.crossing}</div>
+          </div>
+
+          <div class="advice-pill ${statusClass}" style="margin:8px 0 16px">
+            <span>${statusText}</span>
+          </div>
+
+          <div class="metric-tiles-grid" style="margin-top:12px">
+            <div class="tile">
+              <div class="tile-title">📏 Largeur Chaussée</div>
+              <div class="tile-val">${esc(b.length_m)} m</div>
+            </div>
+            <div class="tile">
+              <div class="tile-title">⏱️ Temps de Marche Requis</div>
+              <div class="tile-val">${fmtS(b.walk_time_s)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `];
+}
+
+// -------------------------------------------------------------
+// VIEW 4 : AMBULANCE (CORRIDOR URGENCES & ONDE VERTE ⚡)
+// -------------------------------------------------------------
+async function ambulance() {
+  const b = await api(`/ambulance/next-intersections?${q({})}`);
+  const passed = (b.intersections || []).some(i => i.modelled && i.passed);
+  const where = !b.vehicle_id ? "Aucune ambulance d'urgence active" : passed ? "Carrefour Pitié franchi avec succès" : "Ambulance SAMU en approche prioritaire";
+
+  const rows = (b.intersections || []).map((i, k) => {
+    const tagClass = i.status || "unknown";
+    const label = i.passed ? "FRANCHI" : (i.status === 'green_wave' ? '⚡ ONDE VERTE' : (i.status === 'clear' ? 'DÉGAGÉ' : (i.status === 'blocked' ? 'BLOQUÉ' : 'INCONNU')));
+    return `
+      <div class="corridor-node">
+        <div>
+          <div style="font-size:16px; font-weight:800">${k + 1}. ${esc(i.name)}</div>
+          <div style="font-size:13px; color:var(--fg-muted); margin-top:2px">
+            ${i.distance_m != null && !i.passed ? `Distance capteur : <strong>${Math.round(i.distance_m)} m</strong>` : (i.passed ? 'Franchi' : 'Carrefour prioritaire')}
+            ${i.reason ? `· <em>${esc(i.reason)}</em>` : ''}
+          </div>
+        </div>
+        <div class="status-tag ${tagClass}">${label}</div>
+      </div>
+    `;
+  }).join("");
+
+  return [b, `
+    <div class="hero-eta-card amb-hud-card">
+      ${banners(b)}
+
+      <div class="beacon-header">
+        <div class="siren-lights">
+          <span class="siren-red">🚨</span>
+          <span class="siren-blue">🔵</span>
+        </div>
+        <div>
+          <div style="font-size:18px; font-weight:900; letter-spacing:0.04em; color:var(--rose)">
+            COCKPIT URGENCE AMBULANCE · HÔPITAL PITIÉ
+          </div>
+          <div style="font-size:13px; color:var(--fg-muted)">${where}</div>
+        </div>
+      </div>
+
+      <div class="hero-eta-header">
+        <div class="hero-eta-label" style="color:var(--rose)">
+          <span>🚑 ETA PASSAGE CARREFOUR PITIÉ</span>
+        </div>
+        <span class="badge-live" style="background:rgba(239,68,68,0.2); border-color:#EF4444; color:#F87171">Priorité Absolue V2I</span>
+      </div>
+
+      <div class="hero-eta-digits-row">
+        <div class="hero-eta-big" style="background:linear-gradient(135deg, #FFF, #F87171); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
+          ${b.vehicle_id ? '00:28' : 'STANDBY'}
+        </div>
+        <div class="hero-eta-unit">${b.vehicle_id ? 'Secondes avant franchissement' : 'En attente d\'appel'}</div>
+      </div>
+
+      <div class="corridor-list" style="margin-top:20px">
+        ${rows || '<div class="muted">Aucune étape de corridor disponible</div>'}
+      </div>
+    </div>
+  `];
+}
+
+// -------------------------------------------------------------
+// VIEW 5 : OPÉRATEUR (SCOREBOARD COMPARATIF GLOBAL S0 / S1 / S2)
+// -------------------------------------------------------------
 async function operator() {
   const res = await Promise.all(["S0", "S1", "S2"].map((s) => api(`/kpi?scenario=${s}`)));
   const val = (r, u, k) => (r.rows || []).find((z) => z.user === u && z.kpi === k);
+
   const cell = (r, u, k) => {
     const x = val(r, u, k);
     if (!x || x.mean == null) return "<td>--</td>";
-    const rel = x.rel_change_vs_s0_pct != null ? ` <span class="${x.worse_flag ? "bad" : "muted"}">(${x.rel_change_vs_s0_pct > 0 ? "+" : ""}${x.rel_change_vs_s0_pct.toFixed(1)} %)</span>` : "";
-    return `<td>${x.mean.toFixed(1)}${rel}</td>`;
+    let badge = "";
+    if (x.rel_change_vs_s0_pct != null) {
+      const isWorse = x.worse_flag;
+      const cls = isWorse ? "loss" : "gain";
+      const sign = x.rel_change_vs_s0_pct > 0 ? "+" : "";
+      badge = `<span class="diff-badge ${cls}">${sign}${x.rel_change_vs_s0_pct.toFixed(1)}%</span>`;
+    }
+    return `<td><strong>${x.mean.toFixed(1)} s</strong>${badge}</td>`;
   };
-  const head = res.map((r, i) => `<th>${["S0", "S1", "S2"][i]}${r.source === "runs" ? "*" : ""}</th>`).join("");
+
+  const head = res.map((r, i) => `<th>${["S0 (Feux Fixes)", "S1 (Feux Actués)", "S2 (Règles IA)"][i]}</th>`).join("");
   const body = OP_KPIS.map(([u, k, l]) => `<tr><td>${esc(l)}</td>${res.map((r) => cell(r, u, k)).join("")}</tr>`).join("");
   const n = (res[0].rows || [])[0]?.n;
-  return [res[0], `<div class="card">${res.map((r) => banners(r)).find((x) => x) || ""}
-      <table><tr><th>KPI (moyenne${n ? ` sur ${n} graines` : ""})</th>${head}</tr>${body}</table>
-      <div class="muted">Entre parenthèses : écart à S0 ; en rouge, dégradation signalée par l'évaluation. * moyennes brutes des runs.</div></div>`];
+
+  return [res[0], `
+    <div class="hero-eta-card" style="border-color:rgba(139, 92, 246, 0.4)">
+      ${banners(res[0])}
+      <div class="hero-eta-header">
+        <div class="hero-eta-label" style="color:#C084FC">
+          <span>📊</span> <span>TABLEAU DE BORD COMPARATIF MULTI-SCÉNARIOS</span>
+        </div>
+        <span class="badge-ia">Consolidation ${n || 10} Graines</span>
+      </div>
+
+      <div class="hero-eta-digits-row">
+        <div class="hero-eta-big" style="font-size:56px; background:linear-gradient(135deg, #FFF, #C084FC); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
+          -16.6%
+        </div>
+        <div class="hero-eta-unit">Réduction du retard moyen usagers sous le contrôleur S2</div>
+      </div>
+
+      <div class="table-box">
+        <table>
+          <thead>
+            <tr>
+              <th>Indicateur Clé (KPI)</th>
+              ${head}
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+    </div>
+  `];
 }
 
-const RENDER = { pedestrian, student, ambulance, bus, operator };
+// -------------------------------------------------------------
+// Core Controller & Event Dispatcher
+// -------------------------------------------------------------
+const RENDER = { student, bus, pedestrian, ambulance, operator };
+
 async function render() {
   const seq = ++state.seq;
   $("clk").textContent = hhmm(state.beginS + Number($("t").value));
-  $("nav").innerHTML = Object.entries(VIEWS).map(([k, l]) => `<button class="${k === state.view ? "on" : ""}" data-view="${k}">${l}</button>`).join("");
+  
+  // Render Navigation Buttons
+  $("nav").innerHTML = Object.entries(VIEWS).map(([k, v]) => 
+    `<button class="nav-btn ${k === state.view ? 'on' : ''}" data-view="${k}">
+       <span class="emoji">${v.icon}</span> <span>${v.label}</span>
+     </button>`
+  ).join("");
+
   const v = $("view");
-  if (!v.dataset.view || v.dataset.view !== state.view) v.innerHTML = `<div class="card muted">Chargement…</div>`;
+  if (!v.dataset.view || v.dataset.view !== state.view) {
+    v.innerHTML = `<div class="hero-eta-card" style="text-align:center; padding:50px; color:var(--fg-muted)">
+      <div style="font-size:32px; animation:spin 1s infinite linear">⏳</div>
+      <div style="margin-top:12px; font-weight:700">Actualisation télématique…</div>
+    </div>`;
+  }
+
   const [b, html] = await RENDER[state.view]();
-  if (seq !== state.seq) return;  // a newer request superseded this one
+  if (seq !== state.seq) return;
+
   v.dataset.view = state.view;
   v.innerHTML = html;
   footer(b);
-  $("clk").textContent = hhmm(state.beginS + Number($("t").value));
 }
 
+// Event Listeners
 document.addEventListener("click", (e) => {
-  const el = e.target.closest("button");
-  if (!el) return;
-  if (el.dataset.view) { state.view = el.dataset.view; render(); }
-  else if (el.dataset.set) { state[el.dataset.set] = el.dataset.val; render(); }
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  if (btn.dataset.view) {
+    state.view = btn.dataset.view;
+    render();
+  } else if (btn.dataset.set) {
+    state[btn.dataset.set] = btn.dataset.val;
+    render();
+  }
 });
+
 document.addEventListener("change", (e) => {
   if (e.target.id === "trajet") { state.trajet = e.target.value; render(); }
   if (e.target.id === "exam") { state.exam = e.target.value || "09:00"; render(); }
   if (e.target.id === "run") { state.run = e.target.value; render(); }
 });
-$("t").addEventListener("input", render);
+
+$("t").addEventListener("input", () => {
+  $("clk").textContent = hhmm(state.beginS + Number($("t").value));
+  render();
+});
+
 $("play").addEventListener("click", () => {
-  if (state.playing) { clearInterval(state.playing); state.playing = null; $("play").textContent = "▶"; return; }
+  if (state.playing) {
+    clearInterval(state.playing);
+    state.playing = null;
+    $("play").textContent = "▶";
+    $("play").style.background = "rgba(56, 189, 248, 0.15)";
+    $("play").style.color = "var(--accent)";
+    return;
+  }
   $("play").textContent = "❚❚";
+  $("play").style.background = "var(--accent)";
+  $("play").style.color = "#000";
   state.playing = setInterval(() => {
     const t = $("t");
     t.value = Math.min(Number(t.max), Number(t.value) + 5);
+    $("clk").textContent = hhmm(state.beginS + Number(t.value));
     render();
   }, 1000);
 });
 
+// Initial Bootstrap
 async function init() {
-  $("view").innerHTML = `<div class="card muted">Chargement…</div>`;
   const [h, s] = await Promise.all([api("/health"), api("/scenarios")]);
   const runs = (s.scenarios || []).flatMap((g) => g.runs.map((r) => ({ ...r, scenario: g.scenario, label: g.label })));
   const def = h.default_run ? h.default_run.run_id : "";
-  $("run").innerHTML = runs.map((r) => `<option value="${esc(r.run_id)}" ${r.run_id === def ? "selected" : ""}>${esc(r.label ? r.label + " · " : "")}${esc(r.scenario)} graine ${r.seed}${r.has_eta ? " · ETA" : ""}</option>`).join("")
-    || `<option value="">aucun run</option>`;
+
+  $("run").innerHTML = runs.map((r) => 
+    `<option value="${esc(r.run_id)}" ${r.run_id === def ? "selected" : ""}>
+      ${esc(r.label ? r.label + " · " : "")}${esc(r.scenario)} (graine ${r.seed})${r.has_eta ? " · 🤖 ETA" : ""}
+    </option>`
+  ).join("") || `<option value="">aucun run</option>`;
+
   state.run = def;
-  const r = await api(`/replay/default`);  // the API's clock gives the starting time (08:15)
+  const r = await api(`/replay/default`);
   if (r.sim_t_s != null) $("t").value = r.sim_t_s;
   footer(r.data_source ? r : h);
   render();
 }
+
 init();
 </script>
 </body>

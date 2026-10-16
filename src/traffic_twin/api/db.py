@@ -31,7 +31,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
 
-import duckdb
+try:
+    import duckdb
+except ImportError:
+    duckdb = None  # type: ignore
+
 import pandas as pd
 
 from traffic_twin.api.schemas import ApiError
@@ -138,7 +142,8 @@ class LocalStore:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self._con = duckdb.connect()  # in memory; one cursor per call
+        # in memory; one cursor per call
+        self._con = duckdb.connect() if duckdb is not None else None
         self._lock = threading.RLock()
         self._index: dict[str, RunInfo] = {}
         self._default: RunInfo | None = None
@@ -149,20 +154,30 @@ class LocalStore:
 
     # -- low level -----------------------------------------------------------------------
     def _query(self, sql: str, params: list | dict | None = None) -> pd.DataFrame:
-        cur = self._con.cursor()
-        try:
-            return cur.execute(sql, params or []).df()
-        finally:
-            cur.close()
+        if self._con is not None:
+            cur = self._con.cursor()
+            try:
+                return cur.execute(sql, params or []).df()
+            finally:
+                cur.close()
+        raise NotImplementedError("DuckDB is not installed")
 
     def _read(self, path: Path) -> pd.DataFrame | None:
         """A whole Parquet or CSV file, or None (absent or unreadable)."""
         if not path.is_file():
             return None
-        reader = "read_csv_auto" if path.suffix == ".csv" else "read_parquet"
+        if self._con is not None:
+            reader = "read_csv_auto" if path.suffix == ".csv" else "read_parquet"
+            try:
+                return self._query(f"select * from {reader}(?)", [str(path)])
+            except (getattr(duckdb, "Error", Exception), OSError) as e:
+                log.warning("unreadable %s: %s", path, e)
+                return None
         try:
-            return self._query(f"select * from {reader}(?)", [str(path)])
-        except (duckdb.Error, OSError) as e:
+            if path.suffix == ".csv":
+                return pd.read_csv(path)
+            return pd.read_parquet(path)
+        except Exception as e:
             log.warning("unreadable %s: %s", path, e)
             return None
 
@@ -277,15 +292,27 @@ class LocalStore:
         path = self.run(run_id).dir / STATE_FILE
         if not path.is_file():
             return None, pd.DataFrame()
-        try:
-            df = self._query(
-                "select * from read_parquet($p) where t = "
-                "(select max(t) from read_parquet($p) where t <= $t)",
-                {"p": str(path), "t": float(t)},
-            )
-        except (duckdb.Error, OSError) as e:
-            log.warning("unreadable %s: %s", path, e)
-            return None, pd.DataFrame()
+        if self._con is not None:
+            try:
+                df = self._query(
+                    "select * from read_parquet($p) where t = "
+                    "(select max(t) from read_parquet($p) where t <= $t)",
+                    {"p": str(path), "t": float(t)},
+                )
+            except (getattr(duckdb, "Error", Exception), OSError) as e:
+                log.warning("unreadable %s: %s", path, e)
+                return None, pd.DataFrame()
+        else:
+            try:
+                full = pd.read_parquet(path)
+                sub = full[full["t"] <= float(t)]
+                if sub.empty:
+                    return None, pd.DataFrame()
+                max_t = sub["t"].max()
+                df = sub[sub["t"] == max_t].copy()
+            except Exception as e:
+                log.warning("unreadable %s: %s", path, e)
+                return None, pd.DataFrame()
         if df.empty:
             return None, df
         return float(df["t"].iloc[0]), df
@@ -309,15 +336,28 @@ class LocalStore:
         path = self.run(run_id).dir / ETA_PREDICTION_FILE
         if not path.is_file():
             return None
-        try:
-            df = self._query(
-                "select t, eta_median_s, eta_low_s, eta_high_s, model_version "
-                "from read_parquet($p) where route = $r and t <= $t order by t desc limit 1",
-                {"p": str(path), "r": trajet, "t": float(t)},
-            )
-        except (duckdb.Error, OSError) as e:
-            log.warning("unreadable %s: %s", path, e)
-            return None
+        if self._con is not None:
+            try:
+                df = self._query(
+                    "select t, eta_median_s, eta_low_s, eta_high_s, model_version "
+                    "from read_parquet($p) where route = $r and t <= $t order by t desc limit 1",
+                    {"p": str(path), "r": trajet, "t": float(t)},
+                )
+            except (getattr(duckdb, "Error", Exception), OSError) as e:
+                log.warning("unreadable %s: %s", path, e)
+                return None
+        else:
+            try:
+                full = pd.read_parquet(path)
+                sub = full[(full["route"] == trajet) & (full["t"] <= float(t))]
+                if sub.empty:
+                    return None
+                target_cols = ["t", "eta_median_s", "eta_low_s", "eta_high_s", "model_version"]
+                cols = [c for c in target_cols if c in sub.columns]
+                df = sub.sort_values("t", ascending=False).iloc[[0]][cols]
+            except Exception as e:
+                log.warning("unreadable %s: %s", path, e)
+                return None
         return None if df.empty else df.iloc[0].to_dict()
 
     def snapshot_at(self, run_id: str, t: float) -> dict | None:
@@ -325,14 +365,25 @@ class LocalStore:
         path = self.run(run_id).dir / ETA_SNAPSHOTS_FILE
         if not path.is_file():
             return None
-        try:
-            df = self._query(
-                "select * from read_parquet($p) where t <= $t order by t desc limit 1",
-                {"p": str(path), "t": float(t)},
-            )
-        except (duckdb.Error, OSError) as e:
-            log.warning("unreadable %s: %s", path, e)
-            return None
+        if self._con is not None:
+            try:
+                df = self._query(
+                    "select * from read_parquet($p) where t <= $t order by t desc limit 1",
+                    {"p": str(path), "t": float(t)},
+                )
+            except (getattr(duckdb, "Error", Exception), OSError) as e:
+                log.warning("unreadable %s: %s", path, e)
+                return None
+        else:
+            try:
+                full = pd.read_parquet(path)
+                sub = full[full["t"] <= float(t)]
+                if sub.empty:
+                    return None
+                df = sub.sort_values("t", ascending=False).iloc[[0]]
+            except Exception as e:
+                log.warning("unreadable %s: %s", path, e)
+                return None
         return None if df.empty else df.iloc[0].to_dict()
 
     def eta_model_version(self) -> str | None:
@@ -397,8 +448,15 @@ class LocalStore:
         )  # fmt: skip
         if not files:
             return None
+        if self._con is not None:
+            try:
+                return self._query("select * from read_csv_auto(?, union_by_name = true)", [files])
+            except (getattr(duckdb, "Error", Exception), OSError) as e:
+                log.warning("unreadable kpi_run.csv of %s: %s", scenario, e)
+                return None
         try:
-            return self._query("select * from read_csv_auto(?, union_by_name = true)", [files])
-        except (duckdb.Error, OSError) as e:
+            dfs = [pd.read_csv(f) for f in files]
+            return pd.concat(dfs, ignore_index=True)
+        except Exception as e:
             log.warning("unreadable kpi_run.csv of %s: %s", scenario, e)
             return None
