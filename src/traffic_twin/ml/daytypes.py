@@ -194,6 +194,29 @@ def generate(
     return header + body
 
 
+def same_calibration(current: str, expected: str, rel: float = 2 * 10.0**-RATIO_DECIMALS) -> bool:
+    """True when two generated files agree: the same structure and text values, and floats
+    within `rel` relative (two units in the last ratio digit; flows are ratio-scaled) or
+    one unit in the last flow digit. The ratios are means of sensor flows, so a last-ulp
+    difference between numpy versions can flip a rounded digit; an exact text comparison
+    would report such a file as stale on another platform (numpy 2.4 on Python 3.11)."""
+
+    def same(a, b) -> bool:
+        if isinstance(a, dict) and isinstance(b, dict):
+            return a.keys() == b.keys() and all(same(a[k], b[k]) for k in a)
+        if isinstance(a, list) and isinstance(b, list):
+            return len(a) == len(b) and all(same(x, y) for x, y in zip(a, b, strict=True))
+        if isinstance(a, float) or isinstance(b, float):
+            if not (isinstance(a, int | float) and isinstance(b, int | float)):
+                return False
+            return abs(a - b) <= max(10.0**-FLOW_DECIMALS, rel * max(abs(a), abs(b))) + 1e-12
+        return a == b
+
+    header = [ln for ln in current.splitlines() if ln.startswith("#")]
+    expected_header = [ln for ln in expected.splitlines() if ln.startswith("#")]
+    return header == expected_header and same(yaml.safe_load(current), yaml.safe_load(expected))
+
+
 def calibration_files(eta_cfg: dict) -> dict[str, Path]:
     """Day type -> calibration file, from `eta.yaml: calibration_files` (checked)."""
     files = {k: Path(v) for k, v in (eta_cfg.get("calibration_files") or {}).items()}
@@ -217,7 +240,7 @@ def main(argv: list[str] | None = None) -> int:
         text = generate(base_path, day_type, args.hours, ratios)
         current = path.read_bytes().replace(b"\r\n", b"\n") if path.is_file() else None
         if args.check:
-            ok = current == text.encode("utf-8")
+            ok = current is not None and same_calibration(current.decode("utf-8"), text)
             print(f"{path.as_posix()}: {'up to date' if ok else 'STALE or missing'}")
             if not ok:
                 stale.append(path)

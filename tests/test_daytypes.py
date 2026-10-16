@@ -5,6 +5,7 @@ import copy
 import csv
 
 import pytest
+import yaml
 
 from traffic_twin.config import load_config, load_scenario
 from traffic_twin.ml import daytypes
@@ -99,3 +100,29 @@ def test_a_scenario_runs_its_demand_from_a_day_type_file(day_type):
     cfg = copy.deepcopy(load_scenario(PITIE_FIXED_CONFIG))
     cfg["demand"]["calibration"] = f"configs/calibration/pitie_302_{day_type}.yaml"
     assert build_routes(cfg) != build_routes(load_scenario(PITIE_FIXED_CONFIG))
+
+
+def test_check_tolerates_a_last_digit_difference():
+    """A last-ulp numpy difference may flip one rounded ratio (and the flows scaled by it);
+    the check accepts that, but not a real change or an edited header."""
+    files = daytypes.calibration_files(load_config(ETA_CONFIG))
+    text = files["mon_fri_term"].read_bytes().decode("utf-8").replace("\r\n", "\n")
+    data = yaml.safe_load(text)
+    arm = next(iter(data["day_type"]["ratios"]))
+    hour = next(iter(data["day_type"]["ratios"][arm]))
+    r = data["day_type"]["ratios"][arm][hour]
+    slot = data["arms"][arm]["slots"][0]
+    header = "".join(ln + "\n" for ln in text.splitlines() if ln.startswith("#"))
+
+    def dump(d):
+        return header + yaml.safe_dump(d, sort_keys=False, allow_unicode=True,
+                                       default_flow_style=None, width=100)  # fmt: skip
+
+    near = copy.deepcopy(data)
+    near["day_type"]["ratios"][arm][hour] = round(r + 1e-4, 4)
+    near["arms"][arm]["slots"][0]["flow_veh_h"] = round(slot["flow_veh_h"] * (1 + 1e-4), 3)
+    assert daytypes.same_calibration(dump(near), dump(data))
+    far = copy.deepcopy(data)
+    far["day_type"]["ratios"][arm][hour] = round(r * 1.01, 4)
+    assert not daytypes.same_calibration(dump(far), dump(data))
+    assert not daytypes.same_calibration(dump(data).replace("GENERATED", "EDITED"), dump(data))
