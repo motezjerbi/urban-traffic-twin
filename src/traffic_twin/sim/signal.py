@@ -65,6 +65,17 @@ class SignalPlan:
         return self._target is not None
 
     @property
+    def target(self) -> int | None:
+        """Stage being switched to during a transition; None while a stage is green."""
+        return self._target
+
+    @property
+    def clearance_left_s(self) -> float:
+        """Seconds of clearance still to run before the target stage turns green (sum of
+        the remaining durations of the queued clearance phases); 0.0 while green."""
+        return float(sum(left for _phase, left in self._queue)) if self.in_transition else 0.0
+
+    @property
     def phase(self) -> int:
         if self._queue:
             return self._queue[0][0]

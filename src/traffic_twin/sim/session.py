@@ -130,6 +130,8 @@ class SimSession:
         self.ped_curb_wait_max: dict[str, float] = {}
         self.drain_timeout = False
         self.time = self.begin  # absolute SUMO time (s)
+        # (requested stage, stage after the safety guard) of the last step(); None before
+        self.last_request: tuple[int, int] | None = None
         # Part 4, built in start() only when the scenario has network.crossings
         self.crossings: dict = get(cfg, "network.crossings", None) or {}
         self.junction_monitor = junction_monitor
@@ -284,7 +286,9 @@ class SimSession:
             ped_wait=self._guard_waits,
             preempt_target=obs.extras.get(EXTRA_PREEMPT),
         )
+        requested = stage
         stage = self.guard.apply(stage, state)
+        self.last_request = (int(requested), int(stage))
         phase = self.plan.request(stage)
         with self._alive():
             self.traci.trafficlight.setPhase(self.tls, phase)

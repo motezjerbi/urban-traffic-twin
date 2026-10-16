@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jumeau Pitié</title>
+<!--
+  Mock screens of the Pitié-Salpêtrière twin (Part 5, D54): the five profiles of spec 12 on
+  API v1, plain HTML and JS (no dependency). Served by the API at /mock when
+  configs/api.yaml has dev.mock: true. The Streamlit app comes in Part 9.
+-->
+<style>
+  :root {
+    --bg: #f5f5f2; --fg: #1a1a1a; --muted: #5f5f5f; --card: #ffffff; --line: #d9d9d4;
+    --ok: #1d7a38; --warn: #9a5800; --bad: #b3261e; --accent: #1f4fa3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #131313; --fg: #ededed; --muted: #a8a8a8; --card: #1e1e1e; --line: #343434;
+            --ok: #5cc47a; --warn: #e3a33b; --bad: #ff6b5e; --accent: #8ab4ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--fg); }
+  header, main, footer { max-width: 760px; margin: 0 auto; padding: 10px 16px; }
+  h1 { font-size: 18px; margin: 4px 0 8px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: inherit; padding: 9px 13px; border: 1px solid var(--line); background: var(--card);
+           color: var(--fg); border-radius: 9px; cursor: pointer; }
+  button.on { border-color: var(--accent); color: var(--accent); font-weight: 650; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+          padding: 16px; margin: 12px 0; }
+  .main { font-size: 40px; font-weight: 750; line-height: 1.15; margin: 4px 0 8px; }
+  .sec { font-size: 18px; margin: 4px 0; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  .banner { padding: 8px 12px; border-radius: 8px; border: 1px dashed currentColor; margin: 0 0 10px; }
+  .banner.warn { color: var(--warn); } .banner.bad { color: var(--bad); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  input[type=range] { flex: 1; min-width: 180px; }
+  select, input[type=time] { font: inherit; padding: 6px; border-radius: 8px; border: 1px solid var(--line);
+                             background: var(--card); color: var(--fg); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .amb { background: #000; color: #fff; border-color: #000; }
+  .amb .main { font-size: 46px; margin: 0; }
+  .amb .j { padding: 10px 0; border-bottom: 1px solid #333; }
+  .amb .j:last-child { border-bottom: 0; }
+  .amb .clear { color: #4be37a; } .amb .green_wave { color: #4be37a; }
+  .amb .blocked { color: #ff5a4e; } .amb .unknown { color: #bdbdbd; }
+  .amb .banner { color: #ffd166; }
+  footer { border-top: 1px solid var(--line); margin-top: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Jumeau numérique Pitié-Salpêtrière <span class="muted">· maquette (API v1)</span></h1>
+  <nav id="nav" aria-label="Profils"></nav>
+  <div class="row muted" style="margin-top:8px">
+    <label for="run">Run</label> <select id="run" aria-label="Run rejoué"></select>
+    <label for="t">Horloge</label>
+    <input id="t" type="range" min="0" max="7195" step="5" value="2700" aria-label="Horloge de rejeu">
+    <span id="clk">--:--</span>
+    <button id="play" title="Lecture : +5 s par seconde">▶</button>
+  </div>
+</header>
+<main id="view" aria-live="polite"></main>
+<footer class="muted">
+  <div id="foot"><strong>Données simulées.</strong> Programme de feux provisoire.</div>
+  <div id="stamp"></div>
+</footer>
+<script>
+"use strict";
+const VIEWS = { pedestrian: "Piéton", student: "Étudiant", ambulance: "Ambulance", bus: "Bus", operator: "Opérateur" };
+const CROSSINGS = ["S", "W", "WB", "NB"];
+const SPEEDS = [["normal", "Normale"], ["slow", "Lente"], ["reduced", "Mobilité réduite"]];
+const STUDENT_ROUTES = [["N_S", "Gare d'Austerlitz → Pitié"], ["W_S", "Bd Saint-Marcel → Pitié"]];
+const LINES = ["91", "24", "57"];
+const OP_KPIS = [["car", "time_loss_mean", "Voiture : temps perdu moyen (s)"],
+                 ["bus", "delay_mean", "Bus : retard moyen (s)"],
+                 ["pedestrian", "ped_curb_wait_max", "Piéton : attente max au trottoir (s)"],
+                 ["ambulance", "travel_time_total", "Ambulance : temps de parcours (s)"]];
+const state = { view: "pedestrian", crossing: "S", speed: "normal", trajet: "N_S", exam: "09:00",
+                line: "91", run: "", beginS: 27000, playing: null, seq: 0 };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const hhmm = (sec) => { const s = Math.round(sec); return [s / 3600 | 0, (s % 3600) / 60 | 0].map((v) => String(v).padStart(2, "0")).join(":"); };
+const fmtS = (v) => v == null ? "--" : `${Math.round(v)} s`;
+const fmtMin = (v) => v == null ? "--" : `${Math.round(v / 60)} min`;
+
+async function api(path) {
+  try {
+    const r = await fetch(path, { headers: { Accept: "application/json" } });
+    const b = await r.json();
+    return { http: r.status, ...b };
+  } catch (e) {
+    return { http: 0, status: "unavailable", error: { code: "network", message: "service injoignable" } };
+  }
+}
+const q = (params) => {
+  const p = new URLSearchParams({ t: $("t").value, ...params });
+  if (state.run) p.set("run_id", state.run);
+  return p.toString();
+};
+
+function banners(b, dark) {
+  if (b.error) return `<div class="banner bad">Erreur : l'information n'est pas disponible. Réessayez plus tard.</div>`;
+  let s = "";
+  if (b.status === "unavailable") s += `<div class="banner bad">Données indisponibles${b.notice ? " : " + esc(b.notice) : ""}</div>`;
+  else if (b.status === "degraded") s += `<div class="banner warn">Mode dégradé${b.notice ? " : " + esc(b.notice) : ""}</div>`;
+  if (b.stale) s += `<div class="banner warn">Donnée ancienne : dernière valeur connue (âge ${fmtS(b.data_age_s)})</div>`;
+  return s;
+}
+function footer(b) {
+  if (!b || !b.data_source) return;
+  const cal = b.calibrated_on ? `calibrées sur des capteurs jusqu'au ${esc(b.calibrated_on)}` : "date de calibration inconnue";
+  const prov = b.provisional ? "programme de feux provisoire (non mesuré sur place)" : "programme de feux mesuré";
+  $("foot").innerHTML = `<strong>Données simulées</strong> (${esc(b.data_source)}), ${cal} ; ${prov}.`;
+  const ts = b.timestamp ? b.timestamp.slice(11, 19) : "--";
+  $("stamp").textContent = `Horodatage ${ts}${b.data_age_s != null ? ` · âge ${Math.round(b.data_age_s)} s` : ""}${b.run ? ` · ${b.run.scenario} graine ${b.run.seed}` : ""}`;
+  if (b.sim_t_s != null && b.timestamp) {
+    const d = new Date(b.timestamp);
+    const tod = b.timestamp.slice(11, 19).split(":").map(Number);
+    if (!isNaN(d)) state.beginS = tod[0] * 3600 + tod[1] * 60 + tod[2] - b.sim_t_s + (b.data_age_s || 0);
+  }
+}
+const seg = (opts, cur, key) => `<div class="seg" role="group">${opts.map(([k, l]) =>
+  `<button class="${k === cur ? "on" : ""}" data-set="${key}" data-val="${esc(k)}">${esc(l)}</button>`).join("")}</div>`;
+
+async function pedestrian() {
+  const b = await api(`/crossing/${state.crossing}?${q({ speed: state.speed })}`);
+  let main = "--", s1 = "", s2 = "";
+  if (!b.error && b.status !== "unavailable") {
+    if (b.signal === "green") {
+      main = b.can_cross ? `<span class="ok">Vous pouvez traverser</span>`
+        : (b.can_cross === false ? `<span class="bad">Attendez le prochain vert</span>` : `<span class="warn">Vert, durée inconnue</span>`);
+      s1 = `Vert encore ${fmtS(b.green_remaining_s)} · traversée ${fmtS(b.walk_time_s)} (${esc(b.length_m)} m)`;
+    } else {
+      main = b.signal === "clearance" ? `<span class="bad">Ne vous engagez pas</span>` : `<span class="bad">Attendez</span>`;
+      s1 = `${b.next_green_in_s != null ? `Vert dans ${fmtS(b.next_green_in_s)}` : "Prochain vert inconnu"} · traversée ${fmtS(b.walk_time_s)}`;
+    }
+    s2 = b.remaining_basis === "replay" ? "Décompte rejoué : un feu adaptatif réel ne le garantit pas."
+      : (b.remaining_basis === "program" ? "Décompte du programme fixe." : "");
+  }
+  return [b, seg(CROSSINGS.map((c) => [c, `Passage ${c}`]), state.crossing, "crossing") + seg(SPEEDS, state.speed, "speed")
+    + `<div class="card">${banners(b)}<div class="main">${main}</div><div class="sec">${s1}</div><div class="muted">${esc(s2)}</div></div>`];
+}
+
+async function student() {
+  const b = await api(`/eta?${q({ trajet: state.trajet, student: "true", deadline: state.exam })}`);
+  let main = "--", s1 = "", s2 = "";
+  if (!b.error && b.eta_median_s != null) {
+    const rest = b.rest_of_trip_s || 0;
+    main = `${fmtMin(b.eta_median_s + rest)}`;
+    s1 = `entre ${fmtMin(b.eta_low_s + rest)} et ${fmtMin(b.eta_high_s + rest)}${b.approximate ? " (estimation approximative)" : ""}`;
+    if (b.advice) {
+      const cls = { comfortable: "ok", small_margin: "warn", risk_of_delay: "bad" }[b.advice.code] || "";
+      s2 = `<span class="${cls}">${esc(b.advice.message)}</span>`;
+    }
+  }
+  const routes = STUDENT_ROUTES.map(([k, l]) => `<option value="${k}" ${k === state.trajet ? "selected" : ""}>${esc(l)}</option>`).join("");
+  return [b, `<div class="row" style="margin:8px 0"><select id="trajet" aria-label="Trajet">${routes}</select>
+      <label>Examen à <input id="exam" type="time" value="${esc(state.exam)}"></label></div>
+    <div class="card">${banners(b)}<div class="muted">Temps de trajet estimé (médiane)</div><div class="main">${main}</div>
+      <div class="sec">${s1}</div><div class="sec" style="font-size:22px">${s2}</div>
+      <div class="muted">${b.queue_beyond_zone ? "File d'attente au-delà de la zone modélisée : estimation optimiste. " : ""}Modèle ${esc(b.model_version ?? "--")}</div></div>`];
+}
+
+async function ambulance() {
+  const b = await api(`/ambulance/next-intersections?${q({})}`);
+  const lab = { clear: "DÉGAGÉ", green_wave: "ONDE VERTE", blocked: "BLOQUÉ", unknown: "INCONNU" };
+  const rows = (b.intersections || []).map((i, k) => `<div class="j"><div class="main ${esc(i.status)}">${i.passed ? "FRANCHI" : lab[i.status] || "--"}</div>
+      <div class="sec">${k + 1}. ${esc(i.name)}${i.distance_m != null && !i.passed ? ` · ${Math.round(i.distance_m)} m` : ""}</div>
+      ${i.modelled && i.reason ? `<div class="muted">${esc(i.reason)}</div>` : ""}</div>`).join("");
+  const passed = (b.intersections || []).some(i => i.modelled && i.passed);
+  const where = !b.vehicle_id ? "Aucune ambulance sur le réseau" : passed ? "Carrefour franchi" : "Ambulance en approche";
+  return [b, `<div class="card amb">${b.error || b.status === "unavailable" ? banners(b) : ""}${rows || "<div class='main'>--</div>"}
+    <div class="muted" style="color:#bdbdbd">${where} · ETA destination non modélisée</div></div>`];
+}
+
+async function bus() {
+  const b = await api(`/bus/${state.line}/status?${q({})}`);
+  let main = "--", s1 = "", s2 = "";
+  if (!b.error && b.delay_s != null) {
+    main = `${b.delay_s >= 0 ? "+" : ""}${Math.round(b.delay_s)} s`;
+    const prio = b.priority_available ? (b.priority_active ? "priorité active" : "priorité inactive") : "pas de priorité";
+    s1 = `écart ${fmtS(b.headway_s)} (prévu ${fmtS(b.scheduled_headway_s)}) · ${prio}`;
+    s2 = b.message || "";
+  }
+  return [b, seg(LINES.map((l) => [l, `Ligne ${l}`]), state.line, "line")
+    + `<div class="card">${banners(b)}<div class="muted">Temps perdu au carrefour (pas d'horaire dans la simulation)</div><div class="main">${main}</div>
+      <div class="sec">${s1}</div><div class="muted">${esc(s2)}</div></div>`];
+}
+
+async function operator() {
+  const res = await Promise.all(["S0", "S1", "S2"].map((s) => api(`/kpi?scenario=${s}`)));
+  const val = (r, u, k) => (r.rows || []).find((z) => z.user === u && z.kpi === k);
+  const cell = (r, u, k) => {
+    const x = val(r, u, k);
+    if (!x || x.mean == null) return "<td>--</td>";
+    const rel = x.rel_change_vs_s0_pct != null ? ` <span class="${x.worse_flag ? "bad" : "muted"}">(${x.rel_change_vs_s0_pct > 0 ? "+" : ""}${x.rel_change_vs_s0_pct.toFixed(1)} %)</span>` : "";
+    return `<td>${x.mean.toFixed(1)}${rel}</td>`;
+  };
+  const head = res.map((r, i) => `<th>${["S0", "S1", "S2"][i]}${r.source === "runs" ? "*" : ""}</th>`).join("");
+  const body = OP_KPIS.map(([u, k, l]) => `<tr><td>${esc(l)}</td>${res.map((r) => cell(r, u, k)).join("")}</tr>`).join("");
+  const n = (res[0].rows || [])[0]?.n;
+  return [res[0], `<div class="card">${res.map((r) => banners(r)).find((x) => x) || ""}
+      <table><tr><th>KPI (moyenne${n ? ` sur ${n} graines` : ""})</th>${head}</tr>${body}</table>
+      <div class="muted">Entre parenthèses : écart à S0 ; en rouge, dégradation signalée par l'évaluation. * moyennes brutes des runs.</div></div>`];
+}
+
+const RENDER = { pedestrian, student, ambulance, bus, operator };
+async function render() {
+  const seq = ++state.seq;
+  $("clk").textContent = hhmm(state.beginS + Number($("t").value));
+  $("nav").innerHTML = Object.entries(VIEWS).map(([k, l]) => `<button class="${k === state.view ? "on" : ""}" data-view="${k}">${l}</button>`).join("");
+  const v = $("view");
+  if (!v.dataset.view || v.dataset.view !== state.view) v.innerHTML = `<div class="card muted">Chargement…</div>`;
+  const [b, html] = await RENDER[state.view]();
+  if (seq !== state.seq) return;  // a newer request superseded this one
+  v.dataset.view = state.view;
+  v.innerHTML = html;
+  footer(b);
+  $("clk").textContent = hhmm(state.beginS + Number($("t").value));
+}
+
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("button");
+  if (!el) return;
+  if (el.dataset.view) { state.view = el.dataset.view; render(); }
+  else if (el.dataset.set) { state[el.dataset.set] = el.dataset.val; render(); }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.id === "trajet") { state.trajet = e.target.value; render(); }
+  if (e.target.id === "exam") { state.exam = e.target.value || "09:00"; render(); }
+  if (e.target.id === "run") { state.run = e.target.value; render(); }
+});
+$("t").addEventListener("input", render);
+$("play").addEventListener("click", () => {
+  if (state.playing) { clearInterval(state.playing); state.playing = null; $("play").textContent = "▶"; return; }
+  $("play").textContent = "❚❚";
+  state.playing = setInterval(() => {
+    const t = $("t");
+    t.value = Math.min(Number(t.max), Number(t.value) + 5);
+    render();
+  }, 1000);
+});
+
+async function init() {
+  $("view").innerHTML = `<div class="card muted">Chargement…</div>`;
+  const [h, s] = await Promise.all([api("/health"), api("/scenarios")]);
+  const runs = (s.scenarios || []).flatMap((g) => g.runs.map((r) => ({ ...r, scenario: g.scenario, label: g.label })));
+  const def = h.default_run ? h.default_run.run_id : "";
+  $("run").innerHTML = runs.map((r) => `<option value="${esc(r.run_id)}" ${r.run_id === def ? "selected" : ""}>${esc(r.label ? r.label + " · " : "")}${esc(r.scenario)} graine ${r.seed}${r.has_eta ? " · ETA" : ""}</option>`).join("")
+    || `<option value="">aucun run</option>`;
+  state.run = def;
+  const r = await api(`/replay/default`);  // the API's clock gives the starting time (08:15)
+  if (r.sim_t_s != null) $("t").value = r.sim_t_s;
+  footer(r.data_source ? r : h);
+  render();
+}
+init();
+</script>
+</body>
+</html>

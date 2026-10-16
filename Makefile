@@ -25,10 +25,15 @@ CALIB_SEEDS ?=
 .PHONY: install data explore score db-load net demand sim sim-gui db-runs plots baseline
 .PHONY: osm tls-check calib-data field-check field-sheets calibrate compare validate plots-pitie part3
 .PHONY: evaluate plots-eval part4 provenance rebaseline
+.PHONY: eta-daytypes eta-data eta-train eta-data-test eta-eval demo-runs api api-bench part5
+.PHONY: rl-timing rl-train rl-select rl-eval part6 reproduce56
 .PHONY: lint format test test-fast check train eval app
 
+## Every extra the tasks and the tests use; PyTorch first from the CPU index (a plain
+## install pulls the CUDA toolkit on Linux)
 install:
-	$(PY) -m pip install -e ".[dev,db,sim]"
+	$(PY) -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+	$(PY) -m pip install -e ".[dev,db,sim,ml,api,rl]"
 
 ## Part 1: download Paris sensors near the candidate zones, clean them, plot hourly profiles
 data:
@@ -135,6 +140,72 @@ provenance:
 ## (compare validate part4) and require identical KPI rows
 rebaseline:
 	$(PY) tasks.py rebaseline
+
+## Part 5: ETA dataset, quantile model, A-07 evaluation, API v1 and mock screens.
+## Seeds, splits and budgets come from configs/eta.yaml (pre-registered, D38).
+## ALLOW_DIRTY=1 builds a development dataset (id suffixed -dev) from an uncommitted tree.
+ALLOW_DIRTY ?=
+
+eta-daytypes:
+	$(PY) -m traffic_twin.ml.daytypes --check
+
+eta-data:
+	$(PY) -m traffic_twin.ml.eta_dataset --config configs/eta.yaml --splits train val calib$(if $(ALLOW_DIRTY), --allow-dirty)
+
+## Fit, conformal step and bundle, then freeze it before any test world exists (D51)
+eta-train:
+	$(PY) -m traffic_twin.ml.train_eta --config configs/eta.yaml
+	$(PY) -m traffic_twin.ml.train_eta --config configs/eta.yaml --freeze
+
+## Test worlds 2900-2999: generated and evaluated once, after the freeze (D50)
+eta-data-test:
+	$(PY) -m traffic_twin.ml.eta_dataset --config configs/eta.yaml --splits test$(if $(ALLOW_DIRTY), --allow-dirty)
+
+eta-eval:
+	$(PY) -m traffic_twin.ml.evaluate_eta --config configs/eta.yaml --split test --docs docs/eta.md --figures docs/figures/eta
+
+## Demo / replay runs S0, S1, S2 on seed 4000 into data/demo, with ETA predictions
+demo-runs:
+	$(PY) -m traffic_twin.ml.predict demo --seeds 4000
+
+api:
+	$(PY) -m uvicorn traffic_twin.api.main:app --no-access-log --host 127.0.0.1 --port 8000
+
+## Latency report (ENF-02) written between the latency markers of docs/api.md
+api-bench:
+	$(PY) -m traffic_twin.api.bench --results data/results data/demo --docs docs/api.md
+
+part5: eta-daytypes eta-data eta-train eta-data-test eta-eval demo-runs api-bench
+
+## Part 6: Gymnasium environment, first RL trainings, episode timing (configs/rl.yaml).
+## rl-train reads train.s6 of configs/rl.yaml, so tasks.py runs it; ALGO, SEED, STEPS and
+## N_ENVS narrow or override it.
+ALGO ?=
+SEED ?=
+STEPS ?=
+N_ENVS ?=
+
+rl-timing:
+	$(PY) -m traffic_twin.rl.evaluate timing
+
+rl-train:
+	$(PY) tasks.py rl-train$(if $(ALGO), --algo $(ALGO))$(if $(SEED), --seed $(SEED))$(if $(STEPS), --steps $(STEPS))$(if $(N_ENVS), --n-envs $(N_ENVS))
+
+rl-select:
+	$(PY) -m traffic_twin.rl.evaluate select
+
+## Exploratory comparison on the development-test seeds 3020-3029, then docs/rl.md
+rl-eval:
+	$(PY) -m traffic_twin.rl.evaluate compare --seeds 3020 3021 3022 3023 3024 3025 3026 3027 3028 3029
+	$(PY) -m traffic_twin.rl.evaluate kpi --seeds 3020 3021 3022 3023 3024 3025 3026 3027 3028 3029
+	$(PY) -m traffic_twin.rl.evaluate docs --docs docs/rl.md --figures docs/figures/rl
+
+part6: rl-timing rl-train rl-select rl-eval
+
+## After a commit (D65): move the Parts 5-6 outputs aside, rerun part5 part6 from HEAD,
+## require identical metrics and model/policy sha256 (in-process steps: tasks.py)
+reproduce56:
+	$(PY) tasks.py reproduce56
 
 lint:
 	$(PY) -m ruff check .

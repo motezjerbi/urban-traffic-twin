@@ -101,6 +101,12 @@ class Controller(ABC):
         """Build from the scenario config (parameters usually under `cfg[name]`)."""
         return cls()
 
+    def bind(self, sim) -> None:  # noqa: B027 (optional hook, no-op by default)
+        """Called by `run_scenario.run` (and the RL environment) once the session has
+        started, before `reset()`. Controllers that read the simulation beyond the
+        Observation (e.g. the RL controller's `JunctionSampler`) keep `sim`. Default:
+        no-op, so fixed, actuated and rules are unchanged (passive hook, D63)."""
+
     @abstractmethod
     def reset(self, seed: int) -> None: ...
 

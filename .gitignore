@@ -8,6 +8,11 @@ __pycache__/
 data/raw/*
 data/processed/*
 data/results/*
+data/eta/*
+data/models/*
+data/demo/*
+data/rl_runs/*
+data/fake/*
 !data/**/.gitkeep
 sumo/demand/*.rou.xml
 *.log

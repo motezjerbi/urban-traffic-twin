@@ -845,3 +845,37 @@ def test_run_writes_part4_outputs(part4, sumo_outputs, monkeypatch, tmp_path):
     junction = kpis[kpis["user_type"] == "junction"]["kpi"].tolist()
     assert junction == ["box_halt_red_s", "box_foe_onsets", "exit_blocked_s",
                         "exit_blocked_green_s"]  # fmt: skip
+
+
+# -- Parts 5-6: last_request (contract 4.1) ----------------------------------------------
+def test_last_request_records_the_request_and_the_guard_stage(fake, monkeypatch, tmp_path):
+    class EvenStepGuard:
+        """Keeps stage A on even seconds, passes the request through otherwise."""
+
+        interventions: dict = {}
+
+        @classmethod
+        def from_config(cls, cfg, stages, phase_states, durations=None):
+            return cls()
+
+        def apply(self, proposed, state):
+            return 0 if int(state.t) % 2 == 0 else proposed
+
+    monkeypatch.setattr(session_mod, "SafetyGuard", EvenStepGuard)
+    with SimSession(CFG, 1, tmp_path, log_state=False) as sim:
+        assert sim.last_request is None  # before the first step
+        seen = []
+        for _ in range(4):
+            sim.step(1)
+            seen.append(sim.last_request)
+    assert seen == [(1, 0), (1, 1), (1, 0), (1, 1)]
+    assert all(type(x) is int for pair in seen for x in pair)
+
+
+def test_last_request_with_the_real_guard_equals_an_unguarded_request(fake, tmp_path):
+    ctrl = FixedTimeController([6, 4])
+    with SimSession(CFG, 1, tmp_path, log_state=False) as sim:
+        while not sim.done:
+            stage = ctrl.decide(sim.observe())
+            sim.step(stage)
+            assert sim.last_request == (stage, stage)  # the grid guard never intervenes here

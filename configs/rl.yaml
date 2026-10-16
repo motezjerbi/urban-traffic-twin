@@ -1,9 +1,32 @@
-# RL hyperparameters and reward weights (spec chapter 10). Filled in Part 6.
-algorithm: dqn
-total_timesteps: 200000
-decision_interval_s: 5
-reward_weights:
-  queue: 1.0
-  wait: 0.5
-  bus_delay: 1.0
-  ped_wait: 1.0
+# RL environment and training (Part 6; spec 10, EF-10). Pre-registered (D55-D62).
+preregistered: 2026-10-16
+base_config: configs/pitie_rl.yaml
+action: {mode: binary}                       # 0 stay, 1 advance (strict order, D55)
+decision: {interval_s: 5, skip_during_preemption: true}
+observation: {version: rl-obs-1, veh_length_m: 7.5, wait_norm_s: 120, pending_norm: 20, tis_norm_s: 60,
+              red_norm_s: 180, ped_count_norm: 10, ped_wait_norm_s: 88, bus_dist_norm_m: 300,
+              amb_dist_bins_m: [50, 150], bus_delay_bins_s: [30, 90]}
+reward:
+  version: rl-reward-1
+  weights: {car: 1.3, bus: 25.0, pedestrian: 1.2, ambulance: 20.0}   # persons (car = w_v 1.0 x occupancy 1.3)
+  pending_as_waiting: true
+  ped_penalty: {lambda: 30.0, threshold_s: 80.0}
+  scale: 0.001
+episode:
+  train: {window_s: 1800, warmup_s: 300, warmup_controller: actuated}
+  full: {}                                   # 07:30-09:30, truncate at 7200 s
+randomize:
+  multiplier: [0.6, 1.4]
+  day_types: {tue_wed_thu_term: 0.6, mon_fri_term: 0.25, school_holiday: 0.15}
+  ambulances: {count_p: [0.4, 0.4, 0.2], routes: {N_S: 0.6, W_S: 0.4}}
+  incidents: {p: 0.3, duration_s: [300, 600, 900], sites: configs/pitie/incident_sites.yaml}
+seeds: {train: [1000, 1999], selection: [3000, 3009], burned: [3010, 3019], dev_test: [3020, 3049]}
+train: {n_envs: 8, torch_threads: 1, eval_every_steps: 10000, checkpoint_every_steps: 50000,
+        s6: {dqn: {seeds: [0, 1, 2], steps: 200000}, ppo: {seeds: [0], steps: 200000}}}
+dqn: {learning_rate: 5.0e-4, buffer_size: 100000, learning_starts: 5000, batch_size: 128, gamma: 0.95,
+      train_freq: 1, gradient_steps: 2, target_update_interval: 2000, exploration_fraction: 0.25,
+      exploration_final_eps: 0.02, net_arch: [128, 128]}
+ppo: {learning_rate: 3.0e-4, n_steps: 256, batch_size: 256, n_epochs: 5, gamma: 0.95, gae_lambda: 0.95,
+      ent_coef: 0.01, clip_range: 0.2, net_arch: [128, 128]}
+outputs: {runs: data/rl_runs, selected: data/models/rl/selected, docs: docs/rl.md, figures: docs/figures/rl}
+changes: []

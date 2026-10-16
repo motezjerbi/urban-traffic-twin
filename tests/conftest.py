@@ -11,8 +11,16 @@ from pathlib import Path
 
 import pytest
 
-from traffic_twin.config import load_scenario
-from traffic_twin.paths import CONFIG_DIR, PITIE_FIXED_CONFIG, PITIE_RULES_CONFIG, SCENARIO_CONFIG
+from traffic_twin.config import load_config, load_scenario
+from traffic_twin.paths import (
+    CONFIG_DIR,
+    ETA_CONFIG,
+    PITIE_FIXED_CONFIG,
+    PITIE_RL_CONFIG,
+    PITIE_RULES_CONFIG,
+    RL_CONFIG,
+    SCENARIO_CONFIG,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PROBE_RULES_CONFIG = CONFIG_DIR / "pitie_amb_rules.yaml"  # ambulance-probe family, S2
@@ -109,6 +117,50 @@ def probe_scenario() -> dict:
 def probe_cfg(probe_scenario: dict) -> dict:
     """A private deep copy of the ambulance-probe S2 scenario config."""
     return copy.deepcopy(probe_scenario)
+
+
+@pytest.fixture(scope="session")
+def rl_scenario() -> dict:
+    """configs/pitie_rl.yaml (the RL controller on the Pitié junction: S0 demand, S2
+    preemption and safety, `controller: rl`), loaded once. Do not mutate: use `rl_cfg`."""
+    return load_scenario(REPO_ROOT / PITIE_RL_CONFIG)
+
+
+@pytest.fixture
+def rl_cfg(rl_scenario: dict) -> dict:
+    """A private deep copy of the Pitié RL scenario config that a test may modify."""
+    return copy.deepcopy(rl_scenario)
+
+
+@pytest.fixture(scope="session")
+def rl_train_scenario() -> dict:
+    """configs/rl.yaml (environment and training, pre-registered D55-D62), loaded once.
+    Do not mutate."""
+    return load_config(REPO_ROOT / RL_CONFIG)
+
+
+@pytest.fixture(scope="session")
+def eta_scenario() -> dict:
+    """configs/eta.yaml (ETA dataset, model and evaluation, pre-registered D38-D52),
+    loaded once. Do not mutate: use `eta_cfg`."""
+    return load_config(REPO_ROOT / ETA_CONFIG)
+
+
+@pytest.fixture
+def eta_cfg(eta_scenario: dict) -> dict:
+    """A private deep copy of configs/eta.yaml that a test may modify."""
+    return copy.deepcopy(eta_scenario)
+
+
+@pytest.fixture
+def api_results(tmp_path: Path) -> Path:
+    """A results root under tmp_path with synthetic run folders
+    (`api.fixtures.make_results`, 3 runs): the API tests never read data/results."""
+    from traffic_twin.api.fixtures import make_results
+
+    root = tmp_path / "results"
+    make_results(root, n_runs=3)
+    return root
 
 
 def scenario_inputs(cfg: dict) -> list[Path]:

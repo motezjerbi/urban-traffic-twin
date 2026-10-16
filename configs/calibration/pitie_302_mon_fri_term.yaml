@@ -1,0 +1,107 @@
+# Demand calibration of the Pitie-Salpetriere junction (node 302), day type mon_fri_term.
+# GENERATED, do not edit:  python -m traffic_twin.ml.daytypes   (check: --check)
+# ASSUMED ratio method (D44): base slot flow x mean flow of the day type / mean flow over
+# the base days_used, per arm (its arc) and sensor hour.
+# Base: configs/calibration/pitie_302.yaml (sha256 9936dac4fd835e909f3998c41459d7eff4bfe828794dc2f9faa34250b5d2a60f, LF line ends).
+# Ratios: data/reference/pitie_302_hours.csv (sha256 be8425b51be3430fe01e98cd401904a742d810b104bb6229adfb37304589eb4d, LF line ends).
+schema_version: 1
+site: pitie_302
+day_type:
+  name: mon_fri_term
+  method: ratio (ASSUMED, D44)
+  ratios:
+    N: {7: 1.0178, 8: 0.9663, 9: 0.9512}
+    S: {7: 1.0325, 8: 0.9191, 9: 0.9112}
+    W: {7: 1.0276, 8: 0.9728, 9: 1.022}
+  rule:
+    day_type: term
+    weekdays: [0, 4]
+  base_calibration: configs/calibration/pitie_302.yaml
+  base_sha256: 9936dac4fd835e909f3998c41459d7eff4bfe828794dc2f9faa34250b5d2a60f
+  hours_csv: data/reference/pitie_302_hours.csv
+  hours_sha256: be8425b51be3430fe01e98cd401904a742d810b104bb6229adfb37304589eb4d
+  dates:
+    '508': ['2026-09-04', '2026-09-07', '2026-09-11', '2026-09-14', '2026-09-18', '2026-09-21', '2026-09-25',
+      '2026-09-28', '2026-10-02', '2026-10-05']
+    '511': ['2026-09-04', '2026-09-07', '2026-09-11', '2026-09-14', '2026-09-18', '2026-09-21', '2026-09-25',
+      '2026-09-28', '2026-10-02', '2026-10-05', '2026-10-09']
+    '513': ['2026-09-04', '2026-09-07', '2026-09-11', '2026-09-14', '2026-09-18', '2026-09-21', '2026-09-25',
+      '2026-09-28', '2026-10-02', '2026-10-05', '2026-10-09']
+source:
+  reference_csv: data/reference/pitie_302_hours.csv
+  source_sha256: be8425b51be3430fe01e98cd401904a742d810b104bb6229adfb37304589eb4d
+  raw_period: ['2026-07-13', '2026-10-10']
+timestamp_convention: period_end
+day_filter:
+  weekdays: [1, 2, 3]
+  day_type: term
+  typical_period: ['2026-09-01', '2026-12-18']
+  mad_k: 3.5
+  min_days: 8
+  days_used:
+    '508': ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-15',
+      '2026-09-16', '2026-09-17', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-29', '2026-09-30',
+      '2026-10-01', '2026-10-06']
+    '510': ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-15',
+      '2026-09-16', '2026-09-17', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-29', '2026-09-30',
+      '2026-10-01', '2026-10-08']
+    '511': ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-15',
+      '2026-09-16', '2026-09-17', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-29', '2026-09-30',
+      '2026-10-01', '2026-10-06', '2026-10-08']
+    '513': ['2026-09-02', '2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-15', '2026-09-16',
+      '2026-09-17', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-29', '2026-09-30', '2026-10-01',
+      '2026-10-06', '2026-10-07', '2026-10-08']
+  n_days: {'508': 16, '510': 16, '511': 17, '513': 17}
+  mad_dropped: {}
+  hold_out_days: {}
+window: {begin_s: 27000, end_s: 34200, slot_s: 900}
+arms:
+  N:
+    arc: '508'
+    status: proxy
+    n_days: 16
+    mean_veh_h: 609.21
+    slots:
+    - {begin_s: 27000, flow_veh_h: 535.3}
+    - {begin_s: 27900, flow_veh_h: 535.3}
+    - {begin_s: 28800, flow_veh_h: 638.181}
+    - {begin_s: 29700, flow_veh_h: 638.181}
+    - {begin_s: 30600, flow_veh_h: 638.181}
+    - {begin_s: 31500, flow_veh_h: 638.181}
+    - {begin_s: 32400, flow_veh_h: 625.176}
+    - {begin_s: 33300, flow_veh_h: 625.176}
+  S:
+    arc: '511'
+    n_days: 17
+    mean_veh_h: 345.967
+    slots:
+    - {begin_s: 27000, flow_veh_h: 252.537}
+    - {begin_s: 27900, flow_veh_h: 252.537}
+    - {begin_s: 28800, flow_veh_h: 367.532}
+    - {begin_s: 29700, flow_veh_h: 367.532}
+    - {begin_s: 30600, flow_veh_h: 367.532}
+    - {begin_s: 31500, flow_veh_h: 367.532}
+    - {begin_s: 32400, flow_veh_h: 396.264}
+    - {begin_s: 33300, flow_veh_h: 396.264}
+  W:
+    arc: '513'
+    n_days: 17
+    mean_veh_h: 205.386
+    slots:
+    - {begin_s: 27000, flow_veh_h: 147.733}
+    - {begin_s: 27900, flow_veh_h: 147.733}
+    - {begin_s: 28800, flow_veh_h: 224.546}
+    - {begin_s: 29700, flow_veh_h: 224.546}
+    - {begin_s: 30600, flow_veh_h: 224.546}
+    - {begin_s: 31500, flow_veh_h: 224.546}
+    - {begin_s: 32400, flow_veh_h: 224.719}
+    - {begin_s: 33300, flow_veh_h: 224.719}
+sensitivity: {}
+station_groups: {'505': 505=510, '508': '508', '509': 509=511=5071, '510': 505=510, '511': 509=511=5071,
+  '512': 512=5065, '513': 513=5879, '514': 514=5878, '5065': 512=5065, '5071': 509=511=5071, '5878': 514=5878,
+  '5879': 513=5879}
+turns:
+  source: assumption
+  N: {S: 0.63, W: 0.37}
+  S: {N: 0.9, W: 0.1}
+  W: {N: 0.85, S: 0.15}

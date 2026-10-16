@@ -16,7 +16,9 @@ simulation logs go to the private Storage bucket `sim-logs` as Parquet.
 Developer guide (module map, data flow, controller contract, invariants):
 [docs/architecture.md](docs/architecture.md). Simulation vs reality validation:
 [docs/validation.md](docs/validation.md). Controller evaluation S0 vs S1 vs S2:
-[docs/evaluation.md](docs/evaluation.md). Site visit checklist:
+[docs/evaluation.md](docs/evaluation.md). ETA model and its evaluation:
+[docs/eta.md](docs/eta.md). API v1: [docs/api.md](docs/api.md). RL environment and first
+trainings: [docs/rl.md](docs/rl.md). Site visit checklist:
 [docs/field_protocol.md](docs/field_protocol.md).
 
 ## Roadmap
@@ -29,8 +31,11 @@ of spec 13.4, the flows pass, while the signal timing and the queues wait for th
 measurements and the signal program is ASSUMED. Until then the S0 vs S1 comparison is
 provisional. Part 4 (rule-based controller S2, common Safety Guard, ambulance preemption,
 bus priority, per-user evaluation of S0, S1 and S2) is done on the same terms: its results
-rest on the same program and are provisional until the field visit too. **Part 5** is
-next.
+rest on the same program and are provisional until the field visit too. Parts 5 (ETA
+model with a conformal interval, API v1, mock screens) and 6 (Gymnasium environment, RL
+controller, first short RL trainings) are done on the same terms: their models learn the
+simulator, and their results are provisional until the field visit. **Part 7** (full RL
+training) is next.
 
 | Part | Content | Status |
 | --- | --- | --- |
@@ -38,8 +43,9 @@ next.
 | 2 | SUMO network (signals, crossings, bus), provisional demand, fixed-time baseline, first KPIs | done |
 | 3 | Demand calibration, sim vs reality validation, actuated baseline | done (field visit pending) |
 | 4 | Rule-based controller (preemption, bus TSP, pedestrians), Safety Guard, per-user KPIs | done (field visit pending) |
-| 5 | ETA model (XGBoost quantiles), API v1 | next |
-| 6-7 | Gymnasium env and RL training | |
+| 5 | ETA model (XGBoost quantiles, conformal interval), API v1, mock screens | done (field visit pending) |
+| 6 | Gymnasium env, RL controller, first short RL trainings, episode timing | done (field visit pending) |
+| 7 | Full RL training, tuning, weight sensitivity | next |
 | 8 | Final evaluation (10 seeds) | |
 | 9 | App views and replay, user tests | |
 | 10 | Report and demo | |
@@ -60,14 +66,24 @@ Windows (PowerShell):
 cd C:\path\to\urban-traffic-twin
 python -m venv .venv
 .venv\Scripts\activate                     # or call .venv\Scripts\python.exe directly
-python tasks.py install                    # pip install -e .[dev,db,sim]; SUMO via eclipse-sumo
+python tasks.py install                    # CPU torch, then pip install -e .[dev,db,sim,ml,api,rl]
 python tasks.py baseline                   # grid: net + sim (seeds 1 2 3) + plots
 python tasks.py part3                      # Pitié: checks, calibration, S0 vs S1, validation
 python tasks.py part4                      # Pitié: S0 vs S1 vs S2 evaluation (Part 4)
+python tasks.py part5                      # ETA dataset, model, A-07, demo runs, API latency
+python tasks.py part6                      # RL episode timing, first trainings, evaluation
 python tasks.py check                      # lint + tests, what CI runs
 ```
 
 Without activating: `.venv\Scripts\python.exe tasks.py baseline`.
+
+`install` installs every extra pinned in `pyproject.toml`, so that `check` and the Parts
+5-6 tasks find their packages: `dev`, `db`, `sim` (SUMO through the `eclipse-sumo`
+wheel), `ml` (XGBoost), `api` (FastAPI, Pydantic, uvicorn, httpx, DuckDB) and `rl`
+(Gymnasium, Stable-Baselines3, PyTorch). It first installs the CPU build of PyTorch
+(`pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu`), as CI
+does: a plain install pulls the CUDA toolkit on Linux. `make install` runs the same two
+commands.
 
 Linux / macOS: the Makefile has the same target names.
 
@@ -81,7 +97,8 @@ make check
 Main tasks (`python tasks.py --help` lists them all; `-n` prints the commands without
 running them; several tasks run in order, e.g. `tasks.py net sim plots`). The Part 3 tasks
 are listed in [Pitié-Salpêtrière junction](#pitié-salpêtrière-junction-part-3), the Part 4
-ones in [Part 4 tasks](#part-4-tasks).
+ones in [Part 4 tasks](#part-4-tasks), the Part 5 and 6 ones in [Part 5 tasks](#part-5-tasks)
+and [Part 6 tasks](#part-6-tasks).
 
 | Task | What it does |
 | --- | --- |
@@ -792,7 +809,7 @@ timetable.
 | `plots-eval` | evaluation figures into `docs/figures/pitie/eval/` |
 | `part4` | `tls-check evaluate plots-eval`, with `tls-check` on S2 (`--scenario`, default `configs/pitie_rules.yaml`) |
 | `provenance` | exit 1 unless every evaluation run, `docs/validation.md` and `docs/evaluation.md` come from the committed HEAD |
-| `rebaseline` | after a commit: move the evaluation runs aside, rerun `compare validate part4` from HEAD, and require every run's KPI rows to be byte-identical |
+| `rebaseline` | after a commit: move the evaluation runs aside, rerun `compare validate part4` from HEAD, and require every run's KPI rows to be byte-identical apart from the run's own `run_id` |
 
 The Makefile has the same targets; `make part4 SCENARIO=...`. Results go to
 `data/results/evaluation/` (not versioned): `kpis.csv`, the pairs, `equity.csv`, `a04.csv`
@@ -809,6 +826,443 @@ summary is identical. `docs/validation.md` and `docs/evaluation.md` now name f43
 `tasks.py provenance` (also a test in `tests/test_docs.py` on a clean checkout) refuses a
 published page that names an uncommitted tree.
 
+## ETA model and API (Part 5)
+
+Part 5 adds a junction ETA with an 80 % interval for the six car trajets, the departure
+advice of spec 11.5, API v1 over the simulated runs, and mock screens of the five
+profiles.
+
+On the realistic test worlds, generated and evaluated once after the model was frozen,
+the served interval covers 0.806 of the trips (95 % CI [0.802, 0.810]) and the median's
+mean absolute error is 10.2 s, against 39.6 s for the reference model: **A-07 / EF-14
+PASS**. One subgroup is flagged: trips that enter while an incident is active (coverage
+0.719). The API answers every endpoint with a worst p95 of 44.4 ms over 76 indexed runs:
+**ENF-02 PASS**. Every table (data, splits, calibration, breakdowns, degraded mode) is in
+the generated page [docs/eta.md](docs/eta.md); the API contract and the latency report
+are in [docs/api.md](docs/api.md). Decision numbers D37-D54 refer to
+[Parts 5-6 decisions](docs/architecture.md#parts-5-6-decisions).
+
+**Provisional until the field visit.** Every ETA number is learned on simulated worlds
+only: the model learns the simulator (spec 11.2), on the ASSUMED signal program (cycle
+123 s) and a demand calibrated on one sensor node. After the field visit the dataset is
+regenerated, the model retrained and re-evaluated, and the API keeps `provisional: true`
+until then. Every API answer says `data_source: simulation`. The results come from an
+uncommitted tree (code version `8fd1026-dirty`). After the commit, `tasks.py reproduce56`
+reruns Parts 5 and 6 from the clean tree and requires the same metrics and the same model
+file (D65, see [Part 6 tasks](#part-6-tasks)).
+
+### Target and features
+
+- **Target** `y_zone_s`: whole seconds from a car's physical entry on its approach (its
+  insertion on the modelled in-edge) to the first second it is on its out-edge, for the
+  six car trajets N_S, N_W, S_N, S_W, W_N and W_S (spec 11.1). Buses, ambulances and
+  pedestrians are excluded. A car still waiting to enter the network is not in the
+  target: the API flags it (`queue_beyond_zone`).
+- **Student ETA** = `y_zone_s` plus a fixed rest of trip of 120 s (ASSUMED) on the two
+  student routes, Gare d'Austerlitz to the Pitié main gate (N_S) and Bd Saint-Marcel to
+  the Pitié main gate (W_S). The deadline is a user input.
+- **Features** (`eta-features-1`, one definition in `ml/features.py` for the dataset and
+  for prediction), read one second before the car enters: time of day, day type,
+  controller and trajet; per arm the halting and present vehicles, the longest wait
+  (ASSUMED camera), the E2 jam length, the 1- and 5-minute E1 occupancy and the 5-minute
+  flow; the signal stage and the time remaining before a change (11.3); bus calls; the
+  ambulance (ASSUMED V2I distance); active incidents; waiting pedestrians. The
+  simulation-only insertion backlog is stored but never fed to the model.
+
+### Dataset (EF-12)
+
+A world is one seed with its own demand, ambulances and incidents, run under S0, S1 and S2
+(paired). 70 % of the worlds are realistic (day type Tue-Thu term, Mon/Fri term or school
+holiday, from ASSUMED ratio profiles generated in `configs/calibration/`, a lognormal
+demand multiplier and per-arm scales); 30 % are stress worlds (multiplier 0.6 to 1.4).
+Ambulances (0 to 2, N to S or W to S) and incidents (0 to 2 lane slowdowns to 2 m/s,
+ASSUMED: `configs/pitie/incident_sites.yaml`) are drawn per world. Worlds are split, never
+their trips: train 2000-2299, val 2300-2349, calib 2350-2449, test 2900-2999 (generated
+once, after the model is frozen). The dataset lives in `data/eta/<dataset_id>/` (not
+versioned), with a manifest recording the configs' hashes, the seeds and the code version.
+
+The dataset `eta1-ce9b6451-dev` (`-dev`: built from an uncommitted tree) has 1,650 runs
+and 3,764,917 trips:
+
+| Split | Worlds (realistic / stress) | Runs | Trips |
+| --- | --- | --- | --- |
+| train | 300 (202 / 98) | 900 | 2,056,641 |
+| val | 50 (33 / 17) | 150 | 340,100 |
+| calib | 100 (64 / 36) | 300 | 689,667 |
+| test | 100 (72 / 28) | 300 | 678,509 |
+
+- The 1,350 train, val and calib runs took 1,317 s with 8 workers, the 300 test runs
+  293 s; no run failed. A rerun of world 2300 under S2 gave byte-identical samples and
+  snapshots.
+- No trip was teleported or lacked an exit time. Trips without a feature row within 5 s
+  are dropped: 345 in train, val and calib, 81 in test.
+- 71 runs reached the 1,800 s drain limit with cars still in the network: 68 stress runs
+  and 3 realistic S0 runs (worlds 2259 and 2367 in train and calib, 2922 in test; demand
+  multiplier 1.13 to 1.18), where the plan expected none in realistic worlds. Their 2, 8
+  and 29 trajet cars still in the network at the cut have no trip record and are not in
+  the dataset, so the longest trips of those three runs are missing. This is reported,
+  not corrected.
+
+### Model and interval (EF-13)
+
+One XGBoost model (`reg:quantileerror`) predicts the 10 %, 50 % and 90 % quantiles. A
+conformal step (CQR) on the calib worlds widens or narrows the served integer bounds,
+`floor(q10 - q̂)` and `ceil(q90 + q̂)`, so that they cover 80 % of the realistic calib
+trips; the same bounds are stored, served and evaluated. The reference model (spec 11.4)
+is the mean per trajet, hour and day type of the train worlds; it is also the degraded
+mode of the API ("estimation approximative").
+
+- **Fit.** On 2,056,419 train trips, the depth grid gave a val pinball loss of 3.691
+  (depth 6) and 3.513 (depth 8); depth 8 was kept. Both fits ran to the 6,000-round cap
+  (best iteration 5999) without early stopping, so more rounds would probably still help;
+  the pre-registered settings were not changed. Val MAE 10.75 s against 42.96 s for the
+  reference.
+- **Calibration.** q̂ = -0.5 s on 434,792 realistic calib trips: the raw q10-q90
+  interval covers 0.758 of them, and the outward rounding to whole seconds widens it
+  beyond 80 %, so the conformal step narrows it by half a second (calib coverage 0.806).
+- **Bundle and freeze.** Bundle `eta1-56926796` (`data/models/eta/`, not versioned), frozen
+  at 2026-10-16 00:41:45 UTC; the test worlds were generated afterwards (00:41:52 to
+  00:46:45 UTC).
+
+**A-07 / EF-14 rule (pre-registered).** On the realistic test worlds, PASS iff the pooled
+coverage of the served interval is in [0.75, 0.85] and the 95 % bootstrap CI (by world,
+2000 resamples) of MAE(model) - MAE(reference) lies below 0. Coverage per trajet,
+controller, day type, incident and ambulance is reported as flags, and stress worlds
+separately.
+
+**Result (realistic test worlds: 483,100 trips, 72 worlds, 216 runs): PASS.**
+
+| Metric | Model | Reference |
+| --- | --- | --- |
+| Coverage of the 80 % interval | 0.806 [0.802, 0.810] | 0.825 (its p10-p90) |
+| Mean width (s) | 31.0 | 127.3 |
+| MAE of the median (s) | 10.21 | 39.65 |
+| MAE model - reference (s) | -29.44 [-30.78, -28.12] | |
+| RMSE of the median (s) | 26.44 | |
+
+Without the conformal step and the integer bounds, the raw q10-q90 interval would cover
+0.758 of the test trips.
+
+- **Flag.** Trips that enter while an incident is active: coverage 0.719 (33,641 trips,
+  42 worlds), MAE 24.3 s, width 60.3 s.
+- **Near the lower edge**, within the band: ambulance present or pending 0.765 (3,255
+  trips), W_S 0.779, S_W 0.786 (MAE 29.7 s, width 86.7 s), the rules controller 0.788
+  (fixed 0.822, actuated 0.809). Day types 0.805 to 0.809.
+- **Per run** (216 runs): coverage from 0.742 to 0.864, median 0.809.
+- **Stress worlds** (reported, not judged): coverage 0.788 [0.778, 0.799], MAE 12.5 s
+  against 52.4 s for the reference.
+
+![Coverage by group](docs/figures/eta/coverage_by_group.png)
+*Coverage of the served interval per subgroup on the realistic test worlds, with the [0.75, 0.85] band.*
+
+### Departure advice (11.5)
+
+`ml/advice.py`: the high bound plus the rest of the trip at or before the deadline gives
+"Partez maintenant, marge confortable"; else the median does, "Marge faible"; else
+"Risque de retard, prévenez". In degraded mode the message says it is approximate.
+
+### API v1 and mock screens
+
+FastAPI reading the run folders of `data/results/` and `data/demo/` (local files through
+DuckDB, no Supabase). A replay clock (`run_id`, `t` in seconds or `HH:MM`) stands for
+real time. Endpoints (spec 9.3): `/health`, `/scenarios`, `/kpi`, `/replay/{run_id}`,
+`/crossing/{id}`, `/bus/{line}/status`, `/ambulance/next-intersections` and `/eta`. Every
+answer, errors included, carries the spec 9.2 envelope: `data_source`, `calibrated_on`,
+`timestamp`, `data_age_s`, `stale`, `type`, `status` (`ok`, `degraded` or
+`unavailable`), `notice`, `provisional`, `run`, `sim_t_s` and `error`. Unknown ids and bad
+parameters give 404 with a code, missing data a `degraded` or `unavailable` answer,
+unexpected errors 503 without a traceback (ENF-03, ENF-04). No access log, GET only, no
+account (ENF-07). Details and the latency report (ENF-02): [docs/api.md](docs/api.md).
+
+- **Demo runs.** `tasks.py demo-runs` writes S0, S1 and S2 on seed 4000 to `data/demo/`,
+  each with 8,634 precomputed predictions (`eta_prediction.parquet`, the Supabase
+  `eta_prediction` columns). The S2 run is the API's default replay run. The evaluation
+  runs of `data/results/` have no predictions: `/eta` answers there from the reference
+  table, `approximate: true`.
+- **Examples** on the default run: `/eta?trajet=N_S&t=08:15` gives a median of 38 s and
+  the interval [35, 125] s, `queue_beyond_zone: false`;
+  `/eta?trajet=W_S&t=08:15&student=true&deadline=08:40` gives 194 s [180, 210] s at
+  the junction, an arrival at 08:20:14 (median) or 08:20:30 (high bound) with the 120 s
+  rest of trip, and the advice "Partez maintenant, marge confortable".
+- **Latency** (`tasks.py api-bench`, 200 requests per endpoint, 76 runs indexed): worst
+  p95 44.4 ms in process (replay of a random run) and 21.1 ms over HTTP (bus status);
+  cold start 526 ms. ENF-02 (< 500 ms on precomputed results): **PASS**.
+
+The mock screens (`src/traffic_twin/app/mock.html`, served at `/mock`) show the five
+profiles on simulated or synthetic data, with the simulated-data footer (ENF-05);
+Streamlit comes in Part 9.
+
+### ASSUMED inputs added in Part 5
+
+- The rest of trip of the student routes (120 s each) and their names.
+- A camera giving each arm's longest vehicle wait; V2I ambulance distance.
+- The Mon/Fri term and school-holiday demand profiles: ratios of the sensor flows, the
+  holiday one from summer days only.
+- Incidents as lane slowdowns to 2 m/s on five approach lanes.
+- Walking speeds 1.2, 1.0 and 0.8 m/s; the names of the two corridor junctions that are
+  not modelled.
+
+### Part 5 tasks
+
+Seeds, splits and budgets come from `configs/eta.yaml` (pre-registered): `--scenario`
+and `--seeds` do not reach these tasks. Outputs go to `data/eta/`, `data/models/` and
+`data/demo/` (not versioned), never to `data/results/`.
+
+| Task | What it does |
+| --- | --- |
+| `eta-daytypes` | check the generated day-type calibration files |
+| `eta-data` | dataset of the train, val and calib worlds (`--allow-dirty`: development dataset from an uncommitted tree) |
+| `eta-train` | quantile model, conformal step and bundle, then the freeze written before any test world exists |
+| `eta-data-test` | dataset of the test worlds 2900-2999, once, after the freeze |
+| `eta-eval` | the A-07 / EF-14 evaluation and `docs/eta.md` |
+| `demo-runs` | demo runs of S0, S1 and S2 on seed 4000 into `data/demo/`, with ETA predictions |
+| `api` | the API and `/mock` on http://127.0.0.1:8000 |
+| `api-bench` | latency of every endpoint, written to `docs/api.md` |
+| `part5` | `eta-daytypes eta-data eta-train eta-data-test eta-eval demo-runs api-bench` |
+
+Measured times on the integration machine (32 logical CPUs): dataset 22 min for train,
+val and calib and 5 min for test, model fit 71 min for the two grid points.
+
+## RL environment and first trainings (Part 6)
+
+Part 6 adds the Gymnasium environment `TrafficEnv`, the RL controller `rl` and the first
+short trainings, with the episode timing of spec 10.4. The three DQN runs learn on
+30-minute windows: their best selection cost is 11.1 % to 13.9 % below S0 and 24.8 % to
+27.2 % below always-stay, so the **S6 criterion passes** (3 of 3 runs, 2 required). PPO
+with the same budget does not (+0.1 % against S0). A full 07:30-09:30 episode takes
+2.2 to 5.6 s of wall time on average, depending on the policy. On the development-test
+seeds the selected DQN policy beats S1 and is level with S2 on the window cost; on the
+2 h KPIs it beats S1 and is behind S2 for cars (exploratory, see
+[RL against S1 and S2](#rl-against-s1-and-s2-spec-106)). Every table is in the generated
+page [docs/rl.md](docs/rl.md).
+
+**Provisional until the field visit.** The agent learns the simulator: simulated
+episodes on the ASSUMED signal program and the calibrated demand, so every Part 6 result
+is provisional until the field visit. Part 6 trains short
+runs only; the full training, tuning and selected model are Part 7, and the evaluation on
+seeds 1-10 is Part 8. Decision numbers D55-D67 refer to
+[Parts 5-6 decisions](docs/architecture.md#parts-5-6-decisions).
+
+### Environment (EF-10)
+
+`rl/env.py` (`TrafficEnv`, Gymnasium) runs the Pitié junction through the same
+`SimSession`, Safety Guard and ambulance preemption as S0 to S2; the guard and the
+preemption keep priority over the agent.
+
+- **Action:** stay (0) or advance to the next stage of the cycle (1), under strict stage
+  order: the guard allows exactly these two stages, so this is the spec 10.2 choice of the
+  next green among the allowed stages.
+- **Decision clock** (`rl/clock.py`, shared with the controller): the agent decides only
+  outside a transition, after the minimum green, outside a preemption and at least 5 s
+  after its last decision.
+- **Observation** (`rl-obs-1`, 74 values in [0, 1]): per signal-controlled lane the
+  halting and present vehicles and the longest wait; vehicles waiting to enter per arm
+  (ASSUMED upstream detection); stage, transition, time in stage and red time per stage;
+  waiting pedestrians and their slack per crossing; ambulance and bus calls; time of day.
+- **Reward** (`rl-reward-1`): minus 0.001 times the person-weighted waiting each second,
+  car 1.3, bus 25, pedestrian 1.2 and ambulance 20 persons per waiting vehicle or
+  pedestrian, plus a penalty of 30 while a pedestrian has waited more than 80 s.
+- **Episodes:** for training, 30-minute windows starting at a random minute between 07:30
+  and 09:30, after a 300 s warm-up under S1, with a random demand multiplier (0.6 to 1.4),
+  day type, ambulances and incidents; the full 07:30-09:30 run for the timing.
+
+`control/rl.py` (`controller: rl`, `configs/pitie_rl.yaml`) plays a trained model inside
+`run_scenario` with the same clock and features; a missing model is an error, never a
+silent fallback.
+
+### Episode timing (spec 10.4)
+
+Full 07:30-09:30 episodes on the selection seeds 3000, 3001 and 3002, one process,
+32 logical CPUs (`tasks.py rl-timing`). S0, S1 and S2 decide every second and are timed as
+a whole; the env policies decide through the clock. Wall time in seconds.
+
+| Policy | Wall mean | Wall max | Decisions | Reset | SUMO | Reward | Features | Network |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S0 fixed | 2.70 | 3.41 | every s | - | 1.41 | 0.70 | 0.00 | - |
+| S1 actuated | 2.20 | 3.32 | every s | - | 1.37 | 0.66 | 0.00 | - |
+| S2 rules | 2.19 | 3.30 | every s | - | 1.39 | 0.63 | 0.00 | - |
+| random | 5.63 | 7.69 | 653 | 0.20 | 3.36 | 1.77 | 0.23 | 0.010 |
+| always-stay | 3.90 | 5.38 | 886 | 0.20 | 2.51 | 0.96 | 0.18 | 0.000 |
+| selected DQN | 4.20 | 5.73 | 805 | 0.24 | 2.56 | 0.94 | 0.18 | 0.218 |
+
+Building the env takes 0.03 s. With worker processes (`SubprocVecEnv`, random policy,
+5000 decision steps) the throughput is 168, 303, 368 and 543 env steps/s for 1, 4, 8 and
+12 workers; the plan expected at least 400 with 8. The 8-worker DQN trainings ran at
+428 to 430 steps/s including learning (322 for seed 0, made in an earlier session).
+
+![Episode timing](docs/figures/rl/episode_timing.png)
+*Wall time of one full 07:30-09:30 episode per policy, split into SUMO, reward, features and network.*
+
+### Trainings and selection (pre-registered)
+
+DQN with seeds 0, 1 and 2 and PPO with seed 0, 200000 decision steps each, 8 worker
+processes, episodes from the training seeds 1000-1999. Every 10000 steps the policy is
+scored on the selection seeds 3000-3009; the best checkpoint is kept. The S6 criterion
+(an agent that learns on short episodes): in at least 2 of the 3 DQN runs the best
+selection cost is at least 5 % below both S0 and always-stay on the same windows. The
+comparison with S0, S1 and S2 on the development-test seeds 3020-3029 is exploratory,
+under the spec 10.6 fallback: if RL does not beat the actuated S1 after a reasonable
+number of attempts, the rules (S2) become the main solution and RL is reported as a
+study.
+
+Mean episode cost (person-weighted waiting-seconds, the env's Σc) on the 10 selection
+windows; changes against the baselines on the same windows (S0 86,484, S1 80,514,
+S2 76,257, always-stay 102,220).
+
+| Run | Wall min | Best step | Best cost | vs S0 | vs S1 | vs S2 | vs stay | S6 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| DQN seed 0 | 14.5 | 200000 | 74,453 | -13.9 % | -7.5 % | -2.4 % | -27.2 % | pass |
+| DQN seed 1 | 11.0 | 170000 | 76,238 | -11.8 % | -5.3 % | -0.0 % | -25.4 % | pass |
+| DQN seed 2 | 10.8 | 200000 | 76,902 | -11.1 % | -4.5 % | +0.8 % | -24.8 % | pass |
+| PPO seed 0 | 9.8 | 160000 | 86,571 | +0.1 % | +7.5 % | +13.5 % | -15.3 % | (not judged) |
+
+- **S6 criterion: PASS**, 3 of 3 DQN runs.
+- Two of the three DQN runs are still at their best at the last step, so 200000 steps is
+  short of convergence; the curves are noisy (DQN validation cost between 74,453 and
+  86,319 after step 100000).
+- No NaN, no crash. In every validation the danger audit stayed at 0 and the longest curb
+  wait at or under 88 s.
+- **Selected** (lowest best selection cost among the DQN runs): DQN seed 0 at step
+  200000, `rl1-dqn-s0-3e1539b9` in `data/models/rl/selected/` (not versioned).
+- **Determinism.** Two runs of DQN seed 5 (8000 steps, 4 workers, one torch thread) gave
+  identical policy parameters, best step, `monitor.csv` and validation costs; the zip
+  files differ only by their archive timestamps.
+
+![Learning curves](docs/figures/rl/learning_curves.png)
+*Left: training episode return (rolling mean over 50 episodes). Right: validation cost on the selection windows every 10000 steps, with S0, S1, S2 and always-stay on the same windows.*
+
+### Development-test comparison (exploratory)
+
+The selected policy and the baselines on the development-test seeds 3020-3029, never used
+for training or selection. No acceptance rule applies; p is the exact two-sided Wilcoxon
+test, unadjusted.
+
+**Training windows** (10 windows of 30 minutes, env cost Σc; changes are means of the
+per-window changes):
+
+| Policy | Mean cost | vs S0 | vs S1 | Wins vs S1 | p vs S1 | Guard interventions per window |
+| --- | --- | --- | --- | --- | --- | --- |
+| RL | 68,555 | -21.2 % | -16.6 % | 10/10 | 0.002 | 3.1 |
+| S0 | 87,235 | - | +5.5 % | 2/10 | 0.064 | 0 |
+| S1 | 83,494 | -4.9 % | - | - | - | 0 |
+| S2 | 69,814 | -20.3 % | -15.8 % | 10/10 | 0.002 | 0 |
+| random | 181,712 | +111.0 % | +123.0 % | 0/10 | 0.002 | 5.1 |
+| always-stay | 100,201 | +24.9 % | +32.1 % | 1/10 | 0.037 | 54.4 |
+
+**Full 2 h runs** (`run_scenario` with `configs/pitie_{fixed,actuated,rules,rl}.yaml`,
+07:30-09:30 plus the drain, KPI v3, one `demand_hash`; means over the 10 seeds, seconds;
+RL - S1 is the paired mean difference):
+
+| KPI | S0 | S1 | S2 | RL | RL - S1 | p |
+| --- | --- | --- | --- | --- | --- | --- |
+| Car time loss | 75.9 | 65.5 | 55.0 | 59.4 | -6.1 | 0.027 |
+| Car delay incl. insertion | 84.5 | 71.3 | 55.4 | 59.5 | -11.7 | 0.027 |
+| Car insertion delay | 8.6 | 5.8 | 0.3 | 0.2 | -5.6 | 0.020 |
+| Bus delay | 61.4 | 63.1 | 56.7 | 48.5 | -14.6 | 0.002 |
+| Pedestrian mean curb wait | 19.2 | 19.2 | 19.5 | 19.9 | +0.8 | 0.020 |
+| Pedestrian longest curb wait | 85.9 | 87.3 | 88.0 | 88.0 | +0.7 | 0.031 |
+| Ambulance travel time | 141.5 | 141.6 | 93.2 | 98.6 | -43.0 | 0.049 |
+| Person-weighted delay | 62.7 | 57.5 | 48.4 | 47.6 | -9.9 | 0.002 |
+
+![Dev-test windows](docs/figures/rl/devtest_compare.png)
+*Cost per development-test window for RL, S0, S1, S2, random and always-stay.*
+
+### RL against S1 and S2 (spec 10.6)
+
+- **Against S1** the selected policy is better on the training objective (window cost
+  -16.6 %, 10 of 10 windows) and on the 2 h KPIs for cars, the bus, the ambulance and the
+  person-weighted delay. It is slightly worse for pedestrians: mean curb wait 19.9 against
+  19.2 s, longest 88.0 against 87.3 s.
+- **Against S2** it is level on the window cost (68,555 against 69,814) and mixed on the
+  2 h KPIs: behind for cars (time loss 59.4 against 55.0 s) and the ambulance (98.6
+  against 93.2 s), ahead for the bus (48.5 against 56.7 s), close on the person-weighted
+  delay (47.6 against 48.4 s). RL against S2 was not tested.
+- **RL leans on the guard.** The guard overrode the policy 11.3 times per 2 h run (9.2
+  `ped_wait`, 2.1 `max_green`) and 3.1 times per window; it never had to override S0, S1
+  or S2. The curb-wait bound is kept by the pedestrian shield, not by the policy.
+- These are 10 seeds and one model, selected among 3 DQN runs on the selection seeds:
+  exploratory only. The spec 10.6 fallback is not triggered by these numbers, since RL
+  beats S1 here, but it is not settled either. The rules (S2) stay the reference
+  solution until the Part 7 trainings and A-06 on seeds 1-10 (Part 8) decide; if RL does
+  not beat S1 there, S2 is the main solution and RL is reported as a study.
+
+### Safety and the ambulance
+
+- Full 2 h runs (40): 0 danger audit counts, 0 collisions, 0 teleports, 0 drain
+  timeouts; longest curb wait S0 86 s, S1 88 s, S2 88 s, RL 88 s, against the 90 s
+  bound. Every RL run served its ambulance preemption (10 of 10), with 815 to 848
+  decisions per run.
+- `zero_interventions` stays `[fixed, actuated]`: the RL interventions are counted per
+  key and reported, not forbidden.
+- **Ambulance in the state** (10.5): the ambulance features are part of the observation,
+  but decisions are skipped during a preemption, and the pending detection starts the
+  preemption before the ambulance reaches the approach. Measured share of decisions with
+  an ambulance present: 0.00 % for the selected policy on the development-test windows
+  and for every run's best checkpoint on the selection windows. The policy has in effect
+  never decided with an ambulance present; preemption handles it.
+
+### ASSUMED inputs added in Part 6
+
+- Upstream detection of the vehicles waiting to enter each arm.
+- Bus delay as SUMO time loss (no timetable), in three bins.
+- The reward weights in persons and the pedestrian threshold of 80 s; their sensitivity
+  is a Part 7 study.
+
+### Part 6 tasks
+
+The trainings come from `train.s6` of `configs/rl.yaml`; outputs go to `data/rl_runs/`
+and `data/models/rl/` (not versioned).
+
+| Task | What it does |
+| --- | --- |
+| `rl-timing` | episode timing and worker scaling (spec 10.4) |
+| `rl-train` | the S6 trainings, one after the other (`--algo`, `--seed`, `--steps` override) |
+| `rl-select` | best run by selection cost into `data/models/rl/selected/` |
+| `rl-eval` | window comparison and full-run KPIs on the development-test seeds 3020-3029, then `docs/rl.md` |
+| `part6` | `rl-timing rl-train rl-select rl-eval` |
+| `reproduce56` | after a commit: move the Parts 5-6 outputs aside, rerun `part5 part6` from HEAD, and require the same metrics and the same model and policy sha256 (D65) |
+
+The Makefile has the same targets: `make eta-data ALLOW_DIRTY=1`,
+`make rl-train ALGO=dqn SEED=5 STEPS=8000 N_ENVS=4`.
+
+`rl.train` keeps a finished run folder unless `--force` is given (a partial one is
+removed and redone). The four trainings took 46 min in total on the integration machine.
+
+**Reproducing Parts 5 and 6 (D65).** The Phase 3 results come from an uncommitted tree
+(`8fd1026-dirty`). `part5` and `part6` cannot simply be rerun on top of their own outputs,
+by design. The ETA freeze refuses a second model, because the test evaluation is single
+shot (D50). `rl.train` keeps a finished run. After the commit, `tasks.py reproduce56`
+works on a clean tree only, in three steps:
+
+1. It moves the outputs of both chains to `<dir>/_reproduce/<commit>/`, for each of
+   `data/eta/`, `data/models/`, `data/demo/` and `data/rl_runs/`. Work folders and the
+   determinism check stay in place.
+2. It reruns `part5 part6` with every default: no development dataset, the `train.s6`
+   plan unchanged.
+3. It compares old with new and fails on any difference. The report goes to
+   `data/models/_reproduce/<commit>/reproduce56.json`.
+
+What must match:
+- the sha256 of the XGBoost model file and of the reference table;
+- the bundle metadata, the dataset counts and every metric of `eval.json` (A-07,
+  breakdowns, per-run coverage, stress and all-worlds results, width, q̂);
+- for every RL run, the best and final policy sha256, best step, steps done, episode
+  returns and lengths (`rl.evaluate repro`) and validation costs;
+- the selection, the dev-test tables and summaries;
+- the KPI rows of the demo and dev-test runs.
+
+What must differ, and is not compared:
+- the dataset id and the model version: a clean tree drops the `-dev` suffix, and the
+  model version hashes the dataset id;
+- the bundle sha256, since `meta.json` embeds both;
+- code versions, the freeze and creation times;
+- wall times, steps/s and the API latencies;
+- the sha256 of the SB3 zip files, which carry archive timestamps.
+
+The rerun also rewrites `docs/eta.md`, `docs/rl.md` and the latency block of
+`docs/api.md`, which must then name the commit. On a failure, the moved originals are
+kept, and `git checkout -- docs/` restores the published pages.
+
 ## Testing and CI
 
 - `tasks.py test` runs the whole suite; `tasks.py test-fast` (`pytest -m "not sumo"`)
@@ -822,7 +1276,34 @@ published page that names an uncommitted tree.
   against the detector layout, the S2 numbers of the Part 4 section against its config,
   the Part 4 tasks against `tasks.py`, the link to the generated `docs/evaluation.md`
   (which must report A-03 to A-05), and the provisional caveat on S0 vs S1 and on Part 4
-  while the field file has no signal timing or queue.
+  while the field file has no signal timing or queue. For Parts 5 and 6 it checks the
+  caveats (provisional, ASSUMED, field visit, simulated), the pre-registered numbers
+  stated here against `configs/eta.yaml` and `configs/rl.yaml`, the task tables against
+  `tasks.py`, the roadmap rows, and the links to the generated `docs/eta.md` (A-07,
+  EF-14), `docs/api.md` (ENF-02) and `docs/rl.md` (episode timing, 10.6).
+- `tests/test_tasks.py` checks that every `tasks.py` task has its Makefile target with
+  the same modules and options, the order and defaults of the chains (the ETA freeze
+  before any test world), and that every option a Parts 5-6 task passes is accepted by
+  its module's own command-line parser (parsed only, nothing runs). It also checks that
+  `install` covers every extra CI installs. On a fake output tree, it checks that
+  `reproduce56` moves aside exactly what the chains write, accepts a faithful rebuild
+  whose ids, versions and timings changed, and fails on a changed metric, model file,
+  policy or KPI row.
+- `tasks.py check` needs at least the extras CI installs, `.[dev,sim,api,rl]`;
+  `tasks.py install` installs them all, `ml` included. A test that needs a missing
+  optional package skips.
+- Parts 5 and 6 add the `ml`, `api` and `rl` extras. CI installs PyTorch from the CPU
+  index and the `api` and `rl` extras, not `ml`: XGBoost pulls the NCCL GPU library on
+  Linux, so the tests that fit a model skip without it (`pytest.importorskip`). Dataset
+  generation and training never run in the tests; their SUMO tests use short runs.
+- Guards of Parts 5 and 6: the ETA recorder is passive (S2 gives the same KPI rows,
+  signal table and events with and without it, `tests/test_eta_recorder_passive.py`);
+  the RL env and the `rl` controller show identical phases for one policy
+  (`tests/test_rl_parity.py`); the pre-registered seed ranges are disjoint from each
+  other and from seeds 1-10, 101-103 and 201-207 (`tests/test_seed_ranges.py`); DQN and
+  PPO train and reproduce on the SUMO-free `StubTrafficEnv`
+  (`tests/test_rl_train_smoke.py`); the API tests run on synthetic run folders and never
+  read `data/results/`.
 - Safety tests of Part 4: a guard fuzz test with adversarial controllers and synthetic
   pedestrians (`tests/test_guard_fuzz.py`), a random free-order controller behind the
   guard on Pitié (`tests/test_guard_adversarial.py`: 0 danger audit, 0 collisions, every
@@ -852,13 +1333,16 @@ All tables have row level security on with no policies, so only the service role
 ## Layout
 
 ```
-configs/            data.yaml, intersections.yaml, scenario_base.yaml (grid), rl.yaml,
+configs/            data.yaml, intersections.yaml, scenario_base.yaml (grid),
                     pitie_fixed.yaml (S0), pitie_actuated.yaml (S1), pitie_rules.yaml (S2),
                     pitie_rules_nopreempt.yaml, pitie_amb_*.yaml (ambulance probe),
-                    validation.yaml, evaluation.yaml (pre-registered Part 4 evaluation),
-                    pitie/ (S0 fragments, rules.yaml, emergency_probe.yaml),
-                    calibration/ (generated demand calibration)
+                    pitie_rl.yaml (RL controller), validation.yaml,
+                    evaluation.yaml (pre-registered Part 4 evaluation),
+                    eta.yaml, rl.yaml (pre-registered Parts 5-6), api.yaml,
+                    pitie/ (S0 fragments, rules.yaml, emergency_probe.yaml, incident_sites.yaml),
+                    calibration/ (generated demand calibration, day-type profiles)
 data/               raw/, processed/, results/ (not versioned),
+                    eta/, models/, demo/, rl_runs/, fake/ (Parts 5-6 outputs, not versioned),
                     reference/ (versioned sensor extracts), field/ (site measurements)
 sumo/               network/ (grid plain XML, OSM extract, pitie/, generated .net.xml),
                     demand/ (generated), gui/ (sumo-gui view settings)
@@ -869,18 +1353,25 @@ src/traffic_twin/
   db/               Supabase loaders (sensors, runs)
   sim/              network, osm_import, tls_check, demand, signal (SignalPlan), sumo,
                     session (SimSession), detectors, audit, results, kpi, run_scenario (CLI),
-                    emergency and transit (ambulance and bus detection), junction (monitor)
+                    emergency and transit (ambulance and bus detection), junction (monitor),
+                    sampler (raw junction state), incidents (lane slowdowns)
   control/          Controller interface, registry, fixed time, actuated, rules (S2),
-                    safety guard, pedestrian shield, preemption
+                    rl (trained policy), safety guard, pedestrian shield, preemption
   validation/       reference, field, flows, signal, queues, calibration_loop, report
   evaluation/       paired statistics, scenario comparison, runs, evaluate (Part 4)
   viz/              KPI figures (plots), validation and evaluation figures, figure style
-  rl/ ml/ api/ app/ later parts
+  ml/               ETA: day types, features, dataset, quantile model, prediction,
+                    evaluation, departure advice (Part 5)
+  api/              FastAPI v1: envelope, endpoints, local store, fixtures, latency bench
+  app/              mock.html, the mock screens served at /mock
+  rl/               Gymnasium environment, decision clock, features, reward, training,
+                    evaluation (Part 6)
 supabase/migrations/
 tests/              pytest; conftest.py skips `sumo` tests when SUMO is missing;
                     data/ holds the grid regression fixture
 docs/               spec, architecture.md, validation.md, evaluation.md, field_protocol.md,
-                    calibration_log.yaml, figures/ (grid), figures/pitie/ (eval/: Part 4)
+                    calibration_log.yaml, figures/ (grid), figures/pitie/ (eval/: Part 4),
+                    eta.md, api.md, rl.md, figures/eta/, figures/rl/ (Parts 5-6)
 .github/workflows/  CI (ci.yml)
 tasks.py            cross-platform task runner (same targets as the Makefile)
 Makefile

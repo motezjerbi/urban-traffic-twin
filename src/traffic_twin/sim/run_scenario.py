@@ -12,8 +12,10 @@ import argparse
 import logging
 import time
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol
 
 import pandas as pd
 
@@ -21,7 +23,7 @@ from traffic_twin.config import ConfigError, get, load_scenario
 from traffic_twin.control.base import Controller
 from traffic_twin.control.registry import make_controller
 from traffic_twin.control.safety import INTERVENTION_KEYS
-from traffic_twin.paths import SCENARIO_CONFIG
+from traffic_twin.paths import DEMAND_DIR, SCENARIO_CONFIG
 from traffic_twin.sim import tls_check
 from traffic_twin.sim.audit import DANGER_KEYS, audit_phases
 from traffic_twin.sim.detectors import E1_FILE, TLS_SWITCH_FILE, read_e1, read_tls_switch
@@ -42,6 +44,23 @@ from traffic_twin.sim.results import (
 from traffic_twin.sim.session import SimSession, SimulationClosed
 
 log = logging.getLogger(__name__)
+
+
+class RunObserver(Protocol):
+    """A passive observer of a run (e.g. the ETA feature recorder): it may read the
+    session (TraCI getters, `observe()`), never change it.
+
+    - `bind(sim)`: after the session started and the controller was bound and reset,
+      before the first step;
+    - `after_step(sim)`: after every `sim.step`;
+    - `finish(sim, out_dir, run_id)`: after the run's results were written (not called
+      when SUMO stops early)."""
+
+    def bind(self, sim: SimSession) -> None: ...
+
+    def after_step(self, sim: SimSession) -> None: ...
+
+    def finish(self, sim: SimSession, out_dir: Path, run_id: str) -> None: ...
 
 
 def run_dir(cfg: dict, seed: int, out_root: Path) -> Path:
@@ -137,13 +156,57 @@ def health_line(health: dict, preemption: dict | None = None) -> str:
     )
 
 
+def _file_stamps(paths: Sequence[Path]) -> dict[Path, int]:
+    """Path -> st_mtime_ns of the files that exist."""
+    out = {}
+    for p in paths:
+        try:
+            out[p] = p.stat().st_mtime_ns
+        except OSError:
+            pass
+    return out
+
+
+def remove_partial_outputs(
+    sim: SimSession, before: dict[Path, int], out_dir: Path, dir_existed: bool
+) -> None:
+    """After SUMO stopped early: remove the raw outputs this run created or rewrote (a
+    file absent before the run, or whose mtime changed since), never a file the run left
+    untouched, and the run directory only when this run created it and it is empty. A
+    run into an existing results directory thus keeps the files of the earlier run that
+    SUMO did not reopen (the plausible way the raw XMLs of `pitie_rules_seed1` were lost
+    before Part 5). An mtime comparison rather than "mtime >= run start" because Windows
+    file times can trail the wall clock by a timer tick."""
+    for p in sim.raw_outputs:
+        try:
+            stamp = p.stat().st_mtime_ns
+        except OSError:
+            continue
+        if before.get(p) != stamp:
+            p.unlink(missing_ok=True)
+    if not dir_existed and out_dir.is_dir() and not any(out_dir.iterdir()):
+        out_dir.rmdir()
+
+
 def run(
-    cfg: dict, seed: int, out_root: Path, gui: bool = False, config_path: Path | None = None
+    cfg: dict,
+    seed: int,
+    out_root: Path,
+    gui: bool = False,
+    config_path: Path | None = None,
+    demand_dir: Path = DEMAND_DIR,
+    observers: Sequence[RunObserver] = (),
 ) -> dict:
     """Run the scenario's controller for one seed and write its results. Raises
-    SimulationClosed (after removing SUMO's partial outputs) if SUMO stops early.
-    `config_sources` in run.json lists the files of `config_path`, or those `cfg` was
-    loaded from by `load_scenario`; it is None for a config built or copied in memory."""
+    SimulationClosed (after removing the partial outputs of this run) if SUMO stops
+    early. `config_sources` in run.json lists the files of `config_path`, or those `cfg`
+    was loaded from by `load_scenario`; it is None for a config built or copied in memory.
+
+    `demand_dir` receives the route and stop files (default `sumo/demand`; scratch runs
+    pass a temporary folder). `observers` are passive `RunObserver`s. The loop is:
+    `controller.bind(sim)`, `controller.reset(seed)`, `observer.bind(sim)` for each, then
+    per step `sim.step(controller.decide(sim.observe()))` and `observer.after_step(sim)`;
+    `observer.finish(sim, out_dir, run_id)` after the results are written."""
     scenario = cfg["scenario"]
     controller = make_controller(cfg)
     out_dir = run_dir(cfg, seed, out_root)
@@ -151,18 +214,22 @@ def run(
     run_id = str(uuid.uuid4())
     started_at = datetime.now(UTC).isoformat()
 
-    sim = SimSession(cfg, seed, out_dir, gui=gui)
+    sim = SimSession(cfg, seed, out_dir, gui=gui, demand_dir=demand_dir)
+    dir_existed = out_dir.is_dir()
+    before = _file_stamps(sim.raw_outputs)
     wall = time.perf_counter()
     try:
         with sim:
+            controller.bind(sim)
             controller.reset(seed)
+            for o in observers:
+                o.bind(sim)
             while not sim.done:
                 sim.step(controller.decide(sim.observe()))
+                for o in observers:
+                    o.after_step(sim)
     except SimulationClosed:
-        for p in sim.raw_outputs:  # partial SUMO outputs
-            p.unlink(missing_ok=True)
-        if out_dir.is_dir() and not any(out_dir.iterdir()):
-            out_dir.rmdir()
+        remove_partial_outputs(sim, before, out_dir, dir_existed)
         raise
     wall = time.perf_counter() - wall
 
@@ -182,6 +249,8 @@ def run(
         preemption=preemption, control=controller.report(),
     )  # fmt: skip
     write_results(out_dir, results, meta)
+    for o in observers:
+        o.finish(sim, out_dir, run_id)
     n_trips = int((results.trips["type"] != "pedestrian").sum())
     log.info("%s seed %d: %d trips, %.1f s wall -> %s", scenario, seed, n_trips, wall, out_dir)
     log.info("%s seed %d health: %s", scenario, seed, health_line(health, preemption))

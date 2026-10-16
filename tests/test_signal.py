@@ -292,3 +292,42 @@ def test_edge_links_maps_edge_pairs_to_the_first_link():
     assert lane_edge("wb_in_12") == "wb_in" and lane_edge(":C_c3_0") == ":C_c3"
     with pytest.raises(ValueError):
         lane_edge("no_lane_index")
+
+
+# -- Parts 5-6 read-only additions: target and clearance_left_s (contract 4.1) ---------
+def test_clearance_left_and_target_across_a_pitie_transition(pitie_scenario):
+    """S_LEFT has 10 s of clearance on the Pitié program: right after the request the
+    plan reports 10 s left and the target, then 9, ..., 1, then 0 once STM is green."""
+    from traffic_twin.sim.tls_check import load_program
+
+    net = pitie_scenario["network"]
+    durations = list(load_program(net["net_file"], net["tls_id"]).durations)
+    plan = SignalPlan.from_config(net["stages"], durations, min_green_s=6.0)
+    names = [s.name for s in plan.stages]
+    s_left, stm = names.index("S_LEFT"), names.index("STM")
+    assert sum(durations[p] for p in plan.stages[s_left].clearance_phases) == 10
+    plan.stage, plan.time_in_stage = s_left, 6.0
+    assert plan.clearance_left_s == 0.0 and plan.target is None
+    plan.request(stm)
+    seen = []
+    while plan.in_transition:
+        seen.append((plan.clearance_left_s, plan.target))
+        plan.advance(1.0)
+    assert seen == [(float(x), stm) for x in range(10, 0, -1)]
+    assert plan.clearance_left_s == 0.0 and plan.target is None and plan.stage == stm
+
+
+def test_clearance_left_is_zero_when_a_stage_has_no_clearance():
+    plan = SignalPlan([Stage("A", 0, ()), Stage("B", 1, ())], [10, 10])
+    plan.request(1)
+    assert plan.stage == 1 and plan.clearance_left_s == 0.0 and plan.target is None
+
+
+def test_clearance_left_counts_partial_phases():
+    plan = SignalPlan(STAGES, DURATIONS)
+    plan.request(1)  # A -> B: yellow 3 s + all-red 2 s
+    assert plan.clearance_left_s == 5.0 and plan.target == 1
+    plan.advance(0.5)
+    assert plan.clearance_left_s == pytest.approx(4.5)
+    plan.request(0)  # ignored during the transition
+    assert plan.target == 1

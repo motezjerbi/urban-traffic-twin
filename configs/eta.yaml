@@ -1,0 +1,41 @@
+# ETA dataset, model and evaluation (Part 5; spec 11, EF-12..EF-14, A-07). Pre-registered (D38-D52).
+preregistered: 2026-10-16   # before any ETA val/calib/test world; change only via `changes`
+version: 1
+sampler_version: eta-sampler-1
+feature_schema_version: eta-features-1
+base_configs: {fixed: configs/pitie_fixed.yaml, actuated: configs/pitie_actuated.yaml, rules: configs/pitie_rules.yaml}
+controllers: [fixed, actuated, rules]
+seeds: {train: [2000, 2299], val: [2300, 2349], calib: [2350, 2449], reserve: [2450, 2899], test: [2900, 2999]}
+target: {name: y_zone_s, window_s: [0, 7200]}
+trajets: {N_S: [n_in, s_out], N_W: [n_in, w_out], S_N: [s_in, n_out], S_W: [s_in, w_out], W_N: [w_in, n_out], W_S: [w_in, s_out]}
+join: {lag_s: 1, tolerance_s: 5}
+snapshots: {persist_every_s: 5, until_s_after_window: 600}
+calibration_files: {tue_wed_thu_term: configs/calibration/pitie_302.yaml,
+                    mon_fri_term: configs/calibration/pitie_302_mon_fri_term.yaml,
+                    school_holiday: configs/calibration/pitie_302_school_holiday.yaml}
+world:
+  kinds: {realistic: 0.7, stress: 0.3}
+  realistic: {day_types: {tue_wed_thu_term: 0.5, mon_fri_term: 0.3, school_holiday: 0.2},
+              multiplier_lognormal_sd: 0.08, arm_scale_sd: 0.05}
+  stress: {day_types: {tue_wed_thu_term: 1.0}, multiplier: [0.6, 1.4], arm_scale_sd: 0.08}
+  ambulances: {count_p: [0.5, 0.35, 0.15], depart_s: [300, 6600], routes: {N_S: 0.6, W_S: 0.4}}
+  incidents: {count_p: [0.5, 0.35, 0.15], start_s: [300, 6000], duration_s: [300, 600, 900, 1200],
+              sites: configs/pitie/incident_sites.yaml}
+model:
+  quantiles: [0.1, 0.5, 0.9]
+  params: {objective: "reg:quantileerror", tree_method: hist, learning_rate: 0.1, min_child_weight: 10,
+           subsample: 0.8, colsample_bytree: 0.8, n_estimators: 6000, early_stopping_rounds: 100,
+           random_state: 0, n_jobs: 16}
+  grid: {max_depth: [6, 8]}
+  excluded_features: [pending_N, pending_S, pending_W]   # simulation-only (D41)
+conformal: {level: 0.80, population: realistic, grid_s: [-20.0, 60.0, 0.1], served: outward_integer}
+reference: {keys: [route, hour, day_type]}
+a07: {population: realistic, coverage: [0.75, 0.85], inclusive: true, mae_vs_reference: lower,
+      bootstrap: {unit: world, n: 2000, seed: 0, ci: 0.95}}
+report_by: [trajet, controller, day_type, incident_active, ambulance_present, kind]
+student:   # rest_s ASSUMED (spec 11.1): fixed time from the junction exit to the destination
+  routes: {N_S: {label: "Gare d'Austerlitz -> Pitie main gate", rest_s: 120},
+           W_S: {label: "Bd Saint-Marcel -> Pitie main gate", rest_s: 120}}
+workers: 8
+outputs: {data: data/eta, models: data/models/eta, docs: docs/eta.md, figures: docs/figures/eta}
+changes: []

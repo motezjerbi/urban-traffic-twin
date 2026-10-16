@@ -1,0 +1,21 @@
+# RL controller (Part 6, D62). Demand, emergency and network from S0 (demand_hash shared with
+# S0/S1/S2); preemption and safety.max_red_s 180 from the S2 fragment (its `rules:` block is unused).
+#
+# control/rl.py (RLController): the policy is asked only at the decision points of
+# rl/clock.py (green, min green served, no preemption, >= decision.interval_s since the last
+# decision, D56) and otherwise holds the current stage; its action is 0 stay / 1 advance to
+# the cycle successor under safety.stage_order strict (D55). The observation is
+# rl/features.py `rl-obs-1` (D57), the same code as the training environment
+# (tests/test_rl_parity.py). The Safety Guard and the preemption keep priority.
+#
+# rl.model: an SB3 zip (DQN or PPO) with a manifest.json next to it giving `algo`,
+# `obs_version` and `reward_version` (both must equal rl.config's and the code's) and
+# optionally `model_version` and `model_sha256`. rl.config: the environment config the
+# policy was trained with (decision interval, observation norms). A missing model,
+# manifest or stable-baselines3 is a config error, never a fallback to another controller.
+# The default model is the one `python -m traffic_twin.rl.evaluate select` writes (gitignored
+# until Part 7 commits a selected model, D64).
+extends: [pitie_fixed.yaml, pitie/rules.yaml]
+scenario: pitie_rl
+controller: rl
+rl: {model: data/models/rl/selected/model.zip, config: configs/rl.yaml}

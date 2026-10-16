@@ -7,9 +7,11 @@ in `paths.py` and in the configs are relative to it.
 Two networks share the code: the Part 2 **grid** (`configs/scenario_base.yaml`, frozen)
 and the **Pitié-Salpêtrière junction**: `configs/pitie_fixed.yaml` = S0 and
 `configs/pitie_actuated.yaml` = S1 (Part 3), `configs/pitie_rules.yaml` = S2 with its
-ablation and the ambulance-probe configs (Part 4). Decision numbers refer to
-[Part 3 decisions](#part-3-decisions) (D1-D18) and [Part 4 decisions](#part-4-decisions)
-(D19-D36).
+ablation and the ambulance-probe configs (Part 4), and `configs/pitie_rl.yaml`, the
+trained RL policy (Part 6). Decision numbers refer to
+[Part 3 decisions](#part-3-decisions) (D1-D18), [Part 4 decisions](#part-4-decisions)
+(D19-D36) and [Parts 5-6 decisions](#parts-5-6-decisions) (D37-D67). The Parts 5-6
+results are in the generated pages [eta.md](eta.md), [api.md](api.md) and [rl.md](rl.md).
 
 ## Module map
 
@@ -58,6 +60,19 @@ ablation and the ambulance-probe configs (Part 4). Decision numbers refer to
 | `viz/plots`, `viz/style` | KPI figures from `data/results/`, shared figure style |
 | `viz/validation` | Validation flow figure, queue figure, paired differences figure |
 | `viz/evaluation` | The five Part 4 evaluation figures (`docs/figures/pitie/eval/`) |
+| `sim/sampler` | `JunctionSampler.sample()`: the single raw-state reader of Parts 5-6 (`JunctionSnapshot`: signal state and clearance left, TLS lanes, per-arm halting / vehicles / longest wait, exits, pending insertions per arm and class, E1 occupancy and new vehicles, E2 jams, pedestrians, emergency and bus calls, incidents). TraCI getters only; call it at most once per step |
+| `sim/incidents` | Incidents as lane slowdowns (`lane.setMaxSpeed` to 2 m/s, then restored; D45): `load_sites`, `sample_incidents`, `IncidentManager` (shared by the ETA worlds and the RL episodes) |
+| `ml/daytypes` | Day-type demand profiles (D44): ratio of the sensor flows of Mon/Fri term and school-holiday days to the calibration days; writes and checks `configs/calibration/pitie_302_{mon_fri_term,school_holiday}.yaml` |
+| `ml/features` | ETA features `eta-features-1` (D41, D42): `FeatureState` (rolling 1 Hz state from snapshots), `EtaSite`, the as-of join to the trips, `model_frame`, `prediction_frame` |
+| `ml/eta_dataset` | ETA dataset (EF-12, D43, D46): `sample_world`, `world_config`, the passive `EtaRecorder` run observer, `run_world`, `dataset_id`; CLI over worlds and splits (spawned workers, resumable) |
+| `ml/train_eta`, `ml/predict`, `ml/evaluate_eta` | Quantile model with CQR bounds and reference table, bundle and freeze (EF-13, D47-D49, D51); bundle loading and precomputed `eta_prediction.parquet` per run, demo runs; the A-07 / EF-14 evaluation and `docs/eta.md` (D50) |
+| `ml/advice` | Departure advice of spec 11.5 (D52), a pure function |
+| `api/` | FastAPI v1 (`main`): the 9.2 envelope on every answer, the 9.3 GET endpoints, a replay clock, degraded and unavailable states (D53); `db.LocalStore` reads the run folders through DuckDB; `fixtures` makes synthetic run folders; `bench` measures the latency (ENF-02) |
+| `app/mock.html` | Mock screens of the five profiles, served at `/mock` (D54) |
+| `rl/clock`, `rl/features`, `rl/reward` | Shared by the environment and the controller: the semi-MDP decision clock (D56), the observation `rl-obs-1` (D57), the person-weighted reward `rl-reward-1` (D58) |
+| `rl/env` | `TrafficEnv` (Gymnasium): binary stay / advance action under strict order (D55), training windows and full episodes (D59), `episode_summary` |
+| `rl/train`, `rl/evaluate` | SB3 DQN / PPO trainings with validation-based selection (D60, D61); timing, selection, dev-test comparison, full-run KPIs, `docs/rl.md` |
+| `control/rl` | `RLController` (`controller: rl`): plays a trained model with the shared clock and features; heavy imports inside `from_config`; a missing model is a `ConfigError` (D62) |
 
 ## Data flow
 
@@ -133,6 +148,25 @@ Part 4 (S2, Safety Guard, per-user evaluation)
                           docs/evaluation.md
   viz.evaluation --> docs/figures/pitie/eval/{kpi_by_user, paired_vs_s0, equity_heatmap,
                                               a05_ambulance, ped_wait_by_crossing}.png
+
+Part 5 (ETA, API; configs/eta.yaml, configs/api.yaml)
+  world seed --sample_world--> World (day type, multiplier, arm scales, ambulances, incidents)
+    --world_config x {fixed, actuated, rules}--> SimSession + IncidentManager
+    --EtaRecorder (JunctionSampler -> FeatureState, exits)--> data/eta/<dataset_id>/
+                                     {manifest.json, runs.parquet, samples/, snapshots/}
+  train_eta --> data/models/eta/<version>/ {model.ubj, meta.json, reference.parquet}, LATEST,
+                freeze.json (before any test world)  -->  evaluate_eta --> eval.json, docs/eta.md
+  predict demo --> data/demo/<scenario>_seed4000/ {run outputs, eta_snapshots.parquet,
+                                                   eta_prediction.parquet}
+  api.main (DuckDB over data/results/*, data/demo/*; reference table as degraded mode)
+     --> JSON with the 9.2 envelope, /mock
+
+Part 6 (RL; configs/rl.yaml, configs/pitie_rl.yaml)
+  TrafficEnv (SimSession, DecisionClock, JunctionSampler -> rl.features, RewardTracker)
+     --rl.train (SB3, SubprocVecEnv)--> data/rl_runs/<algo>_s<seed>_<k>k_<sha8>/
+                                        {manifest.json, validation.csv, best_model.zip, ...}
+     --rl.evaluate select--> data/models/rl/selected/ --RLController in run_scenario-->
+     data/rl_runs/devtest/, docs/rl.md
 ```
 
 ## Configuration
@@ -243,15 +277,27 @@ first four files.
 
 ## Stepping loop
 
-`SimSession` is the single place that talks to SUMO. `run_scenario` and the future
-Gymnasium env use the same three calls:
+`SimSession` is the single place that drives SUMO. `run_scenario`, the ETA dataset
+generator and the Gymnasium env use the same calls:
 
 ```python
-with SimSession(cfg, seed, out_dir) as sim:  # writes demand, starts SUMO
+with SimSession(cfg, seed, out_dir, demand_dir=demand_dir) as sim:  # writes demand, starts SUMO
+    controller.bind(sim)  # no-op except for controllers that read beyond the Observation
     controller.reset(seed)
+    for o in observers:  # passive RunObservers, e.g. the ETA feature recorder
+        o.bind(sim)
     while not sim.done:  # demand window, then drain
         sim.step(controller.decide(sim.observe()))
+        for o in observers:
+            o.after_step(sim)
+# results written, then o.finish(sim, out_dir, run_id) for each observer
 ```
+
+`demand_dir` (default `sumo/demand`) lets scratch runs write their route files elsewhere;
+every Parts 5-6 tool passes its own, and none writes into `data/results/`. Observers and
+`Controller.bind` are passive hooks (D63): S0, S1 and S2 give identical KPI rows with or
+without them. `sim.last_request` holds (requested stage, stage after the guard) of the
+last step, and `SignalPlan.clearance_left_s` / `.target` describe a running transition.
 
 - `start()` writes the demand and the detector file, starts SUMO, reads the program's
   phase states, and builds the `SignalPlan` and the `SafetyGuard` (`SafetyGuard.from_config`
@@ -279,29 +325,18 @@ with SimSession(cfg, seed, out_dir) as sim:  # writes demand, starts SUMO
   `DRAIN_S` (1800 s) of drain. The controller keeps running during the drain; the state
   log only covers the demand window.
 - If SUMO goes away (sumo-gui window closed), any call raises `SimulationClosed`.
-  `run_scenario.run` removes SUMO's partial outputs and re-raises; the CLI logs a warning,
-  writes no results and exits with code 1.
+  `run_scenario.run` removes the raw outputs this run created or rewrote (never a file of
+  an earlier run that SUMO did not reopen, and the run directory only if this run created
+  it and it is empty) and re-raises; the CLI logs a warning, writes no results and exits
+  with code 1.
 
-A Gymnasium env (Parts 6-7) wraps the same calls; one action may hold for several steps:
-
-```python
-def reset(self, seed=None, options=None):
-    if self.sim:
-        self.sim.close()
-    self.sim = SimSession(self.cfg, seed, self.out_dir, log_state=False).start()
-    return self.encode(self.sim.observe()), {}
-
-
-def step(self, action):
-    for _ in range(self.steps_per_action):
-        self.sim.step(int(action))
-        if self.sim.done:
-            break
-    obs = self.sim.observe()
-    return self.encode(obs), self.reward(obs), self.sim.done, False, {}
-```
-
-The guard sits inside `step`, so an RL policy cannot bypass it either.
+The Gymnasium env (`rl/env.py`, Part 6) wraps the same calls. One action spans a decision
+interval: the shared `DecisionClock` turns the action into a stage request only at a
+decision point (outside a transition and a preemption, after the minimum green, at least
+5 s after the last decision) and holds the current stage on every other second; the
+reward accrues each second. `RLController` uses the same clock, `JunctionSampler` and
+`rl/features`, so a policy plays identically in the env and in `run_scenario` (parity
+test). The guard sits inside `step`, so an RL policy cannot bypass it either.
 
 ## Controllers
 
@@ -548,8 +583,57 @@ implemented ones.
 | D35 | No all-red "clear junction" hold: `SignalPlan` cannot hold a clearance. Box clearing = SUMO keep-clear for drivers plus S2 ignoring loops that only feed blocked exits. |
 | D36 | Provisional: everything rests on the ASSUMED 123 s program. Every Pitié number (hold caps, maxima, 177 s cycle, crossing reds) is derived from config and program in code and tests, never hard-coded in logic. `tasks.py part3 part4` reruns everything after the field visit. |
 
+## Parts 5-6 decisions
+
+Fixed before any ETA validation, calibration or test world and before any RL training,
+with `configs/eta.yaml`, `configs/rl.yaml` and `configs/api.yaml` (pre-registered
+2026-10-16; changes only as dated `changes` entries). `configs/evaluation.yaml` is not
+edited.
+
+| ID | Decision |
+| --- | --- |
+| D37 | Scope. Part 5: ETA dataset, model and evaluation (EF-12 to EF-14, A-07), departure advice, API v1 GET endpoints, mock screens. Part 6: Gymnasium environment, RL controller, first short trainings, episode timing (EF-10). Deferred: full RL training (Part 7), A-06 on seeds 1-10 (Part 8), Streamlit (Part 9), `POST /scenario/run`, Supabase loading of predictions. |
+| D38 | Seed map. ETA worlds: train 2000-2299, val 2300-2349, calib 2350-2449, reserve 2450-2899, test 2900-2999 (once, after the freeze). RL: training 1000-1999, selection 3000-3009, burned 3010-3019, dev-test 3020-3049 (Part 6 uses 3020-3029), reserve 3050-3999. Demo / replay 4000-4009 (Part 5 uses 4000). All disjoint from 1-10, 101-103 and 201-207 (`tests/test_seed_ranges.py`). |
+| D39 | ETA target `y_zone_s` = first second on the out-edge minus the physical insertion on the in-edge, whole seconds, car trips of the six trajets, insertion in [0, 7200) s; teleported cars and cars without exit dropped and counted; the insertion backlog is an API flag (`queue_beyond_zone`). |
+| D40 | Student ETA = `y_zone_s` + `rest_s` (120 s, ASSUMED) on N_S and W_S; the deadline is a user input. |
+| D41 | Features `eta-features-1` (one definition in `ml/features.py`), read at `insert_t - 1` s; the simulation-only `pending_*` are stored, never used; no world parameter is a feature. |
+| D42 | Time before change: `rem_min_s`, `rem_max_s` and, per trajet, `ttg_min` / `ttg_nom` (cycle order with full clearances). |
+| D43 | World sampler `eta-sampler-1`: 70 % realistic (day types 0.5 / 0.3 / 0.2, lognormal multiplier sd 0.08, arm scale sd 0.05), 30 % stress (U(0.6, 1.4)); ambulances and incidents 0 / 1 / 2 with p 0.5 / 0.35 / 0.15; each world under fixed, actuated and rules. |
+| D44 | Day-type calibration files generated by ratio of sensor flows (ASSUMED), `pitie_302.yaml` untouched; Saturday excluded. |
+| D45 | Incidents: lane slowdown to 2 m/s on five sites (`configs/pitie/incident_sites.yaml`), shared by ETA and RL. |
+| D46 | Dataset v1: 550 worlds x 3 controllers in `data/eta/<dataset_id>/`, id from the canonical config, the base configs' `demand_hash` and the calibration files; resumable and deterministic. |
+| D47 | One XGBoost `reg:quantileerror` model for 0.1 / 0.5 / 0.9, fixed parameters, `max_depth` in {6, 8} chosen on val pinball loss; outputs sorted per row. |
+| D48 | CQR on the served integer bounds: `floor(q10 - q̂)`, `round(q50)`, `ceil(q90 + q̂)`, q̂ the smallest grid value (-20 to 60 s, step 0.1) reaching 80 % pooled coverage on the realistic calib worlds. |
+| D49 | Reference model: mean, p10, p90 per (trajet, hour, day type) on train worlds, trajet fallback; also the degraded mode. |
+| D50 | A-07 / EF-14: realistic test worlds, PASS iff coverage in [0.75, 0.85] and the 95 % world-bootstrap CI (2000 resamples, seed 0) of MAE(model) - MAE(reference) below 0; subgroups are flags; a FAIL is published as it is. |
+| D51 | Bundle in `data/models/eta/<version>/`, `freeze.json` before any test world; predictions precomputed per run (`eta_prediction.parquet`); an unseen controller or day type gets the reference table; the API never imports xgboost. |
+| D52 | Departure advice: high + rest <= deadline comfortable, else median + rest <= deadline small margin, else risk of delay; " (estimation approximative)" in degraded mode. |
+| D53 | API v1: local files through a `Store` (DuckDB), replay clock, the 9.2 envelope on every answer, 404 with a code / 200 degraded or unavailable / 503 without traceback, never 500; honesty labels (`remaining_basis`, bus delay as time lost, unmodelled junctions `unknown`, `obstructed: null`); no access log, GET only. |
+| D54 | Mock screens: `app/mock.html` (vanilla JS) at `/mock` when `api.yaml dev.mock`; synthetic data from `api.fixtures`. |
+| D55 | RL action `Discrete(2)`: stay or advance to the cycle successor under strict order. |
+| D56 | Decision clock: not in transition, time in stage >= `safety.min_green_s`, no active preemption, >= 5 s since the last decision; otherwise hold. |
+| D57 | Observation `rl-obs-1`: 74 values in [0, 1] (lanes, pending per arm, signal, crossings, ambulance, buses, time of day). |
+| D58 | Reward `rl-reward-1`: -0.001 x (1.3 cars + 25 buses + 1.2 pedestrians + 20 ambulances waiting, pending insertions included, + 30 while a curb wait exceeds 80 s), per second. |
+| D59 | Episodes: training windows of 30 min after a 300 s warm-up under actuated, random multiplier 0.6-1.4, day type, ambulances and incidents; full 07:30-09:30 mode for timing. |
+| D60 | Validation every 10k steps on the selection seeds; S6 success iff in 2 of the 3 DQN runs the best validation cost is >= 5 % below S0 and always-stay; dev-test comparison exploratory. |
+| D61 | Budget: DQN seeds 0, 1, 2 and PPO seed 0, 200k steps each, 8 spawned workers, one torch thread, CPU; reproducible at fixed `n_envs`. |
+| D62 | `RLController` (`controller: rl`, `configs/pitie_rl.yaml`, same `demand_hash` as S0-S2): lazy SB3 import, `ConfigError` on a missing model, never a silent fallback. |
+| D63 | Sim-core hooks passive: S0 / S1 / S2 KPI rows identical with the hooks and the recorder; grid regression exact. |
+| D64 | Committed: code, configs, tests, docs and figures. Not versioned: `data/{eta,models,demo,rl_runs,fake}/`. No model binary in Parts 5-6. |
+| D65 | Provenance: every dataset, bundle, manifest and page records code version, config hashes, seeds and library versions. After the commit, `tasks.py reproduce56` moves the Parts 5-6 outputs aside, reruns `part5 part6` from the clean tree and requires identical metrics and model / policy sha256. Not compared, because they must differ: dataset id and model version (no `-dev` suffix), bundle sha256, code versions, timestamps, timings, SB3 zip sha256. |
+| D66 | Extras `ml`, `api`, `rl` pinned; CI installs CPU torch, `api` and `rl`, not xgboost (`importorskip`). |
+| D67 | Provisional: every ETA number and RL policy rests on the ASSUMED 123 s program; regenerated after the field visit. |
+
 ## Invariants
 
+- **Passive hooks.** `Controller.bind`, run observers, `JunctionSampler`, the ETA recorder
+  and the `demand_dir` parameter never change what is simulated: S0, S1 and S2 give
+  identical KPI rows (apart from the per-run `run_id`) and equal `signal.parquet` and
+  `events.parquet` with or without them (D63).
+- **Parts 5-6 seeds are pre-registered** (D38): ETA test worlds 2900-2999 are generated
+  and evaluated once after the freeze, RL dev-test seeds run only in the integration, and
+  no Parts 5-6 tool runs seeds 1-10. Their outputs go to `data/eta/`, `data/models/`,
+  `data/demo/` and `data/rl_runs/`, never to `data/results/`.
 - **Reproducible runs.** Same config and seed give identical KPI values (only `run_id`,
   timestamps and wall time differ).
 - **Published results name a commit.** A run records `code_version` (`<sha>-dirty` from an
@@ -557,7 +641,16 @@ implemented ones.
   (`evaluation.runs.stale_reason`) ignores the code version on purpose, so after a commit
   `tasks.py rebaseline` re-makes the evaluation runs from it and requires identical KPI
   rows; `tasks.py provenance` and `tests/test_docs.py` (on a clean tree) refuse a page that
-  names an uncommitted tree.
+  names an uncommitted tree. The Parts 5-6 artifacts (dataset manifest, ETA bundle, RL
+  run manifests) and their pages (`docs/eta.md`, `docs/rl.md`, the latency block of
+  `docs/api.md`) record the code version too, and the Phase 3 results name
+  `8fd1026-dirty`. Plain `part5 part6` refuse to overwrite their own outputs (the ETA
+  freeze, finished RL runs). After the commit, `tasks.py reproduce56` moves those outputs
+  to `<dir>/_reproduce/<commit>/` and reruns both chains. It then requires the same
+  model and reference sha256, dataset counts, `eval.json` metrics, RL policy sha256,
+  episode returns, validation costs, selection, dev-test tables and KPI rows. Fields
+  that must differ are not compared: dataset id, model version, bundle sha256, code
+  versions, timestamps, timings and SB3 zip sha256 (D65).
 - **Frozen grid.** `configs/scenario_base.yaml`, `sumo/network/plain/`,
   `sumo/network/intersection.net.xml`, `sumo/gui/view.xml` and the grid figures are never
   edited, and the grid demand files are byte-identical (sha256 test). A refactor of `sim/`
@@ -584,6 +677,9 @@ implemented ones.
   (overrides of the controller's request) on every key, `ped_wait` included (D13, D22),
   and rules is expected to cause 0 (the controller leaves a green at the step where the
   shield would otherwise force it; the counts per run are in `docs/evaluation.md`). The
+  RL policy is the exception: it may be overridden (`zero_interventions` stays
+  `[fixed, actuated]`, D62), and its interventions are counted per key and reported in
+  `docs/rl.md` (about 11 per 2 h run in Part 6, mostly `ped_wait`). The
   guard is not idle, though: its own preemption hops and holds are shield-checked, and a
   refused hop or a cut hold is counted as `ped_yield`, not as an intervention.
 - **Danger audit = 0 on every run.** Every `DANGER_KEYS` count of `safety.audit` is 0;
@@ -604,9 +700,11 @@ implemented ones.
 - **Detectors are passive.** Control loops, station loops, queue detectors and switch
   logging never change what is simulated (`tests/test_detectors_passive.py`).
 - **Missing field data is NOT_MEASURED,** never an error; model inputs not measured on
-  site are ASSUMED and listed in `docs/validation.md` (Part 3: network and demand) and in
+  site are ASSUMED and listed in `docs/validation.md` (Part 3: network and demand), in
   `docs/evaluation.md` and the README Part 4 section (Part 4: detection, ambulance
-  behaviour, probe routes, occupancies).
+  behaviour, probe routes, occupancies), and in `docs/eta.md`, `docs/rl.md` and the
+  README Parts 5 and 6 sections (rest of trip, cameras and V2I, day-type profiles,
+  incidents, walking speeds, upstream detection, reward weights).
 - **Versioned inputs only.** The calibration file, the validation and every test read
   versioned files (`data/reference/`, `configs/calibration/`, `tests/data/`), never
   `data/processed/`; only `calib-data` (`data.calibrate --from-raw`) reads `data/raw/`. The

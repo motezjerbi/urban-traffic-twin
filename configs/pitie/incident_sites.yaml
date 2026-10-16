@@ -1,0 +1,18 @@
+# Incident sites of the Pitie junction (Parts 5-6, D45), shared by the ETA worlds and the
+# RL episodes (sim/incidents.py). Extended by no scenario: the Part 3-4 configs and their
+# hashes are untouched.
+# An incident sets lane.setMaxSpeed(lane, speed_mps) for its duration, then restores the
+# lane's original maximum speed: it stands for a partly blocked lane (double parking,
+# breakdown, works; ASSUMED). Why not the alternatives:
+# - a lane closure (lane.setDisallowed) aborts SUMO here: each approach lane carries one
+#   movement, so closing it leaves the vehicles on it without a usable lane;
+# - a stopped vehicle is counted as a car by the KPIs (user_type_of), the halting counts
+#   and the RL reward, and it only blocks something where a bypass lane exists.
+# Lanes are SUMO lane ids of sumo/network/pitie/pitie.net.xml (lane 0 is the sidewalk).
+speed_mps: 2.0
+sites:
+  - {id: n_in_1, arm: N, lane: n_in_1}   # N right (towards Bd Saint-Marcel)
+  - {id: n_in_2, arm: N, lane: n_in_2}   # N straight (towards the hospital)
+  - {id: s_in_1, arm: S, lane: s_in_1}   # S straight, shared with bus 57 N
+  - {id: s_in_2, arm: S, lane: s_in_2}   # S straight and left
+  - {id: w_in_1, arm: W, lane: w_in_1}   # W, its only general lane

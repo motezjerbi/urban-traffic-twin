@@ -1,0 +1,15 @@
+results_dirs: [data/results, data/demo]        # one-level */run.json index (nested backups skipped)
+evaluation: {config: configs/evaluation.yaml, dir: data/results/evaluation}
+site_config: configs/pitie_fixed.yaml
+eta: {config: configs/eta.yaml, models_dir: data/models/eta}
+default_run: [data/demo/pitie_rules_seed4000, data/results/pitie_rules_seed1]   # first that exists
+seeds: {demo: [4000, 4009]}
+clock: {mode: fixed, default_t: "08:15", replay_date: null}   # fixed | loop
+freshness_s: {replay_state: 10, crossing_status: 2, ambulance_route: 10, eta: 300, bus_headway_factor: 1.5}
+walking_speeds_mps: {normal: 1.2, slow: 1.0, reduced: 0.8}    # ASSUMED
+corridor:                                                     # ASSUMED; confirm at the field visit
+  - {id: C, name: "Bd de l'Hopital x Bd Saint-Marcel", modelled: true}
+  - {id: U1, name: "next signal upstream (not modelled)", modelled: false}
+  - {id: U2, name: "hospital gate (not modelled)", modelled: false}
+ambulance_blocked_halting: 10
+dev: {mock: true}

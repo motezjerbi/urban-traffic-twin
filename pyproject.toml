@@ -22,9 +22,18 @@ db = ["psycopg[binary]>=3.1"]
 # fixture depend on the version. Ruff pinned so CI formats like the local checkout.
 sim = ["eclipse-sumo==1.28.0", "traci==1.28.0", "sumolib==1.28.0", "libsumo==1.28.0"]
 dev = ["pytest>=8", "ruff==0.17.0"]
+# Parts 5-6 (D66), pinned to the versions the results were made with. CI installs torch
+# from the CPU index first (a plain install pulls the CUDA toolkit) and leaves `ml` out:
+# xgboost on Linux pulls nvidia-nccl, so its tests use pytest.importorskip.
+ml = ["xgboost==3.4.1"]
+api = ["fastapi==0.143.2", "uvicorn==0.54.0", "pydantic==2.14.1", "httpx==0.28.1", "duckdb==1.5.6"]
+rl = ["gymnasium==1.4.0", "stable-baselines3==2.9.0", "torch==2.14.1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"traffic_twin.app" = ["*.html"] # mock screens served by the API at /mock (D54)
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -32,6 +41,10 @@ pythonpath = ["src"]
 addopts = ["-ra", "--strict-markers"]
 markers = [
     "sumo: runs the real SUMO binaries (skipped automatically when SUMO is not installed; deselect with -m 'not sumo')",
+]
+filterwarnings = [
+    # Starlette's TestClient warns that it is built on httpx (D66); the API tests use it
+    "ignore:Using .httpx. with .starlette.testclient. is deprecated",
 ]
 
 [tool.ruff]
