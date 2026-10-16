@@ -11,6 +11,16 @@ config and of this code. Anything missing (model, manifest, stable-baselines3, a
 raises ConfigError: never a silent fallback to another controller, which would corrupt
 A-06.
 
+Part 7 (D86, D73):
+- `rl.model_sha256`, when the scenario gives it (`configs/pitie_rl_s3.yaml`), pins the
+  zip: another file is a ConfigError, so the scenario's `config_hash` follows the model;
+- `observation.drop` of `rl.config` must equal the run's recorded `obs_drop`
+  (`manifest.json`, else `provenance.json` next to the model; missing = no drop);
+- the zip is loaded with `custom_objects` that replace the pickled training schedules
+  (`learning_rate`, `lr_schedule`, `exploration_schedule`, `clip_range`) by a constant:
+  no pickled training function is run and the policy weights are unchanged;
+- `report()` adds the D77 intervention split `iv_split` (`rl/clock.py`) and `obs_drop`.
+
 Importing this module imports nothing heavy (the registry imports every controller
 module on first lookup): stable-baselines3 and torch are imported inside `from_config`.
 
@@ -32,11 +42,12 @@ import numpy as np
 from traffic_twin.config import ConfigError, get, load_config
 from traffic_twin.control.base import Controller, Observation
 from traffic_twin.control.registry import register
-from traffic_twin.rl.clock import DecisionClock
+from traffic_twin.rl.clock import IV_SPLIT_KEYS, DecisionClock, InterventionSplit
 from traffic_twin.rl.features import (
     NORM_KEYS,
     OBS_VERSION,
     VEH_LENGTH_M,
+    check_drop,
     feature_names,
     observation,
     site_spec,
@@ -44,6 +55,7 @@ from traffic_twin.rl.features import (
 from traffic_twin.rl.reward import REWARD_VERSION
 
 MANIFEST_FILE = "manifest.json"  # next to the model zip
+PROVENANCE_FILE = "provenance.json"  # Part 7 runs (D81), next to the manifest
 ALGOS = ("dqn", "ppo")
 ACTION_MODES = ("binary",)  # D55; free order with masking is a Part 7 option
 
@@ -66,6 +78,10 @@ def check_rl_config(rl_cfg: Mapping, where: str = "rl config") -> None:
     missing = [k for k in NORM_KEYS if k not in (rl_cfg.get("observation") or {})]
     if missing:
         raise ConfigError(f"{where}: observation misses {missing}")
+    try:
+        check_drop(get(rl_cfg, "observation.drop", None))
+    except ValueError as e:
+        raise ConfigError(f"{where}: {e}") from None
 
 
 def file_sha256(path: Path) -> str:
@@ -76,8 +92,53 @@ def file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _constant(_progress_remaining: float) -> float:
+    """Stands for a training schedule at inference (never used to act)."""
+    return 0.0
+
+
+# pickled training schedules replaced at load (`custom_objects`): the policy weights do
+# not depend on them, and no pickled function of the training code is run
+CUSTOM_OBJECTS = {
+    "learning_rate": _constant,
+    "lr_schedule": _constant,
+    "exploration_schedule": _constant,
+    "clip_range": _constant,
+}
+
+
+def recorded_obs_drop(model_path: Path, manifest: Mapping) -> tuple[str, ...]:
+    """The observation groups the model was trained without: `obs_drop` or
+    `observation.drop` of the manifest, else of `provenance.json` next to it (D81); ()
+    when neither records one (Part 6 runs)."""
+
+    def drop_of(doc: Mapping) -> tuple[bool, object]:
+        if "obs_drop" in doc:
+            return True, doc["obs_drop"]
+        obs = doc.get("observation")
+        if isinstance(obs, Mapping) and "drop" in obs:
+            return True, obs["drop"]
+        return False, None
+
+    found, drop = drop_of(manifest)
+    if not found:
+        prov_path = model_path.with_name(PROVENANCE_FILE)
+        if prov_path.is_file():
+            try:
+                prov = json.loads(prov_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as e:
+                raise ConfigError(f"{prov_path}: unreadable provenance ({e})") from e
+            if isinstance(prov, Mapping):
+                _found, drop = drop_of(prov)
+    try:
+        return check_drop(drop)
+    except ValueError as e:
+        raise ConfigError(f"{model_path}: recorded {e}") from None
+
+
 def _load_policy(algo: str, path: Path):
-    """The SB3 model (lazy import; ConfigError when stable-baselines3 is missing)."""
+    """The SB3 model (lazy import; ConfigError when stable-baselines3 is missing),
+    loaded with `CUSTOM_OBJECTS`."""
     try:
         from stable_baselines3 import DQN, PPO
     except ImportError as e:  # pragma: no cover - depends on the environment
@@ -86,7 +147,7 @@ def _load_policy(algo: str, path: Path):
         ) from e
     cls = {"dqn": DQN, "ppo": PPO}[algo]
     try:
-        return cls.load(path, device="cpu")
+        return cls.load(path, device="cpu", custom_objects=dict(CUSTOM_OBJECTS))
     except Exception as e:  # a corrupt or foreign zip
         raise ConfigError(f"rl.model: cannot load {path} as {algo}: {e}") from e
 
@@ -105,6 +166,7 @@ class RLController(Controller):
         self.policy = policy
         self.rl_cfg = rl_cfg
         self.norm = dict(rl_cfg["observation"])
+        self.obs_drop = check_drop(self.norm.get("drop"))
         self.n_stages = int(n_stages)
         self.model_version, self.model_sha256 = model_version, model_sha256
         decision = rl_cfg["decision"]
@@ -113,6 +175,8 @@ class RLController(Controller):
             float(min_green_s),
             bool(decision.get("skip_during_preemption", True)),
         )
+        self.split = InterventionSplit(self.clock.interval_s)
+        self._last: tuple[Observation, int] | None = None  # (obs, request) of the last step
         self.sim = None
         self.sampler = None
         self.site = None
@@ -121,8 +185,10 @@ class RLController(Controller):
 
     @classmethod
     def from_config(cls, cfg: dict) -> RLController:
-        """cfg["rl"]{model, config}; lazy SB3 import; the model manifest's obs / reward
-        versions must match rl.yaml (and this code), else ConfigError."""
+        """cfg["rl"]{model, config, model_sha256 (optional pin)}; lazy SB3 import; the
+        model manifest's obs / reward versions must match rl.yaml (and this code), the
+        pin the zip and the recorded `obs_drop` the config's `observation.drop`, else
+        ConfigError."""
         model = get(cfg, "rl.model", None)
         config = get(cfg, "rl.config", None)
         if not model or not config:
@@ -154,9 +220,21 @@ class RLController(Controller):
         if algo not in ALGOS:
             raise ConfigError(f"{manifest_path}: algo must be one of {ALGOS}, got {algo!r}")
         sha = file_sha256(model_path)
+        pin = get(cfg, "rl.model_sha256", None)
+        if pin is not None and (not isinstance(pin, str) or pin.lower() != sha):
+            raise ConfigError(
+                f"rl.model_sha256 {str(pin)[:12]}... does not match {model_path} ({sha[:12]}...)"
+            )
         recorded = manifest.get("model_sha256")
         if isinstance(recorded, str) and recorded != sha:
             raise ConfigError(f"{manifest_path}: model_sha256 does not match {model_path}")
+        want_drop = check_drop(get(rl_cfg, "observation.drop", None))
+        trained_drop = recorded_obs_drop(model_path, manifest)
+        if want_drop != trained_drop:
+            raise ConfigError(
+                f"{config_path}: observation.drop {list(want_drop)} differs from the "
+                f"obs_drop {list(trained_drop)} recorded for {model_path}"
+            )
         policy = _load_policy(algo, model_path)
         n_actions = getattr(policy.action_space, "n", None)
         if n_actions != 2:
@@ -179,7 +257,7 @@ class RLController(Controller):
         self.sim = sim
         self.sampler = JunctionSampler(sim)
         self.site = site_spec(sim, float(self.norm.get("veh_length_m", VEH_LENGTH_M)))
-        n_obs = len(feature_names(self.site))
+        n_obs = len(feature_names(self.site, self.obs_drop))
         shape = tuple(getattr(self.policy.observation_space, "shape", ()) or ())
         if shape != (n_obs,):
             raise ConfigError(f"rl.model observes {shape}, the junction gives ({n_obs},)")
@@ -188,23 +266,43 @@ class RLController(Controller):
         self.clock.reset()
         self.decisions = 0
         self.advances = 0
+        self.split.reset(getattr(self.sim, "guard", None))
+        self._last = None
         self.clear_events()
+
+    def _classify_last_step(self) -> None:
+        """D77: classify the guard's interventions of the step after the last `decide`."""
+        if self._last is not None and self.sim is not None:
+            obs, request = self._last
+            self.split.after_step(self.sim.guard, obs, request)
+        self._last = None
 
     def decide(self, obs: Observation) -> int:
         """Clock every step; at decision points: sample -> observation -> predict."""
+        self._classify_last_step()
         if not self.clock.is_decision_point(obs):
-            return self.clock.request(obs, None, self.n_stages)
-        if self.sampler is None:
-            raise RuntimeError("RLController.decide before bind(sim)")
-        x = observation(self.sampler.sample(), self.site, self.norm)
-        action, _state = self.policy.predict(x, deterministic=True)
-        action = int(np.asarray(action).item())
-        self.decisions += 1
-        self.advances += action
-        return self.clock.request(obs, action, self.n_stages)
+            request = self.clock.request(obs, None, self.n_stages)
+        else:
+            if self.sampler is None:
+                raise RuntimeError("RLController.decide before bind(sim)")
+            x = observation(self.sampler.sample(), self.site, self.norm)
+            action, _state = self.policy.predict(x, deterministic=True)
+            action = int(np.asarray(action).item())
+            self.decisions += 1
+            self.advances += action
+            request = self.clock.request(obs, action, self.n_stages)
+            self.split.decided(obs, action, self.sim.guard.max_green_s)
+        self._last = (obs, request)
+        return request
 
     def report(self) -> dict:
-        """{model_version, model_sha256, obs_version, reward_version, decisions, advances}."""
+        """{model_version, model_sha256, obs_version, reward_version, decisions, advances,
+        iv_split (D77: cut, replaced, cut_foreseeable), obs_drop}."""
+        self._classify_last_step()
+        guard = getattr(self.sim, "guard", None)
+        iv_split = (
+            self.split.result(guard) if guard is not None else dict.fromkeys(IV_SPLIT_KEYS, 0)
+        )
         return {
             "model_version": self.model_version,
             "model_sha256": self.model_sha256,
@@ -212,4 +310,6 @@ class RLController(Controller):
             "reward_version": REWARD_VERSION,
             "decisions": self.decisions,
             "advances": self.advances,
+            "iv_split": iv_split,
+            "obs_drop": list(self.obs_drop),
         }

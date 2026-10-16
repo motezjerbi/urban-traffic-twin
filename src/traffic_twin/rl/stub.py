@@ -11,7 +11,12 @@ uses the weights of `configs/rl.yaml` (D58), so returns have the real env's scal
 
 Same constructor, `reset(options={"episode_seed": s})` / `step(action)` contract and
 `episode_summary` keys as `TrafficEnv`, deterministic for a given episode seed and
-action sequence. Worker i plays `seeds[i + k * n_workers]` (D59). `run_baseline` plays
+action sequence. Part 7 additions (D73, D77, D78): `observation.drop: [pedestrian]`
+removes the 12 per-crossing features (62); `reset(options={"params_override": {...}})`
+forces `multiplier` / `day_type` (other keys are only recorded); the summary has
+`control_s` and `iv_split` (`cut`: the guard ended a green the last decision held,
+`replaced`: any other intervention, `cut_foreseeable`: a cut the last decision could
+see coming). Worker i plays `seeds[i + k * n_workers]` (D59). `run_baseline` plays
 fixed / actuated / rules (toy rules on the stub state), random, stay or advance through
 env actions. Nothing here is a result: it only exercises the training and evaluation
 code paths.
@@ -63,6 +68,11 @@ SUMMARY_KEYS = (
 STEP_INFO_KEYS = ("t", "decision_s", "action", "requested", "guard_override", "reward_parts")
 BASELINES = ("fixed", "actuated", "rules", "random", "stay", "advance")
 FIXED_GREEN_S = (30, 12, 20, 10, 10)  # toy fixed-time greens per stage
+# Part 7: feature groups the stub can drop (observation.drop), as index ranges of the
+# 74-feature vector; overridable episode parameters (params_override, D78)
+STUB_GROUPS = {"pedestrian": range(36, 48)}  # 4 crossings x (count, wait, slack)
+OVERRIDE_KEYS = ("multiplier", "day_type", "ambulances", "incident", "mode")
+SPLIT_KEYS = ("cut", "replaced", "cut_foreseeable")
 
 
 def _range(pair: Sequence[int]) -> list[int]:
@@ -132,8 +142,14 @@ class StubTrafficEnv(gym.Env):
         self.lam = float(pen.get("lambda", 30.0))
         self.threshold_s = float(pen.get("threshold_s", 80.0))
         self.scale = float(reward.get("scale", 0.001))
+        drop = list((self.cfg.get("observation") or {}).get("drop") or [])
+        unknown = sorted(set(drop) - set(STUB_GROUPS))
+        if unknown:
+            raise ValueError(f"the stub cannot drop feature groups {unknown}")
+        dropped = {i for g in drop for i in STUB_GROUPS[g]}
+        self._keep = np.asarray([i for i in range(OBS_DIM) if i not in dropped], dtype=int)
         self.action_space = gym.spaces.Discrete(2)
-        self.observation_space = gym.spaces.Box(0.0, 1.0, (OBS_DIM,), np.float32)
+        self.observation_space = gym.spaces.Box(0.0, 1.0, (len(self._keep),), np.float32)
         self._episode = 0
         self._ready = False
 
@@ -147,6 +163,15 @@ class StubTrafficEnv(gym.Env):
             ep = self.seeds[(self.worker + self._episode * self.n_workers) % len(self.seeds)]
             self._episode += 1
         self.params = stub_episode_params(int(ep), self.cfg, self.mode, self.randomize)
+        override = dict((options or {}).get("params_override") or {})
+        unknown = sorted(set(override) - set(OVERRIDE_KEYS))
+        if unknown:
+            raise ValueError(f"unknown params_override keys {unknown} (expected {OVERRIDE_KEYS})")
+        for key in ("multiplier", "day_type"):
+            if key in override:
+                self.params[key] = override[key]
+        if override:
+            self.params["override"] = override
         self.rng = np.random.default_rng([int(ep), 6_000_001])
         self.t = 0
         self.stage, self.tis, self.in_transition, self.target, self.clear_left = (
@@ -165,6 +190,8 @@ class StubTrafficEnv(gym.Env):
         self.bus_wait = np.zeros(3)
         self.totals = dict.fromkeys(TOTAL_KEYS, 0.0)
         self.interventions = dict.fromkeys(INTERVENTION_KEYS, 0)
+        self.iv_split = dict.fromkeys(SPLIT_KEYS, 0)
+        self._held, self._foresee = False, {"max_green": False, "ped_wait": False}
         self.decisions = self.advances = 0
         self.ped_curb_wait_max = 0.0
         self._ready = True
@@ -188,6 +215,16 @@ class StubTrafficEnv(gym.Env):
         requested = (self.stage + 1) % N_STAGES if a == 1 else self.stage
         before = dict(self.totals)
         forced0 = sum(self.interventions.values())
+        self._held = a == 0 and self.is_decision_point()
+        self._foresee = {
+            "max_green": self.tis + self.interval_s >= MAX_GREEN_S,
+            "ped_wait": any(
+                self.ped_count[c]
+                and self.stage not in CROSSING_STAGES[c]
+                and PED_FORCE_S - self.ped_wait[c] < self.interval_s
+                for c in range(4)
+            ),
+        }
         if a == 1 and self.is_decision_point():
             self._start_transition(requested)
             self.advances += 1
@@ -226,6 +263,8 @@ class StubTrafficEnv(gym.Env):
             "preemption": {"enabled": False, "requests": 0, "served": 0, "timeouts": 0},
             "ped_curb_wait_max": float(self.ped_curb_wait_max),
             "amb_seen_share": 0.0,
+            "control_s": float(self.t),
+            "iv_split": dict(self.iv_split),
         }
 
     def close(self) -> None:
@@ -248,6 +287,7 @@ class StubTrafficEnv(gym.Env):
         succ = (self.stage + 1) % N_STAGES
         if self.tis >= MAX_GREEN_S:
             self.interventions["max_green"] += 1
+            self._split("max_green")
             self._start_transition(succ)
             return
         waiting = [
@@ -255,7 +295,17 @@ class StubTrafficEnv(gym.Env):
         ]
         if waiting and max(self.ped_wait[c] for c in waiting) >= PED_FORCE_S:
             self.interventions["ped_wait"] += 1
+            self._split("ped_wait")
             self._start_transition(succ)
+
+    def _split(self, key: str) -> None:
+        """D77 class of a guard intervention: `cut` when the last decision held the
+        current green (foreseeable when that decision could see the bound coming)."""
+        if self._held:
+            self.iv_split["cut"] += 1
+            self.iv_split["cut_foreseeable"] += int(self._foresee[key])
+        else:
+            self.iv_split["replaced"] += 1
 
     def _tick(self) -> None:
         """One simulated second."""
@@ -347,7 +397,7 @@ class StubTrafficEnv(gym.Env):
             ]
         tod = 2 * math.pi * ((self.params["start_s"] + self.t) % 86400) / 86400
         x += [0.5 + 0.5 * math.sin(tod), 0.5 + 0.5 * math.cos(tod)]
-        return np.clip(np.asarray(x, dtype=np.float32), 0.0, 1.0)
+        return np.clip(np.asarray(x, dtype=np.float32), 0.0, 1.0)[self._keep]
 
 
 def _served_queue(env: StubTrafficEnv) -> float:

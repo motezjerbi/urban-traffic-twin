@@ -4,8 +4,10 @@ import argparse
 import importlib
 import importlib.util
 import json
+import os
 import re
 import shutil
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -90,7 +92,7 @@ def test_every_makefile_target_has_a_task(tasks):
     phony = " ".join(re.findall(r"^\.PHONY:(.*)$", makefile, re.M)).split()
     later = {"train", "eval", "app"}  # placeholders for later parts of the roadmap
     assert set(phony) - later == set(tasks.TASKS)
-    assert {"plots", "baseline", "check", "part3", "part4", "part5", "part6"} <= set(phony)
+    assert {"plots", "baseline", "check", "part3", "part4", "part5", "part6", "part7"} <= set(phony)
 
 
 def test_makefile_mirrors_tasks(tasks, monkeypatch):
@@ -101,7 +103,9 @@ def test_makefile_mirrors_tasks(tasks, monkeypatch):
     for name in tasks.TASKS:
         cmds = commands(tasks, name)
         if any(isinstance(c, tasks.Step) for c in cmds):
-            assert rules[name] == ([], [f"$(PY) tasks.py {name}"]), name
+            prereqs, recipe = rules[name]
+            options = [re.sub(r"\$\(if .*$", "", line) for line in recipe]  # optional flags
+            assert (prereqs, options) == ([], [f"$(PY) tasks.py {name}"]), name
             continue
         assert make_calls(rules, name) == expected_calls(tasks, name), name
 
@@ -113,9 +117,12 @@ def test_makefile_delegates_config_driven_tasks_with_their_options():
     for var, flag in (("ALGO", "--algo"), ("SEED", "--seed"), ("STEPS", "--steps"),
                       ("N_ENVS", "--n-envs")):  # fmt: skip
         assert f"$(if $({var}), {flag} $({var}))" in line, var
-    for target in ("eta-data", "eta-data-test"):
+    for target in ("eta-data", "eta-data-test", "rl7-campaign", "part7"):
         (line,) = makefile_rules()[target][1]
         assert line.endswith("$(if $(ALLOW_DIRTY), --allow-dirty)"), target
+    for target in ("rl7-campaign", "part7"):  # `make part7 SLOTS=6 ALLOW_DIRTY=1`
+        (line,) = makefile_rules()[target][1]
+        assert "$(if $(SLOTS), --slots $(SLOTS))" in line, target
 
 
 # -- every task ----------------------------------------------------------------------------
@@ -908,7 +915,9 @@ def parts56(tasks, tmp_path, monkeypatch):
     head = {"value": ("abc1234", False)}
     monkeypatch.setattr(tasks, "git_head", lambda: head["value"])
     repro = {"code": 0, "calls": []}
-    monkeypatch.setattr(tasks, "call", lambda cmd: repro["calls"].append(cmd) or repro["code"])
+    monkeypatch.setattr(
+        tasks, "call", lambda cmd, env=None: repro["calls"].append(cmd) or repro["code"]
+    )
     make_parts56(tmp_path, "abc1234-dirty", dev=True)
     for keep in ("data/rl_runs/_work", "data/rl_runs/_repro_a/dqn_s5_8k_c0b7dd7b"):
         (tmp_path / keep).mkdir(parents=True)
@@ -1029,3 +1038,571 @@ def test_json_diff(tasks):
     b = {"x": 1.0, "nan": float("nan"), "l": [1, {"t": 9, "keep": 3}], "skip": 2, "new": 0}
     assert tasks.json_diff(a, b, frozenset({"skip", "t"})) == ["l[1].keep", "new", "x"]
     assert tasks.json_diff([1, 2], [1]) == ["<root>"]
+
+
+# -- Part 7 tasks (pre-registered D68-D90, configs/rl7.yaml) ------------------------------------
+RL7 = "configs/rl7.yaml"
+STUDY, SENS = "traffic_twin.rl.study", "traffic_twin.rl.sensitivity"
+RL7_SINGLE = ("rl7-campaign", "rl7-select", "rl7-publish", "rl7-stress", "rl7-sens", "rl7-devtest",
+              "rl7-docs")  # fmt: skip
+
+
+def rl7_yaml() -> dict:
+    import yaml
+
+    return yaml.safe_load((ROOT / RL7).read_text(encoding="utf-8"))
+
+
+def test_part7_task_defaults(tasks):
+    got = {name: [c[2:] for c in commands(tasks, name)] for name in RL7_SINGLE}
+    assert got == {
+        "rl7-campaign": [["traffic_twin.rl.campaign", "--config", RL7, "--stages", "T", "S", "F"]],
+        "rl7-select": [[STUDY, "select"]],
+        "rl7-publish": [[STUDY, "publish"]],
+        "rl7-stress": [[STUDY, "stress"]],
+        "rl7-sens": [[SENS, "run"], [SENS, "tables"]],
+        "rl7-devtest": [[STUDY, "devtest"]],
+        "rl7-docs": [["traffic_twin.rl.report7", "--docs", "docs/rl_training.md",
+                      "--figures", "docs/figures/rl7"]],
+    }  # fmt: skip
+    ((step,),) = [commands(tasks, "rl7-holdout")]
+    assert isinstance(step, tasks.Step) and step.name == "rl7-holdout"
+
+
+def test_rl7_campaign_options(tasks):
+    (cmd,) = commands(tasks, "rl7-campaign", "--slots", "6", "--allow-dirty")
+    assert cmd[3:] == ["--config", RL7, "--stages", "T", "S", "F", "--slots", "6",
+                       "--allow-dirty"]  # fmt: skip
+    for bad in ("0", "x", "-2"):
+        with pytest.raises(SystemExit, match="--slots must be"):
+            commands(tasks, "rl7-campaign", "--slots", bad)
+
+
+def test_rl7_constants_are_the_configs_and_paths(tasks):
+    """tasks.py's Part 7 paths are rl7.yaml's `outputs`, paths.py's constants and the
+    contract's file names; the D82 run is stage-T `t1` seed 0 at the stage-T budget."""
+    import yaml
+
+    from traffic_twin import paths
+    from traffic_twin.rl import campaign, study
+
+    rl7 = rl7_yaml()
+    out, protocol = rl7["outputs"], rl7["protocol"]
+    assert (
+        Path(tasks.RL7_CONFIG) == paths.RL7_CONFIG
+        and Path(tasks.RL7_CONFIG_DIR) == paths.RL7_CONFIG_DIR
+    )
+    assert Path(tasks.PITIE_RL_S3) == paths.PITIE_RL_S3_CONFIG
+    assert Path(out["study"]) == tasks.RL7_DIR == paths.RL7_DIR
+    assert Path(out["runs"]) == tasks.RL7_RUNS_DIR
+    assert out["docs"] == tasks.RL7_DOC and out["figures"] == tasks.RL7_FIGURES
+    assert tuple(protocol["devtest"]["seeds"]) == tasks.RL7_DEVTEST_RANGE
+    assert tasks.RL7_STAGES == campaign.STAGES and tasks.RL7_GOLDEN == study.GOLDEN_FILE
+    run, stage_t = tasks.REPRODUCE7_RUN, protocol["stage_t"]
+    assert run["variant"] == stage_t["reference"] and run["seed"] in stage_t["seeds"]
+    assert run["steps"] == stage_t["steps"] and run["stage"] == "T"
+    t1 = yaml.safe_load((ROOT / run["config"]).read_text(encoding="utf-8"))
+    assert t1["variant"] == run["variant"] and t1.get("algo", "dqn") == run["algo"]
+    for parent in tasks.REPRODUCE_PARENTS:  # reproduce56 never moves Part 7 outputs aside
+        lineage = {parent, *parent.parents}
+        assert tasks.RL7_DIR not in lineage and Path("models") not in lineage, parent
+        assert parent not in tasks.RL7_DIR.parents, parent
+    assert "data/rl7/*" in (ROOT / ".gitignore").read_text(encoding="utf-8").split()
+
+
+def test_part7_chain_order_and_stop_before_s3(tasks):
+    cmds = commands(tasks, "part7")
+    names = [c.name if isinstance(c, tasks.Step) else c[2:4] for c in cmds]
+    assert names == [
+        ["traffic_twin.rl.campaign", "--config"], "rl7-holdout", [STUDY, "select"],
+        [STUDY, "publish"], "part7-s3-config", [STUDY, "stress"], [SENS, "run"], [SENS, "tables"],
+        [STUDY, "devtest"], ["traffic_twin.rl.report7", "--docs"],
+    ]  # fmt: skip
+    assert tasks.PART7_STEPS == ("rl7-campaign", "rl7-holdout", "rl7-select", "rl7-publish",
+                                 "rl7-stress", "rl7-sens", "rl7-devtest", "rl7-docs")  # fmt: skip
+    plain = [c for c in cmds if not isinstance(c, tasks.Step)]
+    expected = [c for t in tasks.PART7_STEPS for c in commands(tasks, t)
+                if not isinstance(c, tasks.Step)]  # fmt: skip
+    assert plain == expected
+    # --slots and --allow-dirty reach the campaign only
+    opts = commands(tasks, "part7", "--slots", "6", "--allow-dirty")
+    assert opts[0][-3:] == ["--slots", "6", "--allow-dirty"]
+    assert [c for c in opts[1:] if not isinstance(c, tasks.Step)] == plain[1:]
+
+
+@pytest.mark.parametrize("name", ["part7", "rl7-campaign", "rl7-sens", "rl7-devtest", "rl7-docs"])
+def test_part7_tasks_ignore_scenario_seed_and_rl6_options(tasks, name):
+    """Part 7 seeds, configs and budgets are pre-registered in configs/rl7.yaml (D70): no
+    option of the earlier parts reaches them."""
+
+    def plain(cmds):
+        return [c if not isinstance(c, tasks.Step) else c.name for c in cmds]
+
+    other = commands(tasks, name, "--scenario", "x.yaml", "--baseline", "y.yaml", "--seeds", "1",
+                     "--config", "c.yaml", "--algo", "ppo", "--seed", "7", "--steps", "10",
+                     "--n-envs", "2")  # fmt: skip
+    assert plain(other) == plain(commands(tasks, name))
+
+
+def test_part7_dry_run(tasks, capsys):
+    assert tasks.main(["part7", "-n"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert len(out) == len(commands(tasks, "part7")) and all(line.startswith("+ ") for line in out)
+    assert "+ tasks.py:part7-s3-config (in-process)" in out
+    assert out.index("+ tasks.py:part7-s3-config (in-process)") == 4  # right after rl7-publish
+
+
+@pytest.fixture
+def rl7_tree(tasks, tmp_path, monkeypatch):
+    """A fake repo for the Part 7 steps: ROOT in tmp_path, git HEAD abc1234 (clean), no
+    OMP_* / MKL_* / OPENBLAS_* variable in this environment (a default shell), the
+    subprocess calls and their environments recorded (and answered by `calls["fn"](cmd,
+    env)` when set)."""
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    for k in [k for k in os.environ if k.startswith(tasks.RL7_ENV_PREFIXES)]:
+        monkeypatch.delenv(k)
+    head = {"value": ("abc1234", False)}
+    monkeypatch.setattr(tasks, "git_head", lambda: head["value"])
+    calls = {"cmds": [], "envs": [], "fn": None, "code": 0}
+
+    def call(cmd, env=None):
+        calls["cmds"].append(cmd)
+        calls["envs"].append(env)
+        if calls["fn"] is not None:
+            calls["fn"](cmd, env)
+        return calls["code"]
+
+    monkeypatch.setattr(tasks, "call", call)
+    return tmp_path, head, calls
+
+
+CAMPAIGN_ENV = {"OPENBLAS_NUM_THREADS": "1"}  # what rl.campaign.train_env() adds
+
+
+def launch_record(env: dict | None, eval_pool: str = "persistent") -> dict:
+    """The launch keys rl.train records in provenance.json (and a Part 7 manifest) for a
+    learner started in `env` (None: this process's): train.machine_info() `env` and
+    `child_env`, and `eval_pool` (6 eval workers)."""
+    env = dict(os.environ) if env is None else env
+    return {
+        "machine": {
+            "cpu": "cpu", "cpu_count": 32,
+            "env": {k: v for k, v in sorted(env.items()) if k.startswith(("OMP_", "MKL_",
+                                                                            "OPENBLAS_"))},
+            "child_env": {k: env.get(k, v) for k, v in CAMPAIGN_ENV.items()},
+        },
+        "eval_pool": eval_pool,
+    }  # fmt: skip
+
+
+def make_run(run_dir: Path, version: str = "abc1234", *, timing: float = 1.0,
+             change: str | None = None, launch: dict | None = None) -> None:  # fmt: skip
+    """A finished Part 7 run folder made from `version`, with `timing` in its wall-time
+    fields; `change` plants one real difference; `launch` (launch_record) the launch keys,
+    by default those of a campaign launch (CAMPAIGN_ENV, persistent pool)."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    launch = launch_record(CAMPAIGN_ENV) if launch is None else launch
+    zip_sha = f"zip-{version}-{timing}"
+    _write_json(run_dir / "manifest.json", {
+        "run": run_dir.name, "algo": "dqn", "seed": 0, "steps": 400000, "steps_done": 400000,
+        "best_step": 375000, "best_val_cost": 70000.5,
+        "best_policy_sha256": "best",
+        "final_policy_sha256": "final" + ("x" if change == "final" else ""),
+        "best_model_sha256": zip_sha, "final_model_sha256": zip_sha, "model_bytes": 460000,
+        "code_version": version, "dirty": version.endswith("-dirty"), "started_at": version,
+        "wall_s": 1200.0 * timing, "steps_per_s": 380.0 / timing, "argv": [version],
+        "config": f"{'' if version.endswith('-dirty') else 'c:/repo/'}configs/rl7/t1.yaml",
+        **launch,
+    })  # fmt: skip
+    _write_json(run_dir / "provenance.json", {
+        "run_config_sha": "abcd1234" * 8, "variant": "t1",
+        "allow_dirty": version.endswith("-dirty"),
+        "pick_step": 375000 if change != "pick" else 400000, "pick_val_cost": 70000.5,
+        "pick_policy_sha256": "pick", "pick_model_sha256": zip_sha, "late_mean": 71000.25,
+        "code_version": version, "created_at": version,
+        "torch": {"threads_learner": 1, "threads_worker": 1},
+        **launch,
+    })  # fmt: skip
+    cost = "70000.5" if change != "validation" else "70001.5"
+    (run_dir / "validation.csv").write_text(
+        f"step,cost,cost_vs_S1,pedestrian_s,eval_s\n200000,72000.0,-8.1,1500.0,{7.5 * timing}\n"
+        f"375000,{cost},-9.9,1490.0,{6.5 * timing}\n",
+        encoding="utf-8",
+    )
+    reward = "-75.5" if change != "monitor" else "-75.4"
+    (run_dir / "monitor.csv").write_text(
+        f'#{{"t_start": {timing}, "env_id": "None"}}\nr,l,t\n-80.25,1800,{3.0 * timing}\n'
+        f"{reward},1800,{6.0 * timing}\n",
+        encoding="utf-8",
+    )
+
+
+RUN_NAME = "dqn_t1_s0_400k_abcd1234"
+PAGE = ("# RL training (Part 7)\n\nCode version of the runs: `{v}`.\n\n"
+        "![Learning curves]({fig}/learning_bands.png)\n\n| Run | Pick |\n| --- | --- |\n"
+        "| t1 s0 | 375000 |\n")  # fmt: skip
+GOLDEN = {"q_values": [[0.125, -0.5], [1.0, 2.25]], "actions": [1, 0], "phase_hash": "ph"}
+
+
+@pytest.fixture
+def rl7_reproducible(tasks, rl7_tree):
+    """The Phase 3 outputs reproduce7 needs, made from `abc1234-dirty` (an --allow-dirty
+    campaign), and a stand-in for the three reruns that makes a faithful reproduction
+    from HEAD abc1234 (`change` in the returned dict plants one difference)."""
+    root, head, calls = rl7_tree
+    make_run(root / "data/rl7/runs/T" / RUN_NAME, "abc1234-dirty")
+    make_run(root / "data/rl7/runs/T/dqn_t1_s1_400k_abcd1234", "abc1234-dirty")  # another seed
+    (root / "configs").mkdir()
+    (root / tasks.PITIE_RL_S3).write_text("extends: pitie_rl.yaml\n", encoding="utf-8")
+    _write_json(root / tasks.RL7_GOLDEN, {**GOLDEN, "created_at": "t0", "code_version": "x-dirty"})
+    (root / "docs").mkdir()
+    (root / tasks.RL7_DOC).write_text(
+        PAGE.format(v="abc1234-dirty", fig="docs/figures/rl7"), encoding="utf-8"
+    )
+    plant = {"change": None, "name": RUN_NAME}
+
+    def rerun(cmd, env):
+        args = cmd[3:]
+        module, change = cmd[2], plant["change"]
+        if module == "traffic_twin.rl.train":
+            out = root / args[args.index("--out") + 1] / plant["name"]
+            pool = args[args.index("--eval-pool") + 1] if "--eval-pool" in args else "persistent"
+            # records the environment it was launched in, as rl.train does
+            make_run(out, "abc1234", timing=2.0, change=change, launch=launch_record(env, pool))
+        elif args[0] == "golden":
+            golden = {**GOLDEN, "created_at": "t1", "code_version": "abc1234"}
+            if change == "golden":
+                golden["q_values"] = [[0.125, -0.5], [1.0, 2.2500001]]
+            _write_json(root / args[args.index("--out") + 1], golden)
+        elif module == "traffic_twin.rl.report7":
+            page = root / args[args.index("--docs") + 1]
+            page.parent.mkdir(parents=True, exist_ok=True)
+            figures = args[args.index("--figures") + 1]
+            text = PAGE.format(v="abc1234", fig=figures)
+            if change == "page":
+                text = text.replace("375000", "400000")
+            page.write_text(text, encoding="utf-8")
+
+    calls["fn"] = rerun
+    return root, head, calls, plant
+
+
+def test_reproduce7_chain(tasks, capsys):
+    cmds = commands(tasks, "reproduce7", "--slots", "6", "--allow-dirty", "--seed", "3")
+    assert [c.name for c in cmds] == [
+        "reproduce7-prepare", "reproduce7-train", "reproduce7-golden", "reproduce7-docs",
+        "reproduce7-verify",
+    ]  # fmt: skip
+    assert tasks.main(["reproduce7", "-n"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out == [f"+ tasks.py:{c.name} (in-process)" for c in cmds]
+
+
+def test_reproduce7_reruns_into_its_own_folder_and_accepts_a_faithful_rerun(
+    tasks, rl7_reproducible, capsys
+):
+    """Code versions, the clean-tree flag, timings, zip sha256, timestamps, the
+    code-version line of the page and its figure folder may differ; nothing else."""
+    root, _, calls, _ = rl7_reproducible
+    assert tasks.run(commands(tasks, "reproduce7")) == 0, capsys.readouterr().err
+    backup = "data/rl7/_reproduce/abc1234"
+    assert [c[2:] for c in calls["cmds"]] == [
+        ["traffic_twin.rl.train", "--config", "configs/rl7/t1.yaml", "--algo", "dqn", "--seed",
+         "0", "--steps", "400000", "--out", f"{backup}/runs", "--eval-pool", "persistent"],
+        [STUDY, "golden", "--config", "configs/pitie_rl_s3.yaml", "--out",
+         f"{backup}/rl_s3_golden.json"],
+        ["traffic_twin.rl.report7", "--docs", f"{backup}/docs/rl_training.md", "--figures",
+         f"{backup}/docs/figures/rl7"],
+    ]  # fmt: skip
+    # the training runs in the original learner's thread variables, the others as they are
+    train_env, *others = calls["envs"]
+    assert {k: v for k, v in train_env.items() if k.startswith(tasks.RL7_ENV_PREFIXES)} == (
+        CAMPAIGN_ENV
+    )
+    assert others == [None, None]
+    report = json.loads((root / backup / "reproduce7.json").read_text(encoding="utf-8"))
+    assert report["same"] and report["head"] == "abc1234" and not any(report["items"].values())
+    assert set(report["items"]) == {f"rl7 run {RUN_NAME}", "golden tests/data/rl_s3_golden.json",
+                                    "page docs/rl_training.md"}  # fmt: skip
+    # the originals are untouched
+    assert (root / "data/rl7/runs/T" / RUN_NAME / "manifest.json").is_file()
+    assert "abc1234-dirty" in (root / "docs/rl_training.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("change", "item", "what"),
+    [
+        ("final", "rl7 run", "manifest.json: final_policy_sha256"),
+        ("pick", "rl7 run", "provenance.json: pick_step"),
+        ("validation", "rl7 run", "validation.csv differs"),
+        ("monitor", "rl7 run", "monitor.csv differs"),
+        ("golden", "golden", "rl_s3_golden.json: q_values[1][1]"),
+        ("page", "page docs/rl_training.md", "differs from line 9"),
+    ],
+)
+def test_reproduce7_fails_on_a_real_difference(tasks, rl7_reproducible, capsys, change, item, what):
+    root, _, _, plant = rl7_reproducible
+    plant["change"] = change
+    assert tasks.run(commands(tasks, "reproduce7")) == 1
+    err = [line for line in capsys.readouterr().err.splitlines() if item in line]
+    assert err and what in err[0], err
+    report = json.loads(
+        (root / "data/rl7/_reproduce/abc1234/reproduce7.json").read_text(encoding="utf-8")
+    )
+    assert not report["same"]
+
+
+@pytest.mark.parametrize(
+    ("recorded", "pool", "shell"),
+    [
+        (CAMPAIGN_ENV, "persistent", {}),  # the campaign on a default shell
+        ({"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "2"}, "transient", {}),
+        (CAMPAIGN_ENV, "persistent", {"MKL_NUM_THREADS": "4", "OPENBLAS_NUM_THREADS": "8"}),
+    ],
+)
+def test_reproduce7_launches_the_training_as_the_campaign_launched_the_original(
+    tasks, rl7_reproducible, monkeypatch, capsys, recorded, pool, shell
+):
+    """The campaign starts every learner with rl.campaign.train_env() (OPENBLAS_NUM_THREADS=1
+    where unset) and maybe `--eval-pool transient`; rl.train records its OMP_* / MKL_* /
+    OPENBLAS_* variables (machine.env, child_env) and the pool in provenance.json and the
+    manifest. The rerun gets the original's variables (the shell's own ones replaced) and
+    pool, so a faithful rerun records the same provenance and passes."""
+    root, _, calls, _ = rl7_reproducible
+    make_run(root / "data/rl7/runs/T" / RUN_NAME, "abc1234-dirty",
+             launch=launch_record(recorded, pool))  # fmt: skip
+    for k, v in shell.items():
+        monkeypatch.setenv(k, v)
+    assert tasks.run(commands(tasks, "reproduce7")) == 0, capsys.readouterr().err
+    train = calls["cmds"][0]
+    assert train[train.index("--eval-pool") + 1] == pool
+    env = calls["envs"][0]
+    assert {k: v for k, v in env.items() if k.startswith(tasks.RL7_ENV_PREFIXES)} == recorded
+    assert env["PATH"] == os.environ["PATH"]  # the rest of this environment is kept
+
+
+@pytest.mark.parametrize(
+    ("pool", "stale", "what"),
+    [
+        ("persistent", "reproduce7_train_env", "machine.env.OPENBLAS_NUM_THREADS"),
+        ("transient", "reproduce7_train_options", "eval_pool"),
+    ],
+)
+def test_reproduce7_still_reports_a_launch_difference(
+    tasks, rl7_reproducible, monkeypatch, capsys, pool, stale, what
+):
+    """machine.env and eval_pool are not volatile: a rerun launched in this shell's
+    environment as it is, or without the original's `--eval-pool` (what reproduce7 did
+    before), is reported in both files, not hidden."""
+    root, _, _, _ = rl7_reproducible
+    make_run(root / "data/rl7/runs/T" / RUN_NAME, "abc1234-dirty",
+             launch=launch_record(CAMPAIGN_ENV, pool))  # fmt: skip
+    old = {"reproduce7_train_env": lambda original: None,
+           "reproduce7_train_options": lambda original: []}[stale]  # fmt: skip
+    monkeypatch.setattr(tasks, stale, old)
+    assert tasks.run(commands(tasks, "reproduce7")) == 1
+    err = capsys.readouterr().err
+    assert f"manifest.json: {what}" in err and f"provenance.json: {what}" in err
+
+
+def test_reproduce7_train_env_without_a_record_is_the_campaigns(tasks, monkeypatch, tmp_path):
+    """A run that recorded no machine.env is rerun in what rl.campaign.train_env() gives:
+    RL7_CHILD_ENV where unset, a variable already set kept."""
+    for k in [k for k in os.environ if k.startswith(tasks.RL7_ENV_PREFIXES)]:
+        monkeypatch.delenv(k)
+    _write_json(tmp_path / "run/provenance.json", {"machine": {"cpu": "x"}})
+    for original in (None, tmp_path / "run", tmp_path / "absent"):
+        env = tasks.reproduce7_train_env(original)
+        assert env == {**os.environ, **tasks.RL7_CHILD_ENV}
+        assert tasks.reproduce7_train_options(original) == []
+    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "3")
+    assert tasks.reproduce7_train_env(None)["OPENBLAS_NUM_THREADS"] == "3"
+    _write_json(tmp_path / "run/provenance.json", {"eval_pool": "in-process"})
+    assert tasks.reproduce7_train_options(tmp_path / "run") == []  # 1 eval worker: no pool
+
+
+def test_reproduce7_launch_constants_mirror_rl_train_and_campaign(tasks, monkeypatch):
+    """tasks.py is stdlib only: its copies of rl.train ENV_PREFIXES, CHILD_ENV and
+    EVAL_POOLS are the module's, and its fallback environment is rl.campaign.train_env()."""
+    train = pytest.importorskip("traffic_twin.rl.train")
+    campaign = pytest.importorskip("traffic_twin.rl.campaign")
+    assert tasks.RL7_ENV_PREFIXES == train.ENV_PREFIXES
+    assert tasks.RL7_CHILD_ENV == train.CHILD_ENV
+    assert tasks.RL7_EVAL_POOLS == train.EVAL_POOLS
+    for k in [k for k in os.environ if k.startswith(tasks.RL7_ENV_PREFIXES)]:
+        monkeypatch.delenv(k)
+    assert tasks.reproduce7_train_env(None) == campaign.train_env()
+    monkeypatch.setenv("OMP_NUM_THREADS", "2")
+    assert tasks.reproduce7_train_env(None) == campaign.train_env()
+
+
+def test_reproduce7_rerun_of_a_campaign_launched_stub_run_is_identical(
+    tasks, stub_rl7_cfg, tmp_path, monkeypatch
+):
+    """End to end on the stub (no SUMO, a few hundred steps, training seed range only):
+    a run launched as rl.campaign launches it (train_command, train_env) and its rerun
+    launched as reproduce7 launches it (reproduce7_train_env/_options, tasks.call) give
+    rl7_run_diff == []; the same rerun in the shell's environment as it is differs exactly
+    on machine.env, which is what reproduce7 reported before."""
+    pytest.importorskip("stable_baselines3")
+    from traffic_twin.rl import campaign
+
+    for k in [k for k in os.environ if k.startswith(tasks.RL7_ENV_PREFIXES)]:
+        monkeypatch.delenv(k)
+    t1 = stub_rl7_cfg().parent / "rl7" / "t1.yaml"
+    seeds = ["--stub", "--validation-seeds", "5100"]
+
+    def base(out: Path) -> list[str]:
+        return [sys.executable, "-m", "traffic_twin.rl.train", "--config", t1.as_posix(),
+                "--algo", "dqn", "--seed", "0", "--steps", "400",
+                "--out", out.as_posix()]  # fmt: skip
+
+    job = campaign.Job("T", t1, "dqn", 0, 400, 0, tmp_path / "orig")
+    cmd = campaign.train_command(job, validation_seeds=[5100], stub=True)
+    assert cmd == base(tmp_path / "orig") + ["--validation-seeds", "5100", "--stub"]
+    with (tmp_path / "orig.log").open("w", encoding="utf-8") as fh:
+        proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT, env=campaign.train_env())
+        assert proc.wait() == 0, (tmp_path / "orig.log").read_text(encoding="utf-8")
+    (original,) = [p for p in (tmp_path / "orig").iterdir() if (p / "manifest.json").is_file()]
+    rerun = base(tmp_path / "rerun") + seeds + tasks.reproduce7_train_options(original)
+    assert tasks.call(rerun, env=tasks.reproduce7_train_env(original)) == 0
+    assert tasks.rl7_run_diff(original, tmp_path / "rerun" / original.name) == []
+    assert tasks.call(base(tmp_path / "plain") + seeds) == 0
+    assert tasks.rl7_run_diff(original, tmp_path / "plain" / original.name) == [
+        "manifest.json: machine.env.OPENBLAS_NUM_THREADS",
+        "provenance.json: machine.env.OPENBLAS_NUM_THREADS",
+    ]
+
+
+def test_reproduce7_fails_when_the_rerun_is_another_run(tasks, rl7_reproducible, capsys):
+    """A config edited since the campaign changes the run name (run_config_sha): the
+    original is not reproduced."""
+    _, _, _, plant = rl7_reproducible
+    plant["name"] = "dqn_t1_s0_400k_ffff0000"
+    assert tasks.run(commands(tasks, "reproduce7")) == 1
+    assert "not re-made (the rerun is dqn_t1_s0_400k_ffff0000)" in capsys.readouterr().err
+
+
+def test_reproduce7_requires_the_pick_to_be_recorded(tasks, rl7_reproducible, capsys):
+    root, _, _, _ = rl7_reproducible
+    for run in (root / "data/rl7/runs/T" / RUN_NAME,):
+        prov = json.loads((run / "provenance.json").read_text(encoding="utf-8"))
+        del prov["pick_step"]
+        _write_json(run / "provenance.json", prov)
+    state = {}
+    assert tasks.reproduce7_prepare(state) == 0
+    for what in ("train", "golden", "docs"):
+        assert tasks.reproduce7_run(state, what) == 0
+    # the rerun records it, the original does not
+    assert tasks.reproduce7_verify(state) == 1
+    assert "no pick_step recorded" in capsys.readouterr().err
+
+
+def test_reproduce7_prepare_refuses(tasks, rl7_reproducible, capsys):
+    root, head, calls, _ = rl7_reproducible
+    head["value"] = ("abc1234", True)
+    assert tasks.run(commands(tasks, "reproduce7")) == 1
+    assert "uncommitted changes" in capsys.readouterr().err and not calls["cmds"]
+    head["value"] = ("abc1234", False)
+    (root / tasks.RL7_GOLDEN).unlink()
+    assert tasks.reproduce7_prepare({}) == 1
+    assert "missing tests/data/rl_s3_golden.json" in capsys.readouterr().err
+    _write_json(root / tasks.RL7_GOLDEN, GOLDEN)
+    make_run(root / "data/rl7/runs/T/dqn_t1_s0_400k_ffff0000")  # two candidates
+    assert tasks.reproduce7_prepare({}) == 1
+    assert "exactly one finished run" in capsys.readouterr().err
+    shutil.rmtree(root / "data/rl7/runs/T/dqn_t1_s0_400k_ffff0000")
+    assert tasks.reproduce7_prepare({}) == 0
+    (root / "data/rl7/_reproduce/abc1234/runs").mkdir(parents=True)
+    assert tasks.reproduce7_prepare({}) == 1  # a reproduction is never overwritten
+    assert "already holds a reproduction" in capsys.readouterr().err
+    assert not calls["cmds"]
+
+
+def test_reproduce7_stops_when_a_rerun_fails(tasks, rl7_reproducible):
+    _, _, calls, _ = rl7_reproducible
+    calls["code"] = 3
+    assert tasks.run(commands(tasks, "reproduce7")) == 3
+    assert len(calls["cmds"]) == 1  # the training failed: nothing else ran
+
+
+def test_rl7_holdout_lists_the_runs_when_it_runs(tasks, rl7_tree, capsys):
+    """The step lists the finished runs at run time (the campaign makes them inside
+    `part7`): T and S runs on their pick, F runs with --curves; partial, `_`-prefixed and
+    non-run folders are skipped."""
+    root, _, calls = rl7_tree
+    (cmd,) = commands(tasks, "rl7-holdout")  # built before any run exists
+    assert (
+        cmd.fn() == 1 and "no finished run under data/rl7/runs/<stage>/" in capsys.readouterr().err
+    )
+    runs = root / "data/rl7/runs"
+    for stage, name in (("T", "dqn_t1_s0_400k_a"), ("T", "ppo_p1_s0_400k_a"),
+                        ("S", "dqn_wb12_s3_400k_b"), ("F", "dqn_t1_s1_1000k_c"),
+                        ("F", "dqn_t1_s0_1000k_c")):  # fmt: skip
+        _write_json(runs / stage / name / "manifest.json", {"run": name})
+    (runs / "T/dqn_t0_s0_400k_partial").mkdir()  # no manifest: still running or crashed
+    _write_json(runs / "S/_gate/x/manifest.json", {})
+    assert cmd.fn() == 0
+    assert [c[2:] for c in calls["cmds"]] == [
+        [STUDY, "holdout", "data/rl7/runs/T/dqn_t1_s0_400k_a", "data/rl7/runs/T/ppo_p1_s0_400k_a",
+         "data/rl7/runs/S/dqn_wb12_s3_400k_b"],
+        [STUDY, "holdout", "data/rl7/runs/F/dqn_t1_s0_1000k_c",
+         "data/rl7/runs/F/dqn_t1_s1_1000k_c", "--curves"],
+    ]  # fmt: skip
+    calls["cmds"].clear()
+    calls["code"] = 2
+    assert cmd.fn() == 2 and len(calls["cmds"]) == 1  # stops at the first failure
+
+
+def test_part7_stops_until_the_s3_config_exists(tasks, rl7_tree, capsys):
+    root, _, calls = rl7_tree
+    assert tasks.part7_s3_check() == 1
+    err = capsys.readouterr().err
+    assert "configs/pitie_rl_s3.yaml is missing" in err and "rl7-stress rl7-sens" in err
+    cmds = commands(tasks, "part7")
+    (guard,) = [c for c in cmds if isinstance(c, tasks.Step) and c.name == "part7-s3-config"]
+    assert cmds.index(guard) == 4 and guard.fn() == 1  # `run` stops there, after rl7-publish
+    assert not calls["cmds"]
+    (root / "configs").mkdir()
+    (root / tasks.PITIE_RL_S3).write_text("extends: pitie_rl.yaml\n", encoding="utf-8")
+    assert tasks.part7_s3_check() == 0
+
+
+def _part7_cli_commands(tasks, root: Path) -> list[list[str]]:
+    """Every subprocess command of the Part 7 tasks, the in-process ones included."""
+    cmds = [c for name in RL7_SINGLE for c in commands(tasks, name)]
+    for stage, name in (("T", "dqn_t1_s0_400k_a"), ("F", "dqn_t1_s0_1000k_c")):
+        _write_json(root / "data/rl7/runs" / stage / name / "manifest.json", {"run": name})
+    _write_json(root / "data/rl7/runs/T/dqn_t1_s0_400k_a/provenance.json",
+                {"eval_pool": "transient"})  # fmt: skip
+    cmds += tasks.rl7_holdout_commands()
+    cmds += list(
+        tasks.reproduce7_commands(
+            root / "data/rl7/_reproduce/abc1234", root / "data/rl7/runs/T/dqn_t1_s0_400k_a"
+        ).values()
+    )
+    return cmds
+
+
+def test_part7_commands_parse_with_their_cli(tasks, rl7_tree, monkeypatch):
+    """Every argument a Part 7 task passes, including the commands its in-process steps
+    build (holdout, reproduce7), is one its module's own parser accepts. Nothing runs."""
+    root, _, _ = rl7_tree
+    cmds = _part7_cli_commands(tasks, root)
+    assert len(cmds) == 13
+    for cmd in cmds:
+        with monkeypatch.context() as m:
+            namespace, extra = parse_only(m, cmd[2], cmd[3:])
+        assert extra == [], f"{cmd[2]} does not accept {extra}"
+        values = vars(namespace)
+        if "--config" in cmd and cmd[3] != "golden":
+            assert Path(values["config"]) == Path(cmd[cmd.index("--config") + 1]), cmd
+        if cmd[2] == STUDY and cmd[3] == "golden":  # the subcommand's own --config
+            assert Path(values["scenario"]) == Path("configs/pitie_rl_s3.yaml")
+        if "--curves" in cmd:
+            assert values["curves"] and [Path(r) for r in values["runs"]] == [
+                Path(r) for r in cmd[4:-1]
+            ]
+        if cmd[2] == "traffic_twin.rl.train":
+            assert (values["seed"], values["steps"]) == (0, 400000)
+            assert values["eval_pool"] == "transient"  # the original's pool

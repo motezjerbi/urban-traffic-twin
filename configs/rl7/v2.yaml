@@ -1,0 +1,4 @@
+# Stage T config V2 (D73): T1 with a 10 s decision interval.
+extends: t1.yaml
+variant: v2
+decision: {interval_s: 10}

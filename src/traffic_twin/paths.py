@@ -21,6 +21,10 @@ RL_CONFIG = CONFIG_DIR / "rl.yaml"  # RL environment and training (Part 6)
 API_CONFIG = CONFIG_DIR / "api.yaml"  # API v1 and mock screens (Part 5)
 PITIE_RL_CONFIG = CONFIG_DIR / "pitie_rl.yaml"  # RL controller on the real junction
 INCIDENT_SITES = CONFIG_DIR / "pitie" / "incident_sites.yaml"  # lane-slowdown sites (D45)
+# Part 7 (pre-registered D68-D90); rl.yaml and pitie_rl.yaml stay the Part 6 record
+RL7_CONFIG = CONFIG_DIR / "rl7.yaml"  # Part 7 pre-registration (extends rl.yaml)
+RL7_CONFIG_DIR = CONFIG_DIR / "rl7"  # Part 7 run configs (t0, t1, v1, v2, p1, sensitivity)
+PITIE_RL_S3_CONFIG = CONFIG_DIR / "pitie_rl_s3.yaml"  # S3: the selected Part 7 policy (D86)
 
 REFERENCE_DIR = Path("data") / "reference"  # versioned sensor extracts (no data/processed)
 FIELD_FILE = Path("data/field/pitie_measurements.yaml")  # site-visit measurements
@@ -37,6 +41,8 @@ ETA_DIR = Path("data") / "eta"  # ETA datasets, data/eta/<dataset_id>/
 MODELS_DIR = Path("data") / "models"  # ETA bundles (models/eta) and the selected RL model
 DEMO_DIR = Path("data") / "demo"  # demo / replay runs (seeds 4000-4009) with ETA files
 RL_RUNS_DIR = Path("data") / "rl_runs"  # RL training runs and dev-test runs
+RL7_DIR = Path("data") / "rl7"  # Part 7 runs, campaign, study, sensitivity (gitignored, D85)
+MODELS_RL_DIR = Path("models") / "rl"  # committed S3 model, models/rl/<model_version>/ (D86)
 
 # File names inside the `paths.processed` directory of configs/data.yaml
 SENSOR_HOURLY_FILE = "sensor_hourly.parquet"

@@ -1,0 +1,4 @@
+# Weight sensitivity setting lam100 (D76): pedestrian wait penalty lambda 100.
+extends: t1.yaml
+variant: lam100
+reward: {ped_penalty: {lambda: 100.0}}

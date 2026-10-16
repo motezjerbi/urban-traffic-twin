@@ -1,0 +1,5 @@
+# Weight sensitivity setting wp48 (D76): pedestrian weight x4 (4.8), a stress point outside
+# the spec's 1.0-1.5 starting range.
+extends: t1.yaml
+variant: wp48
+reward: {weights: {pedestrian: 4.8}}

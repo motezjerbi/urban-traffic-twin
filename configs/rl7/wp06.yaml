@@ -1,0 +1,4 @@
+# Weight sensitivity setting wp06 (D76): pedestrian weight x0.5 (0.6).
+extends: t1.yaml
+variant: wp06
+reward: {weights: {pedestrian: 0.6}}

@@ -1,0 +1,35 @@
+# RL Part 7 (spec S7, 10.3, 10.4, 10.6): full training, tuning, weight sensitivity, S3 selection.
+# Pre-registered (D68-D90) before any Part 7 training. configs/rl.yaml is the frozen Part 6 record.
+preregistered: 2026-10-16            # date of Phase 0; change only via `changes`
+extends: rl.yaml
+variant: base7
+seeds: {train: [5000, 9999], selection: [3050, 3089], select2: [3090, 3109], holdout: [3110, 3159],
+        sensitivity: [3160, 3179], stress: [3180, 3199], reserve: [3200, 3999]}
+train: {n_envs: 6, torch_threads: 1, eval_every_steps: 25000, eval_workers: 6,
+        checkpoint_every_steps: 50000, pick_from: 0.5, require_clean: true}
+dqn: {exploration_steps: 50000}      # exploration_fraction = 50000 / steps (D71)
+protocol:
+  stage_t: {steps: 400000, seeds: [0, 1, 2], configs: [t0, t1, v1, v2, p1], reference: t1,
+            margin_rel: 0.015, min_seed_wins: 2, ped_guard_rel: 0.05}
+  stage_f: {steps: 1000000, seeds: [0, 1, 2, 3, 4]}
+  sensitivity: {steps: 400000, base: t1, seeds_default: [0, 1, 2], seeds_wide: [0, 1, 2, 3, 4],
+                wide: [t1, wb12, wb50],
+                settings: [wb12, wb50, wp06, wp24, wp48, lam0, lam100, transit_ped, car_centric],
+                bootstrap: {n: 2000, seed: 0, ci: 0.95}}
+  select: {stage2: select2, stage2_mode: full, tie_rel: 0.005}
+  holdout: {windows: holdout, full: [3110, 3119]}
+  stress: {cells: {x0_6: {multiplier: 0.6}, x1_0: {multiplier: 1.0}, x1_4: {multiplier: 1.4},
+                   x1_6: {multiplier: 1.6}, monfri: {day_type: mon_fri_term, multiplier: 1.0},
+                   holiday: {day_type: school_holiday, multiplier: 1.0},
+                   inc_n_in_1: {incident: n_in_1}, inc_n_in_2: {incident: n_in_2}, inc_s_in_1: {incident: s_in_1},
+                   inc_s_in_2: {incident: s_in_2}, inc_w_in_1: {incident: w_in_1},
+                   amb2_x1_3: {ambulances: 2, multiplier: 1.3}, full_nominal: {mode: full, multiplier: 1.0,
+                   day_type: tue_wed_thu_term}}, worse_than_s1_rel: 0.05}
+  devtest: {seeds: [3020, 3029], pairs: [[S1, S3], [S0, S3], [S2, S3]], primary: all/person_delay_mean,
+            alpha: 0.05, holm: within_pair}
+  gate_10_6: {equity_rel: 0.05, equity_kpis: [car/time_loss_mean, bus/delay_mean, pedestrian/ped_curb_wait_mean],
+              curb_max_s: 90, repro_min_runs: 4, s2_parity_rel: 0.02}
+  slots: 4
+outputs: {runs: data/rl7/runs, study: data/rl7, models: models/rl, docs: docs/rl_training.md,
+          figures: docs/figures/rl7}
+changes: []

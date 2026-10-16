@@ -1,5 +1,6 @@
 """RL observation `rl-obs-1` (Part 6, D57): 74 names at Pitié, every value in [0, 1] for
-extreme synthetic snapshots, exclusive one-hots. No SUMO."""
+extreme synthetic snapshots, exclusive one-hots; the Part 7 feature groups and
+`observation.drop` (D73 V1: 62 names without the pedestrian block). No SUMO."""
 
 import math
 
@@ -8,9 +9,13 @@ import pytest
 
 from traffic_twin.control.base import BusCall, EmergencyCall
 from traffic_twin.rl.features import (
+    GROUPS,
     OBS_VERSION,
     SiteSpec,
+    check_drop,
     feature_names,
+    group_names,
+    group_of,
     observation,
     site_spec_from_config,
 )
@@ -183,3 +188,68 @@ def test_layout_mismatch_is_refused(norm):
     bad = dict(norm, amb_dist_bins_m=[150, 50])
     with pytest.raises(ValueError, match="amb_dist_bins_m"):
         observation(snapshot(), SITE, bad)
+
+
+# -- feature groups and drop (Part 7, D73 V1) --------------------------------------------
+PED_NAMES = tuple(f"ped_{k}_{c}" for c in CROSSINGS for k in ("count", "wait", "slack"))
+
+
+def test_groups_partition_the_names():
+    names = feature_names(SITE)
+    for name in names:
+        hits = [g for g, prefixes in GROUPS.items() if name.startswith(prefixes)]
+        assert hits == [group_of(name)], name
+    assert sum(len(group_names(SITE, g)) for g in GROUPS) == len(names) == 74
+    assert group_names(SITE, "pedestrian") == PED_NAMES
+
+
+def test_drop_pedestrian_leaves_62_names_in_order():
+    names = feature_names(SITE, ["pedestrian"])
+    assert len(names) == 62 and not set(names) & set(PED_NAMES)
+    assert names == tuple(n for n in feature_names(SITE) if n not in PED_NAMES)
+    assert feature_names(SITE, ()) == feature_names(SITE)
+    two = feature_names(SITE, ["pedestrian", "time"])
+    assert len(two) == 60 and "tod_sin" not in two
+
+
+@pytest.mark.parametrize("case", sorted(extreme_snapshots()))
+def test_drop_removes_exactly_the_group_values(case, norm):
+    snap = extreme_snapshots()[case]
+    full = observation(snap, SITE, norm)
+    x = observation(snap, SITE, {**norm, "drop": ["pedestrian"]})
+    assert x.dtype == np.float32 and x.shape == (62,)
+    assert np.isfinite(x).all() and (x >= 0).all() and (x <= 1).all()
+    keep = [i for i, n in enumerate(feature_names(SITE)) if n not in PED_NAMES]
+    np.testing.assert_array_equal(x, full[keep])
+    np.testing.assert_array_equal(observation(snap, SITE, {**norm, "drop": []}), full)
+
+
+@pytest.mark.parametrize(
+    ("drop", "match"),
+    [(["pedestrians"], "unknown groups"), ("pedestrian", "list"),
+     (["bus", "bus"], "twice"), ([None], "unknown")],
+)  # fmt: skip
+def test_bad_drop_is_refused(drop, match, norm):
+    with pytest.raises(ValueError, match=match):
+        check_drop(drop)
+    with pytest.raises(ValueError, match=match):
+        observation(snapshot(), SITE, {**norm, "drop": drop})
+    with pytest.raises(ValueError):
+        group_names(SITE, "nope")
+
+
+def test_rl7_v1_config_drops_the_pedestrian_block(rl_scenario):
+    from traffic_twin.config import ConfigError, load_config
+    from traffic_twin.control.rl import check_rl_config
+
+    v1 = load_config("configs/rl7/v1.yaml")
+    assert v1["observation"]["drop"] == ["pedestrian"]
+    check_rl_config(v1, "v1")
+    site = site_spec_from_config(rl_scenario, v1["observation"]["veh_length_m"])
+    assert len(feature_names(site, v1["observation"]["drop"])) == 62
+    for name in ("t0", "t1", "v2", "p1", "wb12", "lam100", "car_centric"):
+        cfg = load_config(f"configs/rl7/{name}.yaml")
+        assert check_drop(cfg["observation"].get("drop")) == (), name
+    bad = {**v1, "observation": {**v1["observation"], "drop": ["peds"]}}
+    with pytest.raises(ConfigError, match="unknown groups"):
+        check_rl_config(bad, "bad")

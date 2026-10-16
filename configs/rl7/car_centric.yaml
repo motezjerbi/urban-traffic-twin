@@ -1,0 +1,4 @@
+# Weight sensitivity corner car_centric (D76): bus 12.5, pedestrian 0.6, lambda 0.
+extends: t1.yaml
+variant: car_centric
+reward: {weights: {bus: 12.5, pedestrian: 0.6}, ped_penalty: {lambda: 0.0}}

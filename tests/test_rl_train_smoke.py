@@ -2,7 +2,13 @@
 the stub honours the TrafficEnv contract, DQN and PPO train for 300 steps with the
 validation callback (validation.csv, best_model.zip), the manifest is complete, a saved
 model loads back to the same policy, and two runs with the same seed give the same
-parameters and the same episode returns."""
+parameters and the same episode returns.
+
+Part 7 (WS1; D71, D72, D81): a Part 6 config keeps the Part 6 manifest key set (capture
+(d)) and run folder; the pooled validator (2 spawned workers) scores exactly as the
+in-process one; the D72 pick at the 50 % edge; `lin:` schedules decay to their end
+value; exploration_steps -> exploration_fraction; two Part 7 runs with the same seed
+give the same pick and final policy."""
 
 from __future__ import annotations
 
@@ -14,6 +20,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from traffic_twin.config import ConfigError, load_config
 from traffic_twin.rl.stub import (
     OBS_DIM,
     STEP_INFO_KEYS,
@@ -24,8 +31,12 @@ from traffic_twin.rl.stub import (
 )
 from traffic_twin.rl.train import (
     BASELINES,
+    PICK_MODEL_FILE,
     PREEMPT_KEYS,
+    PROVENANCE_FILE,
     RUN_FILES,
+    VAL_DIR,
+    LinearDecay,
     Validator,
     check_out_root,
     hyperparameters,
@@ -34,12 +45,26 @@ from traffic_twin.rl.train import (
     run_name,
     s6_run_pass,
     sb3_kwargs,
+    schedule,
     seed_range,
     stub_backend,
     summary_row,
 )
 
 WINDOW_S = 300  # short stub episodes: ~40 decisions
+# Capture (d) of Phase 0: the manifest keys of a Part 6 run (`rl.train --stub`, rl.yaml)
+PART6_MANIFEST_KEYS = frozenset(
+    {
+        "algo", "argv", "backend", "baseline_s", "baselines", "best_model_sha256",
+        "best_policy_sha256", "best_step", "best_val_cost", "best_vs",
+        "checkpoint_every_steps", "code_version", "config", "dirty", "eval_every_steps",
+        "eval_s", "final_model_sha256", "final_policy_sha256", "final_val_cost",
+        "hyperparameters", "model_bytes", "n_envs", "obs_version", "reward_version",
+        "rl_yaml_sha256", "run", "s6_run_pass", "seed", "seeds", "started_at", "steps",
+        "steps_done", "steps_per_s", "threads", "train_s", "validations", "vec", "versions",
+        "wall_s",
+    }
+)  # fmt: skip
 SMALL_HP = {
     "dqn": {
         "learning_starts": 50,
@@ -252,10 +277,17 @@ def test_train_writes_a_complete_run_folder(trained, algo):
     ):
         assert key in m, key
     assert m["backend"] == "stub" and m["algo"] == algo and m["n_envs"] == 2
+    assert set(m) == PART6_MANIFEST_KEYS  # Part 6 format, key for key (D81)
+    hp = hyperparameters(load_config("configs/rl.yaml"), algo, SMALL_HP[algo])
+    assert m["hyperparameters"] == hp  # no exploration_steps in rl.yaml: unchanged
+    assert not (out / PICK_MODEL_FILE).exists() and not (out / VAL_DIR).exists()
+    prov = json.loads((out / PROVENANCE_FILE).read_text(encoding="utf-8"))
+    assert prov["variant"] is None and prov["pick_step"] is None
     assert set(m["baselines"]) == set(BASELINES)
     val = pd.read_csv(out / "validation.csv")
     assert list(val["step"]) == sorted(val["step"]) and len(val) >= 3
     assert {"cost", "cost_vs_S0", "cost_vs_S1", "cost_vs_S2", "cost_vs_stay", "best"} <= set(val)
+    assert not {"late", "pick", "split_cut", "control_s"} & set(val)  # Part 6 columns
     assert m["best_val_cost"] == pytest.approx(val["cost"].min())
     assert m["best_step"] == int(val.loc[val["cost"].idxmin(), "step"])
     assert val["step"].iloc[-1] == m["steps_done"]  # the final policy is always scored
@@ -319,3 +351,242 @@ def test_validator_keeps_the_best_checkpoint(tmp_path):
     )
     val = pd.read_csv(tmp_path / "validation.csv")
     assert val["cost_vs_S0"].iloc[0] == pytest.approx(pct_change(r1["cost"], 1000.0))
+
+
+# -- Part 7: schedules, exploration, pool validator, pick (D71, D72) ---------------------
+def test_lin_schedule_decays_from_a_to_b():
+    lr = schedule("lin:5.0e-4:5.0e-5")
+    assert lr == LinearDecay(5e-4, 5e-5) and str(lr) == "lin:0.0005:5e-05"
+    assert lr(1.0) == pytest.approx(5e-4)  # progress_remaining 1: start of training
+    assert lr(0.5) == pytest.approx(2.75e-4)
+    assert lr(0.0) == pytest.approx(5e-5)  # end of training: b
+    assert lr(-0.001) == pytest.approx(5e-5)  # SB3 overshoots past total_timesteps
+    assert schedule(3e-4) == 3e-4 and schedule(0.2) == 0.2  # numbers pass through
+    for bad in ("lin:1e-3", "exp:1:2", "lin:a:b", True):
+        with pytest.raises(ConfigError):
+            schedule(bad)
+    kw = sb3_kwargs({"learning_rate": "lin:3.0e-4:3.0e-5", "clip_range": 0.2})
+    assert kw["learning_rate"] == LinearDecay(3e-4, 3e-5) and kw["clip_range"] == 0.2
+
+
+def test_exploration_steps_become_a_fraction_of_the_budget(rl7_cfg):
+    hp = hyperparameters(rl7_cfg, "dqn", steps=400_000)
+    assert hp["exploration_fraction"] == pytest.approx(50_000 / 400_000)
+    assert "exploration_steps" not in hp and hp["learning_rate"] == 5e-4  # t0 = rl7 base
+    assert hyperparameters(rl7_cfg, "dqn", steps=1_000_000)["exploration_fraction"] == 0.05
+    assert hyperparameters(rl7_cfg, "dqn", steps=20_000)["exploration_fraction"] == 1.0
+    raw = hyperparameters(rl7_cfg, "dqn")  # without steps: as written
+    assert raw["exploration_steps"] == 50_000
+    with pytest.raises(ConfigError, match="exploration_steps"):
+        sb3_kwargs(raw)
+    assert "exploration_fraction" not in hyperparameters(rl7_cfg, "ppo", steps=400_000)
+
+
+class _Fixed:
+    """A stand-in model: always `action`; `save` writes a placeholder file."""
+
+    def __init__(self, action: int) -> None:
+        self.action = action
+
+    def predict(self, obs, deterministic=True):
+        return np.asarray(self.action), None
+
+    def save(self, path):
+        Path(path).write_bytes(f"model {self.action}".encode())
+
+
+def test_pick_counts_validations_from_the_50_percent_edge(tmp_path):
+    """D72: validations at step >= pick_from_step are late; the pick is the lowest late
+    cost (a better earlier checkpoint is the best model, never the pick)."""
+    env = StubTrafficEnv(window_s=WINDOW_S)
+    v = Validator(env, [3000, 3001], {}, tmp_path, keep_dir=tmp_path / "val", pick_from_step=200)
+    stay, advance = _Fixed(0), _Fixed(1)
+    cost = {a: v(m, s)["cost"] for a, m, s in ((0, stay, 100), (1, advance, 200), (0, stay, 300))}
+    rows = pd.read_csv(tmp_path / "validation.csv")
+    assert list(rows["late"]) == [False, True, True]  # 200 = the edge, included
+    assert v.late_costs == [cost[1], cost[0]]
+    assert v.late_mean == pytest.approx((cost[0] + cost[1]) / 2)
+    assert v.pick_step == (200 if cost[1] <= cost[0] else 300)
+    assert v.best_step == (100 if cost[0] <= cost[1] else 200)
+    pick = tmp_path / PICK_MODEL_FILE
+    assert pick.read_bytes() == (tmp_path / "val" / f"step_{v.pick_step}.zip").read_bytes()
+    kept = sorted(p.name for p in (tmp_path / "val").iterdir())
+    assert kept == ["step_100.zip", "step_200.zip", "step_300.zip"]
+    late_ped = rows.loc[rows["late"], "pedestrian_s"].mean()
+    assert v.late_totals()["pedestrian_s"] == pytest.approx(late_ped)
+
+
+def test_pooled_validator_equals_in_process(trained, tmp_path):
+    """Two spawned workers score a saved model exactly as the in-process validator scores
+    the live model (seeded episodes), extended rows included."""
+    from traffic_twin.rl.train import load_model
+
+    model = load_model(trained["dqn"][0] / "final_model.zip", "dqn")
+    seeds, base = [3000, 3001, 3002], {"S0": 1000.0}
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    env = StubTrafficEnv(window_s=WINDOW_S)
+    inproc = Validator(env, seeds, base, tmp_path / "a", extended=True)
+    pooled = Validator(
+        None,
+        seeds,
+        base,
+        tmp_path / "b",
+        workers=2,
+        keep_dir=tmp_path / "b" / "val",
+        extended=True,
+        backend=stub_backend(window_s=WINDOW_S),
+        config="configs/rl.yaml",
+    )
+    try:
+        ra, rb = inproc(model, 100), pooled(model, 100)
+        rb2 = pooled(model, 200)  # cached-model eviction: a new checkpoint path
+    finally:
+        pooled.close()
+    assert pooled.pool is None
+    drop = {"step", "eval_s"}
+    assert {k: v for k, v in ra.items() if k not in drop} == {
+        k: v for k, v in rb.items() if k not in drop
+    }
+    assert rb2["cost"] == rb["cost"]
+    ea = pd.read_csv(tmp_path / "a" / "validation_episodes.csv")
+    eb = pd.read_csv(tmp_path / "b" / "validation_episodes.csv").query("step == 100")
+    pd.testing.assert_frame_equal(ea, eb.reset_index(drop=True))
+    assert {"split_cut", "split_replaced", "split_cut_foreseeable", "control_s"} <= set(ea)
+    per_h = 3600 * ea["split_cut"].sum() / (len(seeds) * WINDOW_S)
+    assert ra["split_cut_per_h"] == pytest.approx(per_h)
+
+
+def _flipped(model):
+    """`model` with its Q-head negated in place: another greedy policy (and cost)."""
+    import torch
+
+    with torch.no_grad():
+        *_, weight, bias = model.policy.q_net.parameters()
+        weight.neg_()
+        bias.neg_()
+    return model
+
+
+def test_pool_model_cache_reloads_a_rewritten_file(trained, tmp_path, monkeypatch):
+    """The worker's one-model cache is keyed by the file content, not the path alone: a
+    path rewritten with another model is reloaded (a persistent worker kept scoring the
+    first model saved under a reused name)."""
+    from traffic_twin.rl import train as train_mod
+    from traffic_twin.rl.train import load_model, policy_sha256
+
+    monkeypatch.setattr(train_mod, "_POOL", {})
+    a = load_model(trained["dqn"][0] / "final_model.zip", "dqn")
+    b = _flipped(load_model(trained["dqn"][0] / "final_model.zip", "dqn"))
+    assert policy_sha256(a) != policy_sha256(b)
+    path = tmp_path / "same_name.zip"
+    a.save(str(path))
+    assert policy_sha256(train_mod._pool_model(str(path), "dqn")) == policy_sha256(a)
+    assert train_mod._pool_model(str(path), "dqn") is train_mod._pool_model(str(path), "dqn")
+    b.save(str(path))
+    assert policy_sha256(train_mod._pool_model(str(path), "dqn")) == policy_sha256(b)
+
+
+def test_pooled_validator_without_keep_dir_scores_each_model(trained, tmp_path):
+    """A persistent pool without `keep_dir` (a Part 6 config with --eval-workers 2) scores
+    every validation's model like the in-process validator: two different models, two
+    validations, the same costs; the scratch files are removed."""
+    from traffic_twin.rl.train import SCRATCH_MODEL_PREFIX, load_model
+
+    final = trained["dqn"][0] / "final_model.zip"
+    models = [load_model(final, "dqn"), _flipped(load_model(final, "dqn"))]
+    seeds, base = [3000, 3001], {"S0": 1000.0}
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    inproc = Validator(StubTrafficEnv(window_s=WINDOW_S), seeds, base, tmp_path / "a")
+    pooled = Validator(
+        None,
+        seeds,
+        base,
+        tmp_path / "b",
+        workers=2,
+        backend=stub_backend(window_s=WINDOW_S),
+        config="configs/rl.yaml",
+    )
+    try:
+        for step, model in zip((100, 200), models, strict=True):
+            inproc(model, step)
+            pooled(model, step)
+    finally:
+        pooled.close()
+    ca, cb = (pd.read_csv(tmp_path / d / "validation.csv")["cost"].tolist() for d in "ab")
+    assert ca[0] != ca[1]  # the two models really differ
+    assert cb == ca
+    assert inproc.best_step == pooled.best_step
+    assert all((tmp_path / d / "best_model.zip").is_file() for d in "ab")
+    assert not list((tmp_path / "b").glob(f"{SCRATCH_MODEL_PREFIX}*")), "scratch file left"
+
+
+def test_summary_row_extended_adds_the_d77_split():
+    env = StubTrafficEnv(window_s=WINDOW_S)
+    summary = run_baseline(env, "stay", 3000)
+    assert summary_row(summary) == summary_row(summary, extended=False)
+    row = summary_row(summary, extended=True)
+    split = summary["iv_split"]
+    assert row["split_cut"] + row["split_replaced"] == row["interventions"]
+    assert row["split_cut_foreseeable"] <= row["split_cut"] == split["cut"]
+    assert row["control_s"] == WINDOW_S
+    del summary["iv_split"]
+    assert math.isnan(summary_row(summary, extended=True)["split_cut"])
+
+
+def _train_rl7(cfg_path, out, seed=9, steps=600):
+    from traffic_twin.rl.train import train
+
+    return train(
+        cfg_path,
+        None,
+        seed,
+        steps,
+        None,
+        out,
+        backend=stub_backend(window_s=WINDOW_S),
+        vec="dummy",
+        hp_overrides={**SMALL_HP["dqn"], "learning_starts": 100},
+        validation_seeds=[5100, 5101],
+    )
+
+
+@pytest.fixture
+def rl7_runs(stub_rl7_cfg, tmp_path):
+    """Two identical Part 7 t1 stub runs (seed 9, 600 steps) on the conftest stub rl7
+    tree (development seeds, 2 envs, validation every 200 steps)."""
+    pytest.importorskip("stable_baselines3")
+    t1 = stub_rl7_cfg().parent / "rl7" / "t1.yaml"
+    return _train_rl7(t1, tmp_path / "a"), _train_rl7(t1, tmp_path / "b")
+
+
+def test_rl7_run_folder_pick_and_determinism(rl7_runs):
+    from traffic_twin.rl.evaluate import repro_check
+    from traffic_twin.rl.train import load_model, policy_sha256
+
+    a, b = rl7_runs
+    assert a.name.startswith("dqn_t1_s9_0k_")
+    for name in (*RUN_FILES, PROVENANCE_FILE, PICK_MODEL_FILE):
+        assert (a / name).is_file(), name
+    ma = json.loads((a / "manifest.json").read_text(encoding="utf-8"))
+    pa = json.loads((a / PROVENANCE_FILE).read_text(encoding="utf-8"))
+    pb = json.loads((b / PROVENANCE_FILE).read_text(encoding="utf-8"))
+    assert PART6_MANIFEST_KEYS < set(ma) and set(pa) <= set(ma)  # carries the provenance
+    assert ma["hyperparameters"]["learning_rate"] == "lin:5.0e-4:5.0e-5"
+    assert ma["hyperparameters"]["exploration_fraction"] == pytest.approx(300 / 600)
+    val = pd.read_csv(a / "validation.csv")
+    late = val[val["step"] >= 300]
+    assert list(val["late"]) == list(val["step"] >= 300) and pa["pick_from_step"] == 300
+    assert pa["pick_val_cost"] == pytest.approx(late["cost"].min())
+    assert pa["pick_step"] == int(late.loc[late["cost"].idxmin(), "step"])
+    assert pa["late_mean"] == pytest.approx(late["cost"].mean()) and pa["late_n"] == len(late)
+    assert val.loc[val["pick"], "step"].tolist() == [pa["pick_step"]]
+    kept = sorted(int(p.stem.split("_")[1]) for p in (a / VAL_DIR).glob("step_*.zip"))
+    assert kept == list(val["step"])
+    pick = load_model(a / PICK_MODEL_FILE, "dqn")
+    assert policy_sha256(pick) == pa["pick_policy_sha256"]
+    # same seed, same run: pick, final policy, validation and monitor
+    assert repro_check(a, b)["same"]
+    for key in ("pick_step", "pick_policy_sha256", "late_mean", "run_config_sha"):
+        assert pa[key] == pb[key], key

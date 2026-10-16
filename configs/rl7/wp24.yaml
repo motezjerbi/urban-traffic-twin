@@ -1,0 +1,4 @@
+# Weight sensitivity setting wp24 (D76): pedestrian weight x2 (2.4).
+extends: t1.yaml
+variant: wp24
+reward: {weights: {pedestrian: 2.4}}

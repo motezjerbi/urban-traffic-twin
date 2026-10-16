@@ -1,0 +1,5 @@
+# Stage T config T1 (D73), the reference: T0 + learning rate linear 5e-4 -> 5e-5.
+# Also the sensitivity base (D76): base weights, its stage-T runs are the base seeds 0-2.
+extends: ../rl7.yaml
+variant: t1
+dqn: {learning_rate: "lin:5.0e-4:5.0e-5"}

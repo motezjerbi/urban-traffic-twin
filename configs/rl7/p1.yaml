@@ -1,0 +1,5 @@
+# Stage T config P1 (D73, D89): PPO, Part 6 PPO block + learning rate linear 3e-4 -> 3e-5.
+extends: ../rl7.yaml
+variant: p1
+algo: ppo
+ppo: {learning_rate: "lin:3.0e-4:3.0e-5"}

@@ -1,0 +1,4 @@
+# Weight sensitivity setting wb50 (D76): bus weight x2 (50).
+extends: t1.yaml
+variant: wb50
+reward: {weights: {bus: 50.0}}

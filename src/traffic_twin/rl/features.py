@@ -22,12 +22,19 @@ Layout (`feature_names`), every value divided by its `observation` norm of
   bus), delay one-hot of its most delayed bus by `vehicle.getTimeLoss` (< 30 s, 30-90 s,
   >= 90 s; ASSUMED proxy, there is no timetable);
 - time of day: 0.5 + 0.5 sin, 0.5 + 0.5 cos of the absolute SUMO clock.
+
+Feature groups (`GROUPS`, Part 7 D73): `observation.drop` lists groups to leave out of
+the vector (V1 drops `pedestrian`: the 12 per-crossing names at Pitié, 62 values left).
+The kept values keep their order and are computed by the same code, so `OBS_VERSION`
+stays `rl-obs-1`; the drop list is part of the model's identity instead (the run's
+manifest / provenance `obs_drop`, checked by `control/rl.py`).
 """
 
 from __future__ import annotations
 
+import functools
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -42,6 +49,18 @@ VEH_LENGTH_M = 7.5  # observation.veh_length_m default (lane capacity = length /
 DAY_S = 86400.0
 AMB_DIST_NAMES = ("near", "mid", "far")  # < bins[0], < bins[1], farther
 BUS_DELAY_NAMES = ("low", "mid", "high")  # < bins[0], < bins[1], >= bins[1]
+
+# feature groups (D73): group -> name prefixes (or whole names) of `feature_names`; every
+# name is in exactly one group (`tests/test_rl_features.py`)
+GROUPS: dict[str, tuple[str, ...]] = {
+    "lanes": ("halt_", "veh_", "wait_"),
+    "pending": ("pending_",),
+    "signal": ("stage_", "in_transition", "time_in_stage", "red_"),
+    "pedestrian": ("ped_count_", "ped_wait_", "ped_slack_"),
+    "ambulance": ("amb_", "preempt_active"),
+    "bus": ("bus_",),
+    "time": ("tod_",),
+}
 
 # observation norms (configs/rl.yaml `observation`) read by `observation`
 NORM_KEYS = (
@@ -112,8 +131,8 @@ def _lane_lengths(net_file: str) -> dict[str, float]:
     return {ln.get("id"): float(ln.get("length")) for ln in root.iter("lane")}
 
 
-def feature_names(site: SiteSpec) -> tuple[str, ...]:
-    """Observation names in order (74 at Pitié)."""
+def _all_names(site: SiteSpec) -> tuple[str, ...]:
+    """Every observation name in order (74 at Pitié)."""
     names: list[str] = []
     for lane in site.lanes:
         names += [f"halt_{lane}", f"veh_{lane}", f"wait_{lane}"]
@@ -134,6 +153,51 @@ def feature_names(site: SiteSpec) -> tuple[str, ...]:
     return tuple(names)
 
 
+def check_drop(drop: Sequence[str] | None) -> tuple[str, ...]:
+    """The drop list as a tuple of known, distinct `GROUPS` names (ValueError otherwise);
+    None and [] are ()."""
+    if drop is None:
+        return ()
+    if isinstance(drop, str) or not isinstance(drop, Sequence):
+        raise ValueError(f"observation.drop must be a list of groups, got {drop!r}")
+    out = tuple(str(g) for g in drop)
+    unknown = [g for g in out if g not in GROUPS]
+    if unknown:
+        raise ValueError(f"observation.drop: unknown groups {unknown} (one of {tuple(GROUPS)})")
+    if len(set(out)) != len(out):
+        raise ValueError(f"observation.drop lists a group twice: {list(out)}")
+    return out
+
+
+def group_of(name: str) -> str:
+    """The `GROUPS` group of an observation name."""
+    for group, prefixes in GROUPS.items():
+        if name.startswith(prefixes):
+            return group
+    raise ValueError(f"observation name {name!r} is in no group")
+
+
+def group_names(site: SiteSpec, group: str) -> tuple[str, ...]:
+    """The names of one group, in order (`pedestrian`: the 12 per-crossing names)."""
+    check_drop([group])
+    return tuple(n for n in _all_names(site) if group_of(n) == group)
+
+
+@functools.lru_cache(maxsize=64)
+def _kept(site: SiteSpec, drop: tuple[str, ...]) -> tuple[tuple[str, ...], np.ndarray | None]:
+    """(kept names, their indices in the full vector; None when nothing is dropped)."""
+    names = _all_names(site)
+    if not drop:
+        return names, None
+    keep = [i for i, n in enumerate(names) if group_of(n) not in drop]
+    return tuple(names[i] for i in keep), np.asarray(keep, dtype=np.intp)
+
+
+def feature_names(site: SiteSpec, drop: Sequence[str] = ()) -> tuple[str, ...]:
+    """Observation names in order: 74 at Pitié, 62 with `drop=["pedestrian"]`."""
+    return _kept(site, check_drop(drop))[0]
+
+
 def _bin(value: float, edges: tuple[float, float]) -> int:
     """0 if value < edges[0], 1 if < edges[1], else 2."""
     return 0 if value < edges[0] else 1 if value < edges[1] else 2
@@ -148,7 +212,9 @@ def _edges(norm: Mapping, key: str) -> tuple[float, float]:
 
 def observation(snap: JunctionSnapshot, site: SiteSpec, norm: Mapping) -> np.ndarray:
     """The observation vector of a snapshot: float32, clipped to [0, 1], in
-    `feature_names(site)` order. `norm` is `configs/rl.yaml: observation`."""
+    `feature_names(site, norm.get("drop", ()))` order. `norm` is `configs/rl.yaml:
+    observation` (a dropped group is computed, then left out)."""
+    _names, keep = _kept(site, check_drop(norm.get("drop")))
     if tuple(ls.lane for ls in snap.lanes) != site.lanes:
         raise ValueError(
             f"snapshot lanes {[ls.lane for ls in snap.lanes]} differ from the site's {site.lanes}"
@@ -203,4 +269,5 @@ def observation(snap: JunctionSnapshot, site: SiteSpec, norm: Mapping) -> np.nda
     x += [0.5 + 0.5 * math.sin(angle), 0.5 + 0.5 * math.cos(angle)]
     out = np.asarray(x, dtype=np.float32)
     np.nan_to_num(out, copy=False, nan=0.0, posinf=1.0, neginf=0.0)
-    return np.clip(out, 0.0, 1.0, out=out)
+    np.clip(out, 0.0, 1.0, out=out)
+    return out if keep is None else out[keep]

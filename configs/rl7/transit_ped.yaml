@@ -1,0 +1,4 @@
+# Weight sensitivity corner transit_ped (D76): bus 50, pedestrian 2.4, lambda 100.
+extends: t1.yaml
+variant: transit_ped
+reward: {weights: {bus: 50.0, pedestrian: 2.4}, ped_penalty: {lambda: 100.0}}

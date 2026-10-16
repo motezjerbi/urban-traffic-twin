@@ -1,0 +1,4 @@
+# Weight sensitivity setting wb12 (D76): bus weight x0.5 (12.5).
+extends: t1.yaml
+variant: wb12
+reward: {weights: {bus: 12.5}}

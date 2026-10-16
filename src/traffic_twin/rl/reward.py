@@ -24,11 +24,18 @@ interval is `-scale * sum(c)`, so an episode return is -scale x (weighted waitin
 `accrue` reads TraCI getters and `sim.observe()` only (passive: the observation is cached
 per step and is the one the controller observes before the next step). The vehicle type
 of each id is read once.
+
+`RewardObserver` (Part 7, D76) is a passive `run_scenario.RunObserver` that accrues the
+same totals over a KPI run and writes `<run_dir>/reward_totals.json`: the class totals
+are weight-free (waiting seconds, penalty-seconds), so any weight vector can be applied
+to them afterwards (the sensitivity reweighting table).
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from traffic_twin.control.base import EXTRA_PED_COUNT, EXTRA_PED_WAIT
@@ -41,6 +48,8 @@ REWARD_VERSION = "rl-reward-1"
 CLASSES = ("car", "bus", "ambulance")
 WEIGHT_KEYS = ("car", "bus", "pedestrian", "ambulance")
 TOTAL_KEYS = ("car_s", "car_pending_s", "bus_s", "pedestrian_s", "ambulance_s", "penalty_s", "cost")
+TOTALS_FILE = "reward_totals.json"  # RewardObserver output, in the run folder
+EPS = 1e-9
 
 
 class RewardTracker:
@@ -115,3 +124,67 @@ class RewardTracker:
     def reward(self, cost: float) -> float:
         """The environment reward of a summed cost: `-scale * cost`."""
         return -self.scale * cost
+
+
+def weighted_cost(totals: Mapping[str, float], reward_cfg: Mapping) -> float:
+    """The unscaled cost of weight-free totals under a reward config: w_car car_s +
+    w_bus bus_s + w_ped pedestrian_s + w_amb ambulance_s + lambda penalty_s (equal to
+    `totals["cost"]` for the weights they were accrued with, up to rounding)."""
+    t = RewardTracker(reward_cfg)
+    w = t.weights
+    return (
+        w["car"] * float(totals["car_s"])
+        + w["bus"] * float(totals["bus_s"])
+        + w["pedestrian"] * float(totals["pedestrian_s"])
+        + w["ambulance"] * float(totals["ambulance_s"])
+        + t.lam * float(totals["penalty_s"])
+    )
+
+
+class RewardObserver:
+    """Passive `RunObserver` (D76): accrues `RewardTracker` totals after every step of a
+    `run_scenario.run` and writes `<run_dir>/reward_totals.json` in `finish`:
+
+        {reward_version, run_id, reward (the config used), steps,
+         totals (whole run, drain included), totals_window (steps ending at or before
+         the scenario's demand window end: the env's control-window scope)}
+
+    It reads TraCI getters and `sim.observe()` only (`RewardTracker.accrue`), so the run's
+    KPIs are the same with or without it (`tests/test_rl_reward.py`)."""
+
+    def __init__(self, reward_cfg: Mapping) -> None:
+        self.reward_cfg = dict(reward_cfg)
+        self.tracker = RewardTracker(reward_cfg)
+        self.steps = 0
+        self.totals_window: dict[str, float] = dict(self.tracker.totals)
+        self.path: Path | None = None
+
+    def bind(self, sim: SimSession) -> None:
+        self.tracker.reset()
+        self.steps = 0
+        self.totals_window = dict(self.tracker.totals)
+        self.path = None
+
+    def after_step(self, sim: SimSession) -> None:
+        self.tracker.accrue(sim)
+        self.steps += 1
+        if sim.time <= sim.end + EPS:
+            self.totals_window = dict(self.tracker.totals)
+
+    @property
+    def totals(self) -> dict[str, float]:
+        return dict(self.tracker.totals)
+
+    def result(self, run_id: str | None = None) -> dict:
+        return {
+            "reward_version": REWARD_VERSION,
+            "run_id": run_id,
+            "reward": self.reward_cfg,
+            "steps": self.steps,
+            "totals": self.totals,
+            "totals_window": dict(self.totals_window),
+        }
+
+    def finish(self, sim: SimSession, out_dir: Path, run_id: str) -> None:
+        self.path = Path(out_dir) / TOTALS_FILE
+        self.path.write_text(json.dumps(self.result(run_id), indent=1) + "\n", encoding="utf-8")

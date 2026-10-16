@@ -12,6 +12,7 @@ data/eta/*
 data/models/*
 data/demo/*
 data/rl_runs/*
+data/rl7/*
 data/fake/*
 !data/**/.gitkeep
 sumo/demand/*.rou.xml

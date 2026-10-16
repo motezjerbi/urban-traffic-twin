@@ -1,0 +1,4 @@
+# Stage T config V1 (D73): T1 without the pedestrian feature group (62 features).
+extends: t1.yaml
+variant: v1
+observation: {drop: [pedestrian]}

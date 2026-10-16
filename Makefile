@@ -27,6 +27,8 @@ CALIB_SEEDS ?=
 .PHONY: evaluate plots-eval part4 provenance rebaseline
 .PHONY: eta-daytypes eta-data eta-train eta-data-test eta-eval demo-runs api api-bench part5
 .PHONY: rl-timing rl-train rl-select rl-eval part6 reproduce56
+.PHONY: rl7-campaign rl7-holdout rl7-select rl7-publish rl7-stress rl7-sens rl7-devtest rl7-docs
+.PHONY: part7 reproduce7
 .PHONY: lint format test test-fast check train eval app
 
 ## Every extra the tasks and the tests use; PyTorch first from the CPU index (a plain
@@ -206,6 +208,48 @@ part6: rl-timing rl-train rl-select rl-eval
 ## require identical metrics and model/policy sha256 (in-process steps: tasks.py)
 reproduce56:
 	$(PY) tasks.py reproduce56
+
+## Part 7: full RL training, tuning, weight sensitivity, S3 selection (configs/rl7.yaml,
+## pre-registered D68-D90). Outputs under data/rl7/ (not versioned). SLOTS overrides
+## protocol.slots; ALLOW_DIRTY=1 trains from an uncommitted tree (recorded, D80).
+SLOTS ?=
+
+rl7-campaign:
+	$(PY) -m traffic_twin.rl.campaign --config configs/rl7.yaml --stages T S F$(if $(SLOTS), --slots $(SLOTS))$(if $(ALLOW_DIRTY), --allow-dirty)
+
+## The finished runs are listed when the step runs (in-process step of tasks.py)
+rl7-holdout:
+	$(PY) tasks.py rl7-holdout
+
+rl7-select:
+	$(PY) -m traffic_twin.rl.study select
+
+## Writes models/rl/<model_version>/ and prints the configs/pitie_rl_s3.yaml lines
+rl7-publish:
+	$(PY) -m traffic_twin.rl.study publish
+
+rl7-stress:
+	$(PY) -m traffic_twin.rl.study stress
+
+rl7-sens:
+	$(PY) -m traffic_twin.rl.sensitivity run
+	$(PY) -m traffic_twin.rl.sensitivity tables
+
+## The single look at the dev-test seeds 3020-3029 (refuses a second one)
+rl7-devtest:
+	$(PY) -m traffic_twin.rl.study devtest
+
+rl7-docs:
+	$(PY) -m traffic_twin.rl.report7 --docs docs/rl_training.md --figures docs/figures/rl7
+
+## Stops after rl7-publish until configs/pitie_rl_s3.yaml exists (in-process steps)
+part7:
+	$(PY) tasks.py part7$(if $(SLOTS), --slots $(SLOTS))$(if $(ALLOW_DIRTY), --allow-dirty)
+
+## After a commit (D82): rerun t1 seed 0, the S3 golden and docs/rl_training.md into
+## data/rl7/_reproduce/<HEAD>/ and compare (in-process steps: tasks.py)
+reproduce7:
+	$(PY) tasks.py reproduce7
 
 lint:
 	$(PY) -m ruff check .

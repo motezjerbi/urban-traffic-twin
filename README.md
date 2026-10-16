@@ -35,7 +35,8 @@ rest on the same program and are provisional until the field visit too. Parts 5 
 model with a conformal interval, API v1, mock screens) and 6 (Gymnasium environment, RL
 controller, first short RL trainings) are done on the same terms: their models learn the
 simulator, and their results are provisional until the field visit. **Part 7** (full RL
-training) is next.
+training, tuning, weight sensitivity) is pre-registered in `configs/rl7.yaml`; its
+training campaign is next.
 
 | Part | Content | Status |
 | --- | --- | --- |
@@ -45,7 +46,7 @@ training) is next.
 | 4 | Rule-based controller (preemption, bus TSP, pedestrians), Safety Guard, per-user KPIs | done (field visit pending) |
 | 5 | ETA model (XGBoost quantiles, conformal interval), API v1, mock screens | done (field visit pending) |
 | 6 | Gymnasium env, RL controller, first short RL trainings, episode timing | done (field visit pending) |
-| 7 | Full RL training, tuning, weight sensitivity | next |
+| 7 | Full RL training, tuning, weight sensitivity | in progress |
 | 8 | Final evaluation (10 seeds) | |
 | 9 | App views and replay, user tests | |
 | 10 | Report and demo | |
@@ -72,6 +73,7 @@ python tasks.py part3                      # Pitié: checks, calibration, S0 vs 
 python tasks.py part4                      # Pitié: S0 vs S1 vs S2 evaluation (Part 4)
 python tasks.py part5                      # ETA dataset, model, A-07, demo runs, API latency
 python tasks.py part6                      # RL episode timing, first trainings, evaluation
+python tasks.py part7                      # RL Part 7: campaign, S3 selection, sensitivity (hours)
 python tasks.py check                      # lint + tests, what CI runs
 ```
 
@@ -98,7 +100,7 @@ Main tasks (`python tasks.py --help` lists them all; `-n` prints the commands wi
 running them; several tasks run in order, e.g. `tasks.py net sim plots`). The Part 3 tasks
 are listed in [Pitié-Salpêtrière junction](#pitié-salpêtrière-junction-part-3), the Part 4
 ones in [Part 4 tasks](#part-4-tasks), the Part 5 and 6 ones in [Part 5 tasks](#part-5-tasks)
-and [Part 6 tasks](#part-6-tasks).
+and [Part 6 tasks](#part-6-tasks), the Part 7 ones in [Part 7 tasks](#part-7-tasks).
 
 | Task | What it does |
 | --- | --- |
@@ -1263,6 +1265,106 @@ The rerun also rewrites `docs/eta.md`, `docs/rl.md` and the latency block of
 `docs/api.md`, which must then name the commit. On a failure, the moved originals are
 kept, and `git checkout -- docs/` restores the published pages.
 
+## Full RL training, tuning and weight sensitivity (Part 7)
+
+**Results pending.** The Part 7 trainings have not run yet. This section states the
+protocol pre-registered in [configs/rl7.yaml](configs/rl7.yaml) and
+[configs/rl7/](configs/rl7/) before any Part 7 training, and the tasks that run it.
+Decision numbers D68-D90 refer to
+[Part 7 decisions](docs/architecture.md#part-7-decisions). The learning curves, the
+stage-T decision, the selected policy S3, the weight sensitivity, the stress panel and the
+interim spec 10.6 verdict will be in the generated page `docs/rl_training.md`, linked from
+here once it exists.
+
+**Provisional until the field visit.** As in Part 6, every Part 7 policy learns simulated
+episodes on the ASSUMED signal program and the calibrated demand, so every Part 7 result
+is provisional until the field visit; `part7` is rerun after it (D90). The verdict on the
+development-test seeds is interim and exploratory (10 seeds): the binding comparison of
+S3 with S0, S1 and S2 is A-06 on seeds 1-10, in Part 8.
+
+### Pre-registration (D68-D90)
+
+- **Configs.** `configs/rl7.yaml` extends `configs/rl.yaml`, which stays the frozen
+  Part 6 record, as do `configs/pitie_rl.yaml`, `docs/rl.md` and the Part 6 outputs. Each
+  run config in `configs/rl7/` names its `variant` and only the keys it changes. A run is
+  identified by the sha256 of its merged config, and every run writes a `provenance.json`
+  next to its manifest (sources and their sha256, reward, observation, scenario hashes,
+  CPU and thread settings, the pick).
+- **Seeds.** Part 7 uses fresh ranges: training seeds 5000-9999, selection seeds
+  3050-3089 (40 windows), second-stage selection seeds 3090-3109 (full 2 h episodes),
+  holdout seeds 3110-3159 (reporting only, never to select), sensitivity seeds 3160-3179
+  and stress seeds 3180-3199. The development-test seeds 3020-3029 are looked at once.
+  The Part 6 training and selection seeds are spent and not reused; seeds 1-10 are
+  never run.
+- **Protocol of every run.** 6 worker processes and one torch thread; exploration over
+  the first 50000 decision steps whatever the budget; validation every 25000 steps on the
+  40 selection windows, every validation checkpoint kept. Each run's model, its "pick",
+  is the validation checkpoint with the lowest selection cost from 50 % of the budget on
+  (final model included): in the lead's checks this choice had no regret on held-out
+  windows, while the final model lost 0.9 to 5.3 points (D72).
+- **Stage T (tuning, spec 10.4).** Stage T runs the configs `t0`, `t1`, `v1`, `v2` and
+  `p1` with seeds 0, 1 and 2, 400000 decision steps each. `t0` is the Part 6 DQN, `t1`
+  adds a linear learning-rate decay and is the reference, `v1` is `t1` without the
+  pedestrian features, `v2` is `t1` deciding every 10 s, `p1` is PPO. Another config
+  replaces `t1` only if its score (the mean selection cost of its late checkpoints) is at
+  least 1.5 % lower, it is better on at least 2 of the 3 seeds and its pedestrian waiting
+  is at most 5 % higher (D73).
+- **Stage F.** The chosen config with seeds 0-4, 1000000 decision steps each (D74).
+- **S3 selection (D75).** Each stage-F pick is scored on 20 full 2 h episodes of the
+  second-stage selection seeds; S3 has the lowest mean cost (within 0.5 %: the lower
+  stage-1 cost, then the lower seed). Only S3 is committed, under `models/rl/`, and run
+  through `configs/pitie_rl_s3.yaml`, which pins its sha256 (D86).
+- **Weight sensitivity (spec 10.3, descriptive).** Around the `t1` weights, the
+  sensitivity settings `wb12`, `wb50`, `wp06`, `wp24`, `wp48`, `lam0`, `lam100`,
+  `transit_ped` and `car_centric`, 400000 decision steps each: bus weight x0.5 and x2,
+  pedestrian weight x0.5, x2 and x4, penalty λ 0 and 100, and two corners. Seeds 0-4 for
+  the base and the bus axis, 0-2 elsewhere: 33 new runs. Every pick and S0, S1 and S2
+  are scored on full 2 h KPI runs of the sensitivity seeds, with a hierarchical bootstrap
+  (2000 resamples) against the base and the Part 4 equity flags against S0. S3 keeps the
+  base weights (D76).
+- **Stress panel (D78, reported, not gating).** S3, S0, S1 and S2 on 13 stress cells
+  (demand x0.6 to x1.6, day types, an incident on each site, 2 ambulances, full 2 h);
+  every cell where S3 is more than 5 % worse than S1 is named.
+- **Interim 10.6 verdict (D79).** On the development-test seeds, "RL beats actuated" iff
+  C1: the person-weighted delay of S3 is below S1's (Hodges-Lehmann below 0, exact
+  Wilcoxon p below 0.05); C2: car time loss, bus delay and pedestrian mean curb wait are
+  not more than 5 % worse than S1; C3: no danger, collision or teleport, every curb wait
+  at or under 90 s, every preemption served and no more preemption time-outs than S2;
+  C4: at least 4 of the 5 stage-F picks beat S1 on the holdout and `reproduce7` matches.
+  Otherwise the spec 10.6 fallback applies: the rules (S2) become the main solution and
+  RL is reported as a study. The page states the verdict as computed. No config is added
+  after the stage-T decision.
+- **Compute.** 53 trainings in all (stage T 15, sensitivity 33, stage F 5), about 24
+  million decision steps, 4 trainings at once (`protocol.slots`, 6 if the gate shows the
+  machine scales): about 5.5 h of training plus about 1 h of evaluation.
+
+### Part 7 tasks
+
+Everything comes from `configs/rl7.yaml` and `configs/rl7/`; outputs go to `data/rl7/`
+(not versioned), except the S3 model (`models/rl/`), `configs/pitie_rl_s3.yaml`, the
+golden `tests/data/rl_s3_golden.json`, `docs/rl_training.md` and `docs/figures/rl7/`.
+
+| Task | What it does |
+| --- | --- |
+| `rl7-campaign` | every training of stages T, S and F, several at once (`--slots`; `--allow-dirty` records an uncommitted tree); the stage-T decision is taken when T is done, then stage F runs first |
+| `rl7-holdout` | holdout scores of every finished run's pick, and the checkpoint curves of the stage-F runs (reporting only) |
+| `rl7-select` | the two-stage S3 selection among the stage-F picks |
+| `rl7-publish` | S3 into `models/rl/<model_version>/`; prints the lines of `configs/pitie_rl_s3.yaml`, which is written by hand |
+| `rl7-stress` | the stress panel of S3, S0, S1 and S2 |
+| `rl7-sens` | the full 2 h KPI runs of the sensitivity picks and of S0, S1 and S2, then the sensitivity tables |
+| `rl7-devtest` | the single look at the development-test seeds 3020-3029 and the interim 10.6 verdict; refuses a second look |
+| `rl7-docs` | `docs/rl_training.md` and its figures |
+| `part7` | `rl7-campaign rl7-holdout rl7-select rl7-publish rl7-stress rl7-sens rl7-devtest rl7-docs`; stops after `rl7-publish` until `configs/pitie_rl_s3.yaml` exists |
+| `reproduce7` | after a commit: rerun stage-T run `t1` seed 0 into `data/rl7/_reproduce/<commit>/` and require the same policies, validation rows and episode returns, the same S3 golden and the same page apart from its code-version lines (D82) |
+
+The Makefile has the same targets: `make part7 SLOTS=6 ALLOW_DIRTY=1`.
+
+`reproduce7` checks one stage-T run, not the whole campaign (about 6 h): reproduction is
+bitwise only on the same machine and libraries, at the same number of workers, threads,
+steps and schedules (D82). The rerun is launched as the campaign launched the original:
+with the OMP_/MKL_/OPENBLAS_ variables and the validation pool its provenance records
+(the campaign gives every learner `OPENBLAS_NUM_THREADS=1`), which the comparison checks.
+
 ## Testing and CI
 
 - `tasks.py test` runs the whole suite; `tasks.py test-fast` (`pytest -m "not sumo"`)
@@ -1280,7 +1382,11 @@ kept, and `git checkout -- docs/` restores the published pages.
   caveats (provisional, ASSUMED, field visit, simulated), the pre-registered numbers
   stated here against `configs/eta.yaml` and `configs/rl.yaml`, the task tables against
   `tasks.py`, the roadmap rows, and the links to the generated `docs/eta.md` (A-07,
-  EF-14), `docs/api.md` (ENF-02) and `docs/rl.md` (episode timing, 10.6).
+  EF-14), `docs/api.md` (ENF-02) and `docs/rl.md` (episode timing, 10.6). For Part 7 it
+  checks the same caveats, the seeds, budgets, rules and settings stated here against
+  `configs/rl7.yaml`, the task table, roadmap row 7, the Part 7 decisions in
+  `docs/architecture.md` and, once it exists, the link to `docs/rl_training.md` (10.6,
+  10.3, learning curves).
 - `tests/test_tasks.py` checks that every `tasks.py` task has its Makefile target with
   the same modules and options, the order and defaults of the chains (the ETA freeze
   before any test world), and that every option a Parts 5-6 task passes is accepted by
@@ -1288,7 +1394,11 @@ kept, and `git checkout -- docs/` restores the published pages.
   `install` covers every extra CI installs. On a fake output tree, it checks that
   `reproduce56` moves aside exactly what the chains write, accepts a faithful rebuild
   whose ids, versions and timings changed, and fails on a changed metric, model file,
-  policy or KPI row.
+  policy or KPI row. For Part 7 it checks the chain, its stop before S3 exists, the
+  holdout runs listed when the step runs, and `reproduce7` on a fake run tree (a faithful
+  rerun accepted; a changed policy, validation row, episode return, golden or page
+  refused; the rerun launched in the original's thread variables and validation pool),
+  and on a campaign-launched stub run.
 - `tasks.py check` needs at least the extras CI installs, `.[dev,sim,api,rl]`;
   `tasks.py install` installs them all, `ml` included. A test that needs a missing
   optional package skips.
@@ -1339,10 +1449,12 @@ configs/            data.yaml, intersections.yaml, scenario_base.yaml (grid),
                     pitie_rl.yaml (RL controller), validation.yaml,
                     evaluation.yaml (pre-registered Part 4 evaluation),
                     eta.yaml, rl.yaml (pre-registered Parts 5-6), api.yaml,
+                    rl7.yaml, rl7/ (pre-registered Part 7 and its run configs),
                     pitie/ (S0 fragments, rules.yaml, emergency_probe.yaml, incident_sites.yaml),
                     calibration/ (generated demand calibration, day-type profiles)
 data/               raw/, processed/, results/ (not versioned),
                     eta/, models/, demo/, rl_runs/, fake/ (Parts 5-6 outputs, not versioned),
+                    rl7/ (Part 7 outputs, not versioned),
                     reference/ (versioned sensor extracts), field/ (site measurements)
 sumo/               network/ (grid plain XML, OSM extract, pitie/, generated .net.xml),
                     demand/ (generated), gui/ (sumo-gui view settings)
@@ -1359,13 +1471,13 @@ src/traffic_twin/
                     rl (trained policy), safety guard, pedestrian shield, preemption
   validation/       reference, field, flows, signal, queues, calibration_loop, report
   evaluation/       paired statistics, scenario comparison, runs, evaluate (Part 4)
-  viz/              KPI figures (plots), validation and evaluation figures, figure style
+  viz/              KPI figures (plots), validation, evaluation and RL figures, figure style
   ml/               ETA: day types, features, dataset, quantile model, prediction,
                     evaluation, departure advice (Part 5)
   api/              FastAPI v1: envelope, endpoints, local store, fixtures, latency bench
   app/              mock.html, the mock screens served at /mock
   rl/               Gymnasium environment, decision clock, features, reward, training,
-                    evaluation (Part 6)
+                    evaluation (Part 6); campaign, study, sensitivity, report7 (Part 7)
 supabase/migrations/
 tests/              pytest; conftest.py skips `sumo` tests when SUMO is missing;
                     data/ holds the grid regression fixture

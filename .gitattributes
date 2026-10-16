@@ -1,0 +1,4 @@
+# Part 7 (D86): the committed RL model files are stored byte for byte (core.autocrlf
+# must not touch them; the config pins the model zip's sha256).
+models/** -text
+*.zip binary
