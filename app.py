@@ -541,8 +541,10 @@ def main() -> None:
             val(scn, "ambulance", "travel_time_total"),
             val(scn, "car", "time_loss_mean"),
         )
+
         def fmt(v):
             return "n.d." if v is None else f"{v:.1f}"
+
         off = "" if scn in chosen else " off"
         html = (
             f'<div class="card{off}" style="--c:{COLORS[scn]}"><div class="rank">Rang {rk}/{n}{tag}</div>'
