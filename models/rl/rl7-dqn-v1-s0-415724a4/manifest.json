@@ -1,0 +1,89 @@
+{
+  "model_version": "rl7-dqn-v1-s0-415724a4",
+  "algo": "dqn",
+  "variant": "v1",
+  "model": "model.zip",
+  "model_sha256": "151c6f692acc4d23800a0afc2fba68b655f5fa0df18fe91163ccff20894d4c29",
+  "policy_sha256": "415724a43577b8bd7ecf7b968f7c13125720146f3c540b7f03ecbeb33c9bd90e",
+  "obs_version": "rl-obs-1",
+  "reward_version": "rl-reward-1",
+  "obs_drop": [
+    "pedestrian"
+  ],
+  "n_features": 62,
+  "decision_interval_s": 5,
+  "reward": {
+    "version": "rl-reward-1",
+    "weights": {
+      "car": 1.3,
+      "bus": 25.0,
+      "pedestrian": 1.2,
+      "ambulance": 20.0
+    },
+    "pending_as_waiting": true,
+    "ped_penalty": {
+      "lambda": 30.0,
+      "threshold_s": 80.0
+    },
+    "scale": 0.001
+  },
+  "config": "configs/rl7/v1.yaml",
+  "run_config_sha": "b41e9e4376d658b249e671cfb82ca99656173cdf60d6da1590e938bdf25baf0f",
+  "rl7_sha256": "9611343357678b87f4a6a465c92c008a9963cefa90e3424dcadb62829e940f5a",
+  "source_run": "dqn_v1_s0_1000k_b41e9e43",
+  "source_stage": "F",
+  "seed": 0,
+  "steps": 1000000,
+  "n_envs": 6,
+  "hyperparameters": {
+    "learning_rate": "lin:5.0e-4:5.0e-5",
+    "buffer_size": 100000,
+    "learning_starts": 5000,
+    "batch_size": 128,
+    "gamma": 0.95,
+    "train_freq": 1,
+    "gradient_steps": 2,
+    "target_update_interval": 2000,
+    "exploration_fraction": 0.05,
+    "exploration_final_eps": 0.02,
+    "net_arch": [
+      128,
+      128
+    ]
+  },
+  "pick_step": 975000,
+  "pick_val_cost": 91638.21250000001,
+  "late_mean": 93872.8232142857,
+  "selection": {
+    "rule": "S3 = the stage-F pick with the lowest mean cost on 20 full-mode episodes of the select2 seeds; candidates within 0.5 % of it: lower stage-1 (selection) cost, then lower seed (D75). The holdout is reported, never used.",
+    "stage1": 91638.21250000001,
+    "stage2": 408840.9350000002,
+    "stage2_baselines": {
+      "S0": 635344.325,
+      "S1": 566493.495,
+      "S2": 427102.20500000066
+    },
+    "holdout_w30": 66565.85000000002,
+    "holdout_full": 221604.17,
+    "candidates": [
+      "dqn_v1_s0_1000k_b41e9e43",
+      "dqn_v1_s1_1000k_b41e9e43",
+      "dqn_v1_s2_1000k_b41e9e43",
+      "dqn_v1_s3_1000k_b41e9e43",
+      "dqn_v1_s4_1000k_b41e9e43"
+    ]
+  },
+  "code_version": "5bec559",
+  "dirty": false,
+  "allow_dirty": false,
+  "versions": {
+    "python": "3.12.10",
+    "torch": "2.14.1+cpu",
+    "sb3": "2.9.0",
+    "gymnasium": "1.4.0",
+    "libsumo": "1.28.0",
+    "numpy": "2.5.4"
+  },
+  "published_by": "5bec559",
+  "published_at": "2026-10-17T06:26:31.760630+00:00"
+}

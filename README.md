@@ -18,7 +18,8 @@ Developer guide (module map, data flow, controller contract, invariants):
 [docs/validation.md](docs/validation.md). Controller evaluation S0 vs S1 vs S2:
 [docs/evaluation.md](docs/evaluation.md). ETA model and its evaluation:
 [docs/eta.md](docs/eta.md). API v1: [docs/api.md](docs/api.md). RL environment and first
-trainings: [docs/rl.md](docs/rl.md). Site visit checklist:
+trainings: [docs/rl.md](docs/rl.md). Full RL training, tuning and weight sensitivity:
+[docs/rl_training.md](docs/rl_training.md). Site visit checklist:
 [docs/field_protocol.md](docs/field_protocol.md).
 
 ## Roadmap
@@ -34,9 +35,10 @@ bus priority, per-user evaluation of S0, S1 and S2) is done on the same terms: i
 rest on the same program and are provisional until the field visit too. Parts 5 (ETA
 model with a conformal interval, API v1, mock screens) and 6 (Gymnasium environment, RL
 controller, first short RL trainings) are done on the same terms: their models learn the
-simulator, and their results are provisional until the field visit. **Part 7** (full RL
-training, tuning, weight sensitivity) is pre-registered in `configs/rl7.yaml`; its
-training campaign is next.
+simulator, and their results are provisional until the field visit. Part 7 (full RL
+training, tuning, weight sensitivity, the selected policy S3) is done on the same terms;
+its interim spec 10.6 verdict is FALLBACK, so the rules (S2) are the main solution and RL
+is reported as a study, while Part 8 still evaluates S3 as registered.
 
 | Part | Content | Status |
 | --- | --- | --- |
@@ -46,7 +48,7 @@ training campaign is next.
 | 4 | Rule-based controller (preemption, bus TSP, pedestrians), Safety Guard, per-user KPIs | done (field visit pending) |
 | 5 | ETA model (XGBoost quantiles, conformal interval), API v1, mock screens | done (field visit pending) |
 | 6 | Gymnasium env, RL controller, first short RL trainings, episode timing | done (field visit pending) |
-| 7 | Full RL training, tuning, weight sensitivity | in progress |
+| 7 | Full RL training, tuning, weight sensitivity | done (field visit pending) |
 | 8 | Final evaluation (10 seeds) | |
 | 9 | App views and replay, user tests | |
 | 10 | Report and demo | |
@@ -1267,14 +1269,19 @@ kept, and `git checkout -- docs/` restores the published pages.
 
 ## Full RL training, tuning and weight sensitivity (Part 7)
 
-**Results pending.** The Part 7 trainings have not run yet. This section states the
-protocol pre-registered in [configs/rl7.yaml](configs/rl7.yaml) and
-[configs/rl7/](configs/rl7/) before any Part 7 training, and the tasks that run it.
-Decision numbers D68-D90 refer to
-[Part 7 decisions](docs/architecture.md#part-7-decisions). The learning curves, the
-stage-T decision, the selected policy S3, the weight sensitivity, the stress panel and the
-interim spec 10.6 verdict will be in the generated page `docs/rl_training.md`, linked from
-here once it exists.
+Part 7 ran the campaign pre-registered in [configs/rl7.yaml](configs/rl7.yaml) and
+[configs/rl7/](configs/rl7/): 53 trainings, 24.2 million decision steps, every training
+on the clean commit `5bec559`. The tuning stage chose `v1`, the DQN without the pedestrian
+features. The selected policy S3 is `rl7-dqn-v1-s0-415724a4`, committed under
+[models/rl/](models/rl/) and run through
+[configs/pitie_rl_s3.yaml](configs/pitie_rl_s3.yaml). On the single look at the
+development-test seeds, S3 beats the actuated S1 on the person-weighted delay (C1) and
+passes the safety criterion (C3), but its pedestrian mean curb wait is 6.2 % above S1's,
+over the 5 % equity limit (C2). **The interim spec 10.6 verdict is FALLBACK, as computed:** the rules (S2)
+become the main solution and RL is reported as a study. Part 8 still runs S3 as
+registered. Every table, the learning curves and the figures are in the generated page
+[docs/rl_training.md](docs/rl_training.md). Decision numbers D68-D90 refer to
+[Part 7 decisions](docs/architecture.md#part-7-decisions).
 
 **Provisional until the field visit.** As in Part 6, every Part 7 policy learns simulated
 episodes on the ASSUMED signal program and the calibrated demand, so every Part 7 result
@@ -1338,6 +1345,238 @@ S3 with S0, S1 and S2 is A-06 on seeds 1-10, in Part 8.
   million decision steps, 4 trainings at once (`protocol.slots`, 6 if the gate shows the
   machine scales): about 5.5 h of training plus about 1 h of evaluation.
 
+### Campaign
+
+All 53 trainings ran on the integration machine, 6 at once: the Phase 2 gate measured
+1.32 times the aggregate throughput of 4 trainings with 6 (the D84 rule asks for 1.3).
+The campaign started at 01:17 and ended at 05:53 UTC on 2026-10-17 (4.6 h of wall time).
+Every job finished at its first attempt, and every run records the code version
+`5bec559` without `--allow-dirty`. In the 971 validations of the 53 runs no cost is NaN,
+the danger audit stays at 0 and the longest curb wait at or under 89 s. The validation
+episodes record neither SUMO collisions nor teleports, so the collision clause of the
+campaign STOP rule (plan section 9, step 2) could not be checked on them; the same holds
+for the holdout, the second-stage selection and the stress panel. Collisions are
+measured only in the full 2 h runs: 0 in every development-test run, and 3 single
+collisions in the 780 sensitivity runs (see the weight sensitivity below).
+
+| Stage | Trainings | Decision steps each | Job-hours | Mean steps/s per job |
+| --- | --- | --- | --- | --- |
+| T (tuning) | 15 | 400000 (PPO 400896) | 6.8 | 290 |
+| S (sensitivity) | 33 | 400000 | 14.2 | 294 |
+| F (final) | 5 | 1000000 | 5.3 | 297 |
+
+The DQN jobs with a 5 s interval ran at 283 to 313 steps/s (one at 348), below the 350
+per job the plan expected: that figure was for 4 concurrent jobs, and with 6 the
+aggregate throughput is what counts. `v2` (10 s interval) ran at 225 to 226 steps/s and
+PPO at 349 to 353.
+
+### Stage T outcome (D73)
+
+Score = mean over seeds of `late_mean`, the mean selection cost of the validations from
+200000 steps on; pedestrian waiting = late mean `pedestrian_s` on the selection windows.
+
+| Config | `late_mean` seeds 0 / 1 / 2 | Score | vs `t1` | Seeds below `t1` | Pedestrian waiting vs `t1` | Qualifies |
+| --- | --- | --- | --- | --- | --- | --- |
+| `t0` | 97,141 / 97,496 / 97,231 | 97,290 | +1.0 % | 0 of 3 | +0.2 % | no |
+| `t1` (reference) | 96,498 / 96,782 / 95,824 | 96,368 | - | - | - | - |
+| `v1` | 94,583 / 94,924 / 95,200 | 94,902 | -1.5 % | 3 of 3 | +0.1 % | **yes** |
+| `v2` | 97,560 / 96,791 / 96,447 | 96,933 | +0.6 % | 0 of 3 | -0.7 % | no |
+| `p1` | 105,345 / 106,587 / 104,830 | 105,587 | +9.6 % | 0 of 3 | -2.8 % | no |
+
+- `v1` is the only config that qualifies, so stage F trained `v1` (`decision_T.json`,
+  written by `study decide-t` when the campaign finished stage T). Its score is 0.98478
+  times `t1`'s against the limit of 0.985: it qualifies by 0.0002.
+- With `v1`, S3 observes 62 features and none of the pedestrian waits and slacks. The
+  pedestrian shield, not the policy, keeps the curb-wait bound.
+- The pedestrian guard of the rule compares with `t1` on the selection windows, not with
+  S1: `v1` passed it at +0.1 %.
+- The weight sensitivity is trained on `t1`, with all 74 features. Its pedestrian-weight
+  results therefore describe a different agent from S3.
+
+### Stage F and the selected policy S3
+
+Each stage-F run's pick is its best validation checkpoint from 500000 steps on (21
+validations per run). Selection: the 40 selection windows. Holdout: the 50 holdout
+windows, scored after the selection and never used for it. Stage 2: mean cost of 20 full
+2 h episodes of the second-stage selection seeds, where S0 costs 635,344, S1 566,493 and
+S2 427,102.
+
+| Seed | Pick step | Selection cost | vs S1 | vs S2 | Holdout vs S1 | Holdout vs S2 | Stage 2 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 975000 | 91,638 | -13.9 % | -4.8 % | -14.2 % | -3.9 % | **408,841** |
+| 1 | 800004 | 90,496 | -15.0 % | -6.0 % | -10.7 % | -0.0 % | 428,152 |
+| 2 | 950004 | 92,053 | -13.5 % | -4.4 % | -13.0 % | -2.6 % | 428,790 |
+| 3 | 575004 | 91,674 | -13.9 % | -4.8 % | -10.4 % | +0.3 % | 427,378 |
+| 4 | 850002 | 91,456 | -14.1 % | -5.0 % | -12.9 % | -2.5 % | 450,839 |
+
+- Seed 0 has the lowest stage-2 cost: 27.8 % below S1 and 4.3 % below S2. The next
+  candidate (seed 3) is 4.5 % above it, so the 0.5 % tie rule did not apply.
+- The holdout changes against S1 (-10.4 % to -14.2 %) are within, or for S3's own pick
+  (-14.2 %) slightly beyond the better end of, the range the plan expected (-8 % to
+  -14 %). Against S2 they range from -3.9 % to +0.3 %.
+- **S3 = `rl7-dqn-v1-s0-415724a4`**: stage-F run `dqn_v1_s0_1000k_b41e9e43` at step
+  975000, run config `configs/rl7/v1.yaml`, 62 features, the base reward weights.
+  - It is committed in `models/rl/rl7-dqn-v1-s0-415724a4/` (`model.zip`, 446,682 bytes;
+    `manifest.json`; `validation.csv`).
+  - Model sha256 `151c6f692acc4d23800a0afc2fba68b655f5fa0df18fe91163ccff20894d4c29`,
+    policy sha256 `415724a43577b8bd7ecf7b968f7c13125720146f3c540b7f03ecbeb33c9bd90e`.
+  - `configs/pitie_rl_s3.yaml` extends `pitie_rl.yaml` and pins the model sha256, which
+    `RLController` checks before it loads the file. The demand is that of S0 to S2.
+  - `tests/test_rl_s3_model.py` checks the pin, the policy sha256 and the golden
+    `tests/data/rl_s3_golden.json` (Q-values and actions on 29 observations, the phase
+    hash of a 900 s run) on every CI run.
+
+### Development-test results (exploratory, looked at once)
+
+S3 and the baselines on the development-test seeds 3020-3029, looked at once by
+`tasks.py rl7-devtest` (one attempt). p is the exact two-sided Wilcoxon test over the 10
+seeds. The dev-test look and the golden record `5bec559-dirty`: they need
+`configs/pitie_rl_s3.yaml` and the S3 model, which were then uncommitted new files; no
+tracked file differed from `5bec559`. The stress panel ran on the same tree, but its
+outputs, like those of the holdout, record no code version (the tree state of these
+steps is only in the campaign log).
+
+**Training windows** (10 windows of 30 minutes, env cost; changes are means of the
+per-window changes):
+
+| Policy | Mean cost | vs S1 | Wins vs S1 | p vs S1 | vs S2 | p vs S2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| S3 | 70,935 | -14.2 % | 9/10 | 0.004 | +2.3 % | 0.432 |
+| S0 | 87,235 | +5.5 % | 2/10 | 0.064 | +26.1 % | 0.002 |
+| S1 | 83,494 | - | - | - | +20.1 % | 0.002 |
+| S2 | 69,814 | -15.8 % | 10/10 | 0.002 | - | - |
+| always-stay | 100,201 | +32.1 % | 1/10 | 0.037 | +57.8 % | 0.002 |
+| random | 181,712 | +123.0 % | 0/10 | 0.002 | +164.8 % | 0.002 |
+
+**Full 2 h runs** (`run_scenario` with `configs/pitie_{fixed,actuated,rules}.yaml` and
+`configs/pitie_rl_s3.yaml`, KPI v3 with the drain; means over the 10 seeds, seconds).
+S3 - S1 and S3 - S2 are Hodges-Lehmann paired differences with their 95 % interval, p
+the exact Wilcoxon test, Holm over the 7 KPIs of each pair:
+
+| KPI | S0 | S1 | S2 | S3 | S3 - S1 | p (Holm) | S3 - S2 | p (Holm) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Car time loss | 75.9 | 65.5 | 55.0 | 56.4 | -8.1 [-13.8, -3.5] | 0.002 (0.014) | +1.4 [0.0, 2.9] | 0.049 (0.244) |
+| Car insertion delay | 8.6 | 5.8 | 0.3 | 0.2 | -2.6 [-12.9, -0.1] | 0.006 (0.018) | -0.1 [-0.4, 0.0] | 0.131 (0.393) |
+| Bus delay | 61.4 | 63.1 | 56.7 | 49.4 | -13.6 [-16.4, -10.9] | 0.002 (0.014) | -7.5 [-11.5, -3.2] | 0.006 (0.041) |
+| Pedestrian mean curb wait | 19.2 | 19.2 | 19.5 | 20.4 | +1.2 [0.8, 1.6] | 0.002 (0.014) | +1.0 [0.4, 1.3] | 0.006 (0.041) |
+| Pedestrian longest curb wait | 85.9 | 87.3 | 88.0 | 88.0 | +0.5 [0.0, 1.0] | 0.031 (0.031) | 0.0 [0.0, 0.0] | 1.000 (1.000) |
+| Ambulance travel time | 141.5 | 141.6 | 93.2 | 99.8 | -40.0 [-73.0, -17.0] | 0.006 (0.018) | +6.0 [-12.5, 27.0] | 0.572 (1.000) |
+| Person-weighted delay | 62.7 | 57.5 | 48.4 | 46.7 | -9.5 [-15.5, -6.4] | 0.002 (0.014) | -1.7 [-3.3, -0.2] | 0.049 (0.244) |
+
+In the 10 S3 runs the danger audit, collisions and teleports are 0, the longest curb wait
+is 88 s, and every ambulance preemption is served (10 of 10, no time-out; S2: 10 of 10,
+no time-out). The guard overrode S3 31.5 times per 2 h run; S0, S1 and S2 were never
+overridden.
+
+### Interim spec 10.6 verdict
+
+As computed by `rl.study devtest` in `data/rl7/devtest/verdict.json`:
+
+| Criterion (D79) | Result | Pass |
+| --- | --- | --- |
+| C1 person-weighted delay, S3 vs S1 | HL -9.5 s [-15.5, -6.4], exact p 0.002 (Holm 0.014); 57.5 s to 46.7 s | yes |
+| C2 equity vs S1 (limit +5 %) | car time loss -13.9 %, bus delay -21.7 %, pedestrian mean curb wait **+6.2 %** (19.16 s to 20.35 s) | **no** |
+| C3 safety | no violation | yes |
+| C4 reproducibility | 5 of 5 stage-F picks below S1 on the holdout windows (4 required); `reproduce7` pending, it runs after the commit | pending |
+
+- **Verdict: FALLBACK.** C2 fails, and a failed criterion is final whatever
+  `reproduce7` gives. Spec 10.6 applies: RL does not beat the actuated baseline on the
+  pre-registered criteria, so the rules (S2) become the main solution and RL is
+  reported as a study. Part 8 still runs S3 as registered; A-06 on seeds 1-10 stays the
+  binding comparison.
+- The failure is the pedestrian cost. On cars, buses, the ambulance and the
+  person-weighted delay S3 is better than S1, but its pedestrians wait 1.2 s longer at
+  the curb on average. S3 does not observe pedestrians (`v1`). Whether a policy that
+  observes them would pass C2 is not tested, and no config is added after the look
+  (D79).
+- Against S2 (reported, not gating), the verdict file reads "S3 beats rules (S2) on the
+  primary KPI": the person-weighted delay HL is -1.7 s (-3.4 %), outside the ±2 % parity
+  band, with p 0.049 unadjusted and 0.244 after Holm. S3 is behind S2 for cars
+  (+1.4 s) and pedestrians (+1.0 s) and ahead for the bus (-7.5 s).
+- These are 10 seeds and one model: exploratory.
+
+### Weight sensitivity headline (spec 10.3, descriptive)
+
+Full 2 h KPI v3 runs on the 20 sensitivity seeds, means over each setting's picks
+(5 for `t1`, `wb12` and `wb50`, 3 elsewhere) and seeds, seconds; the operator table is
+[docs/figures/rl7/sensitivity.csv](docs/figures/rl7/sensitivity.csv). Equity flags: KPIs
+more than 5 % worse than S0 (Part 4 rule).
+
+| Setting | w_bus / w_ped / λ | Car time loss | Bus delay | Ped mean curb wait | Ped p95 curb wait | Person delay | Penalty s per run | Equity flags |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `t1` (base) | 25 / 1.2 / 30 | 61.1 | 48.9 | 20.4 | 75.5 | 48.6 | 205.8 | 3 |
+| `wb12` | 12.5 / 1.2 / 30 | 54.3 | 55.2 | 19.9 | 75.1 | 47.6 | 190.1 | 2 |
+| `wb50` | 50 / 1.2 / 30 | 75.1 | 41.5 | 20.5 | 74.5 | 52.6 | 181.1 | 3 |
+| `wp06` | 25 / 0.6 / 30 | 60.3 | 47.2 | 20.4 | 75.1 | 47.7 | 189.2 | 3 |
+| `wp24` | 25 / 2.4 / 30 | 59.9 | 50.2 | 19.9 | 74.6 | 48.4 | 163.5 | 3 |
+| `wp48` | 25 / 4.8 / 30 | 58.5 | 52.2 | 19.9 | 75.0 | 48.4 | 171.2 | 3 |
+| `lam0` | 25 / 1.2 / 0 | 58.2 | 49.8 | 20.7 | 77.1 | 47.7 | 244.9 | 3 |
+| `lam100` | 25 / 1.2 / 100 | 62.1 | 46.0 | 20.1 | 73.2 | 48.0 | 113.8 | 2 |
+| `transit_ped` | 50 / 2.4 / 100 | 76.1 | 41.3 | 20.1 | 72.9 | 53.2 | 128.4 | 3 |
+| `car_centric` | 12.5 / 0.6 / 0 | 53.9 | 56.0 | 20.2 | 76.6 | 47.8 | 257.6 | 4 |
+| S0 | - | 72.6 | 61.1 | 19.3 | 73.2 | 59.2 | 86.0 | 0 |
+| S1 | - | 62.6 | 63.7 | 19.3 | 71.4 | 54.8 | 93.5 | 6 |
+| S2 | - | 53.2 | 55.0 | 19.6 | 72.8 | 47.0 | 194.6 | 2 |
+
+- The bus weight is the strongest lever: doubling it (`wb50`) adds 14.0 s of car time
+  loss (+23.0 %) for 7.5 s less bus delay (-15.3 %); halving it (`wb12`) does the reverse
+  (car -11.1 %, bus +12.7 %). Both changes have a hierarchical bootstrap interval that
+  excludes 0.
+- The pedestrian weight barely moves the pedestrians: from x0.5 to x4 the mean curb wait
+  changes by -0.3 % to -2.8 % and the p95 by -0.5 % to -1.3 % against the base.
+- λ 100 cuts the penalty-seconds by 44.7 % (205.8 to 113.8 per run) and the pedestrian
+  p95 by 3.0 % (75.5 to 73.2 s), for +1.1 s of car time loss. λ 0 raises the
+  penalty-seconds by 19.0 %. λ 100 is a candidate for a later retrain, which only a dated
+  change before Part 8 can make (Q27); S3 keeps the base weights.
+- Every setting's mean curb wait (19.9 s to 20.7 s) is above S0's and S1's (19.3 s) and
+  S2's (19.6 s). Most equity flags are pedestrian curb waits at the crossings NB, S and
+  WB; `wb50` and `transit_ped` also flag the car delay on arm W, `car_centric` the bus
+  line 57 N.
+- Convergence: on the selection windows every one of the 36 picks beats S2 under its own
+  weights; on the 2 h runs of the sensitivity seeds only 5 do (the base picks are 0.1 % to
+  6.3 % behind S2). Under the base weights no trained controller's 2 h totals beat S2's.
+- Safety (`sens/safety.csv`, reported, not gating): danger and teleports are 0 and every
+  preemption is served in all 780 runs, and the longest curb wait is at most 88 s. SUMO
+  records one collision in each of 3 runs, all on sensitivity seed 3171: the `wb50` seed-3
+  pick, the `wp24` seed-0 pick and the fixed-time S0. Because S0 collides on that seed as
+  well, the event is more likely due to that seed's traffic than to the RL policies; it
+  was not investigated further. These policies are `t1` variants, not S3.
+- The sensitivity policies observe all 74 features, while S3 (`v1`) observes 62 and no
+  pedestrians: the pedestrian-weight results describe a different agent from S3.
+
+### Stress panel (reported, not gating)
+
+S3, S0, S1 and S2 on 20 stress seeds per cell (30-minute windows; full 2 h for the
+nominal cell), one condition forced per cell (D78):
+
+- No cell has S3 more than 5 % worse than S1: S3 is 8.6 % to 16.0 % below S1 in every
+  cell, and between 4.2 % below and 1.0 % above S2, with no S3 - S2 difference
+  significant (p 0.143 to 0.956).
+- The light-demand failure the plan expected (demand x0.6 and the school-holiday cell
+  near S1) did not occur: S3 is 0.3 % below S2 at x0.6 and 1.0 % above it on the school
+  holiday.
+- Pedestrians again pay: S3's pedestrian waiting-seconds are above S1's in every cell
+  (+0.9 % to +10.1 %; +10.1 % at x0.6 and +8.2 % on the holiday), and its penalty-seconds
+  are above S1's and S2's in every cell (at x1.0: 78 per episode against 22 and 46).
+- Ambulances: over the 220 preemption requests of the panel S3 has 17 time-outs, as many
+  as S2 (S0 31, S1 28), most of them under heavy demand (8 at x1.6 and 5 in the
+  2-ambulance cell).
+- The stress episodes record the danger audit and the curb maximum but not SUMO
+  collisions or teleports. Almost every S3 cut is labelled "foreseeable", but that label
+  is judged from the simulator's pedestrian slack, which S3 (`v1`) does not observe: for
+  S3 it measures how often the shield ends a held green.
+
+### ASSUMED inputs added in Part 7
+
+- None in the simulator: Part 7 trains and evaluates on the Part 3-6 network, demand,
+  ASSUMED signal program and detection.
+- The reward weights and the 80 s pedestrian threshold stay ASSUMED; the sensitivity
+  describes their effect and does not choose them (D76).
+- "Training days different from test days" (spec 10.4) is read as distinct seeds: every
+  day type appears in training and in test (D87).
+- The stress conditions are chosen, not measured: demand x1.6 is outside the training
+  range of x0.6 to x1.4.
+
 ### Part 7 tasks
 
 Everything comes from `configs/rl7.yaml` and `configs/rl7/`; outputs go to `data/rl7/`
@@ -1385,8 +1624,9 @@ with the OMP_/MKL_/OPENBLAS_ variables and the validation pool its provenance re
   EF-14), `docs/api.md` (ENF-02) and `docs/rl.md` (episode timing, 10.6). For Part 7 it
   checks the same caveats, the seeds, budgets, rules and settings stated here against
   `configs/rl7.yaml`, the task table, roadmap row 7, the Part 7 decisions in
-  `docs/architecture.md` and, once it exists, the link to `docs/rl_training.md` (10.6,
-  10.3, learning curves).
+  `docs/architecture.md` and the link to `docs/rl_training.md` (10.6, 10.3, learning
+  curves). `tests/test_rl_s3_model.py` checks the committed S3 model against its sha256
+  pin, its manifest and the golden `tests/data/rl_s3_golden.json`.
 - `tests/test_tasks.py` checks that every `tasks.py` task has its Makefile target with
   the same modules and options, the order and defaults of the chains (the ETA freeze
   before any test world), and that every option a Parts 5-6 task passes is accepted by
@@ -1446,7 +1686,8 @@ All tables have row level security on with no policies, so only the service role
 configs/            data.yaml, intersections.yaml, scenario_base.yaml (grid),
                     pitie_fixed.yaml (S0), pitie_actuated.yaml (S1), pitie_rules.yaml (S2),
                     pitie_rules_nopreempt.yaml, pitie_amb_*.yaml (ambulance probe),
-                    pitie_rl.yaml (RL controller), validation.yaml,
+                    pitie_rl.yaml (RL controller), pitie_rl_s3.yaml (S3, Part 7),
+                    validation.yaml,
                     evaluation.yaml (pre-registered Part 4 evaluation),
                     eta.yaml, rl.yaml (pre-registered Parts 5-6), api.yaml,
                     rl7.yaml, rl7/ (pre-registered Part 7 and its run configs),
@@ -1456,6 +1697,7 @@ data/               raw/, processed/, results/ (not versioned),
                     eta/, models/, demo/, rl_runs/, fake/ (Parts 5-6 outputs, not versioned),
                     rl7/ (Part 7 outputs, not versioned),
                     reference/ (versioned sensor extracts), field/ (site measurements)
+models/rl/          the committed S3 model (Part 7): model.zip, manifest.json, validation.csv
 sumo/               network/ (grid plain XML, OSM extract, pitie/, generated .net.xml),
                     demand/ (generated), gui/ (sumo-gui view settings)
 src/traffic_twin/
@@ -1480,10 +1722,11 @@ src/traffic_twin/
                     evaluation (Part 6); campaign, study, sensitivity, report7 (Part 7)
 supabase/migrations/
 tests/              pytest; conftest.py skips `sumo` tests when SUMO is missing;
-                    data/ holds the grid regression fixture
+                    data/ holds the grid regression fixture and the S3 golden
 docs/               spec, architecture.md, validation.md, evaluation.md, field_protocol.md,
                     calibration_log.yaml, figures/ (grid), figures/pitie/ (eval/: Part 4),
-                    eta.md, api.md, rl.md, figures/eta/, figures/rl/ (Parts 5-6)
+                    eta.md, api.md, rl.md, figures/eta/, figures/rl/ (Parts 5-6),
+                    rl_training.md, figures/rl7/ (Part 7)
 .github/workflows/  CI (ci.yml)
 tasks.py            cross-platform task runner (same targets as the Makefile)
 Makefile

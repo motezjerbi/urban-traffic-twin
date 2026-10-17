@@ -123,8 +123,66 @@ PROTOTYPES = (
     ("Decision interval 10 s", "2", "−0.9 % (p 0.20)", "pre-registered as V2"),
     ("No pedestrian feature block", "2", "−3.2 % (p 0.003)", "pre-registered as V1"),
     ("No bus feature block", "1", "+3.4 % (p 0.003)", "dropped"),
-    ("VecNormalize (observations)", "1", "−0.4 % (p 0.31)", "dropped (no gain)"),
+    ("VecNormalize (observations) in training", "1", "−0.4 % (p 0.31)", "dropped (no gain)"),
 )
+# tried and dropped in the robustness prototypes (exploratory: DQN, 1 seed, 200k steps, 6
+# envs; analyst robustness; D77): prototype, seeds, interventions, cost
+ROBUSTNESS_PROTOTYPES = (
+    (
+        "Inference-time mask on the Part 6 selected model (stay -> advance when the slack is "
+        "below 5 s or max green is due before the next decision)",
+        "– (no training)",
+        "all removed",
+        "+2.4 % mean vs the unmasked model (−2.7 % to +7.5 % by stress condition)",
+    ),
+    (
+        "Mask during training",
+        "1",
+        "about 0",
+        "late validation mean +7.8 % vs a matched 200k control (85.0k vs 78.9k); ×0.6 +20 % vs S1",
+    ),
+    (
+        "Intervention penalty κ = 1000 weighted person-seconds per intervention",
+        "1",
+        "−69 % (775 vs 2,528 over 230 episodes)",
+        "late mean +3.8 % vs the control (best +0.6 %); ×0.6 +9.4 % vs S1, holiday +5.0 %",
+    ),
+)
+# tried in the tuning prototypes (exploratory: DQN, 2 seeds, 200k steps, 3 envs, best
+# checkpoint on the held-out windows 1950-1999; analyst tuning): prototype, seeds, cost
+# vs S2 (mean ± over the 2 seeds), note
+TUNING_PROTOTYPES = (
+    ("Part 6 hyperparameters", "2", "+5.0 ± 0.3 %", "registered as T0"),
+    ("Linear learning-rate decay", "2", "+4.3 ± 3.5 %", "best-final gap 0.3 pp; registered as T1"),
+    (
+        "γ 0.99",
+        "2",
+        "+5.2 ± 1.3 %",
+        "best on validation by 3.5 pp, a lead that vanished on the held-out windows; dropped",
+    ),
+    (
+        "Update-to-data 0.25 (train_freq 4, gradient_steps 3)",
+        "2",
+        "+5.4 ± 1.2 %",
+        "no detectable effect; dropped",
+    ),
+    (
+        "Full 2 h training episodes",
+        "2",
+        "+9.7 ± 3.1 % (+8.0 % on full 2 h episodes)",
+        "about 2× the guard interventions; dropped",
+    ),
+)
+# what a `-dirty` code version recorded by a Part 7 step stood for (analyst record, from
+# the tree status logged at the start of each step); a dirty version not listed here is
+# stated without an explanation
+DIRTY_NOTES = {
+    "5bec559-dirty": "the tree was `5bec559` plus untracked planned outputs only "
+    "(`configs/pitie_rl_s3.yaml`, the S3 model under `models/rl/`, "
+    "`tests/data/rl_s3_golden.json` and `docs/figures/rl7/sensitivity.csv`); no tracked "
+    "file differed (tree status logged at the start of the stress and dev-test steps)",
+}
+PED_GROUP = "pedestrian"  # the feature group V1 drops (features.GROUPS)
 
 
 # -- formatting ------------------------------------------------------------------------
@@ -215,6 +273,95 @@ def _steps(n: Any) -> str:
     if not math.isfinite(v):
         return "–"
     return f"{v / 1e6:g}M" if v >= 1e6 else f"{v / 1e3:g}k"
+
+
+def _sf(x: Any, nd: int = 1) -> str:
+    """A signed number (no unit), a dash when absent."""
+    v = _num(x)
+    return "–" if not math.isfinite(v) else f"{v:+.{nd}f}"
+
+
+def _limit_text(value: Any, limit: float, what: str) -> str:
+    """`what 0.98478 against the limit 0.98500 (below it by 0.00022)`: a rule ratio printed
+    precisely enough to see how far it is from its threshold."""
+    v = _num(value)
+    if not math.isfinite(v):
+        return f"{what} –"
+    if not math.isfinite(limit):
+        return f"{what} {v:.5f}"
+    side = "below" if v <= limit else "above"
+    return f"{what} {v:.5f} against the limit {limit:.5f} ({side} it by {abs(limit - v):.5f})"
+
+
+# -- observation of a policy -----------------------------------------------------------
+def obs_of(m: Any) -> tuple[tuple[str, ...], int | None] | None:
+    """(dropped feature groups, number of features) of a run manifest (`observation`) or a
+    published model manifest (`obs_drop`, `n_features`); None when it records neither."""
+    if not isinstance(m, Mapping):
+        return None
+    o = m.get("observation")
+    if isinstance(o, Mapping) and ("drop" in o or "n_features" in o):
+        drop, n = o.get("drop"), o.get("n_features")
+    elif "obs_drop" in m or "n_features" in m:
+        drop, n = m.get("obs_drop"), m.get("n_features")
+    else:
+        return None
+    k = _num(n)
+    return tuple(sorted(str(x) for x in drop or ())), int(k) if math.isfinite(k) else None
+
+
+def s3_obs(data: Mapping) -> tuple[tuple[str, ...], int | None] | None:
+    """S3's observation: the published manifest, else the selected stage-F run's."""
+    obs = obs_of(data.get("published"))
+    if obs is None:
+        chosen = (data.get("select") or {}).get("chosen")
+        for m in data.get("runs") or []:
+            if chosen and m.get("run") == chosen:
+                obs = obs_of(m)
+    return obs
+
+
+def sens_obs(data: Mapping) -> set[tuple[tuple[str, ...], int | None]]:
+    """The observations of the weight-sensitivity policies (their run manifests)."""
+    by_run = {m.get("run"): m for m in data.get("runs") or []}
+    out = set()
+    for p in (data.get("sens_plan") or {}).get("policies") or []:
+        obs = obs_of(by_run.get(p.get("run")))
+        if obs is not None:
+            out.add(obs)
+    return out
+
+
+def _obs_text(obs: tuple[tuple[str, ...], int | None]) -> str:
+    drop, n = obs
+    feats = f"{n} features" if n is not None else "its features"
+    if not drop:
+        return f"{feats} (the full observation, no group dropped)"
+    return f"{feats} (group{'s' if len(drop) > 1 else ''} {', '.join(drop)} dropped)"
+
+
+def s3_variant(data: Mapping) -> str:
+    v = (data.get("published") or {}).get("variant") or (data.get("decision_t") or {}).get("chosen")
+    return str(v).upper() if v else "S3's config"
+
+
+def s3_without_pedestrians(data: Mapping) -> bool:
+    obs = s3_obs(data)
+    return obs is not None and PED_GROUP in obs[0]
+
+
+def sens_other_agent(data: Mapping) -> str | None:
+    """When the sensitivity policies observe differently from S3: the sentence saying so
+    (plan section 11, V1 adoption), else None."""
+    s3, sens = s3_obs(data), sens_obs(data)
+    if s3 is None or not sens or sens == {s3}:
+        return None
+    seen = "; ".join(_obs_text(o) for o in sorted(sens, key=str))
+    return (
+        f"The sensitivity policies observe {seen}; S3 ({s3_variant(data)}) observes "
+        f"{_obs_text(s3)}. Their results, in particular those of the pedestrian-weight "
+        "settings, therefore describe a different agent from S3."
+    )
 
 
 # -- inputs ----------------------------------------------------------------------------
@@ -758,9 +905,14 @@ def summary_section(data: Mapping) -> list[str]:
         ]
     )
     c2 = v.get("C2") or {}
-    rows.append(
-        ["C2 equity vs S1", f"KPIs checked: {len(c2.get('rows') or [])}", _yes(c2.get("pass"))]
-    )
+    c2_parts = [
+        f"`{r.get('kpi')}` {_pct(r.get('rel_pct'))}" + (" (worse)" if r.get("worse") else "")
+        for r in c2.get("rows") or []
+    ]
+    c2_txt = "; ".join(c2_parts) if c2_parts else "no KPI rows"
+    if c2.get("limit_pct") is not None:
+        c2_txt += f"; limit +{_f(c2['limit_pct'], 0, ' %')}"
+    rows.append(["C2 equity vs S1", c2_txt, _yes(c2.get("pass"))])
     c3 = v.get("C3") or {}
     viol = c3.get("violations") or []
     rows.append(
@@ -784,6 +936,28 @@ def summary_section(data: Mapping) -> list[str]:
     )
     lines += _table(["Criterion (D79)", "Result", "Pass"], rows)
     lines.append("")
+    if s3_without_pedestrians(data):
+        n = (s3_obs(data) or ((), None))[1]
+        feats = f"its {n} features" if n is not None else "its features"
+        note = (
+            f"S3 does not observe pedestrians: {s3_variant(data)} drops the pedestrian feature "
+            f"group, so none of {feats} is a pedestrian count, curb wait or shield slack, and "
+            "the pedestrian shield alone keeps the curb-wait bound."
+        )
+        ped_worse = [
+            r
+            for r in c2.get("rows") or []
+            if str(r.get("kpi", "")).startswith(f"{PED_GROUP}/") and r.get("worse")
+        ]
+        if ped_worse:
+            note += (
+                " C2's pedestrian result ("
+                + ", ".join(f"`{r.get('kpi')}` {_pct(r.get('rel_pct'))}" for r in ped_worse)
+                + ") is that of a policy that does not see pedestrians; whether a policy that "
+                "observes them would pass C2 was not tested, and no config is added after "
+                "the look (D79)."
+            )
+        lines += [note, ""]
     if eff["provisional"]:
         lines.append(
             "S3 beats the actuated baseline on C1-C3 and on the holdout part of C4. If "
@@ -1069,6 +1243,55 @@ def s_runs(cfg: Mapping) -> int:
     return n + len([s for s in seeds(base) if s not in reuse])
 
 
+OUTCOME_KEYS = (
+    "score",
+    "ratio",
+    "ped_s",
+    "ped_ratio",
+    "reference",
+    "wins",
+    "seeds",
+    "a",
+    "b",
+    "c",
+    "qualifies",
+)
+
+
+def outcome_text(o: Any, rule: Mapping, ref: str) -> str:
+    """One config's D73 rule outcome (`decision_T.json` outcome): the score ratio and the
+    pedestrian ratio to 5 decimals against their limits, so a narrow pass is visible."""
+    if not isinstance(o, Mapping):
+        return _cell(o)
+    if o.get("reference"):
+        return f"the reference (score {_f(o.get('score'), 0)})"
+    margin, guard = _num(rule.get("margin_rel")), _num(rule.get("ped_guard_rel"))
+    parts = []
+    if "score" in o:
+        parts.append(f"score {_f(o['score'], 0)}")
+    if "ratio" in o:
+        parts.append(_limit_text(o["ratio"], 1.0 - margin, f"ratio to {ref.upper()}"))
+    if "a" in o:
+        parts.append(f"(a) {_yes(o['a'])}")
+    if "wins" in o:
+        need = rule.get("min_seed_wins")
+        need_txt = f" (need {need})" if need is not None else ""
+        parts.append(
+            f"late mean below {ref.upper()} on {_cell(o['wins'])} of "
+            f"{_cell(o.get('seeds'))} seeds{need_txt}"
+        )
+    if "b" in o:
+        parts.append(f"(b) {_yes(o['b'])}")
+    if "ped_ratio" in o:
+        parts.append(_limit_text(o["ped_ratio"], 1.0 + guard, "pedestrian waiting ratio"))
+    if "c" in o:
+        parts.append(f"(c) {_yes(o['c'])}")
+    parts += [f"{k} {_cell(v)}" for k, v in o.items() if k not in OUTCOME_KEYS]
+    if "qualifies" in o:
+        parts.append(f"qualifies: {_yes(o['qualifies'])}")
+    return "; ".join(parts)
+
+
 def stage_t_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> list[str]:
     lines = ["## 4. Stage T", ""]
     runs = [m for m in data.get("runs") or [] if m["stage"] == "T"]
@@ -1152,7 +1375,10 @@ def stage_t_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> list
         if outcome:
             lines += ["", "Rule outcome:", ""]
             if isinstance(outcome, Mapping):
-                lines += [f"- {str(k).upper()}: {_cell(v)}" for k, v in outcome.items()]
+                rule = dt.get("rule") or {}
+                lines += [
+                    f"- {str(k).upper()}: {outcome_text(v, rule, ref)}" for k, v in outcome.items()
+                ]
             else:
                 lines.append(f"- {_cell(outcome)}")
         lines += [
@@ -1221,18 +1447,42 @@ def variants_section(data: Mapping) -> list[str]:
     else:
         lines += _missing("the stage-T scores", TASKS["campaign"])
     lines += [
-        "**Tried and dropped (exploratory prototypes, not part of the formal comparison):** "
-        "200k steps, 1-2 seeds, scored on the spent windows 1950-1999 against the Part 6 "
-        "binary DQN. The masks prototypes either relabel interventions or pay for removing "
-        "them (D77), so no mask variant was registered; sb3-contrib stays out of the pipeline "
-        "(D89).",
+        "**Tried and dropped (exploratory prototypes, not part of the formal comparison).** "
+        "Action and state prototypes: 200k steps, 1-2 seeds, 6 envs, scored on the spent "
+        "windows 1950-1999 against A0, the D55 binary DQN with the rl.yaml hyperparameters "
+        "retrained the same way (not the Part 6 model). The masks prototypes either relabel "
+        "interventions or pay for removing them (D77), so no mask variant was registered; "
+        "sb3-contrib stays out of the pipeline (D89).",
         "",
     ]
-    lines += _table(["Prototype", "Seeds", "Cost vs Part 6 DQN", "Note"], PROTOTYPES)
+    lines += _table(
+        ["Prototype", "Seeds", "Cost vs A0 (binary DQN, 6 envs, 200k)", "Note"], PROTOTYPES
+    )
     lines += [
         "",
-        "Not run: VecNormalize in training, a per-second discount, a held-out day type (D87) "
-        "and any change of the deployed reward weights (D76).",
+        "Robustness prototypes (DQN, 200k steps, 6 envs; the mask during training and the "
+        "penalty against a matched 200k control run, the inference-time mask against the same "
+        "model without it): removing or penalising interventions costs performance, most at "
+        "light demand, so none was registered (D77).",
+        "",
+    ]
+    lines += _table(["Prototype", "Seeds", "Interventions", "Cost"], ROBUSTNESS_PROTOTYPES)
+    lines += [
+        "",
+        "Tuning prototypes (DQN, 200k steps, 3 envs; best checkpoint on the held-out windows "
+        "1950-1999, 30 min, against S2): no knob other than the window length had an effect "
+        "that could be detected.",
+        "",
+    ]
+    lines += _table(
+        ["Prototype", "Seeds", "Held-out cost vs S2 (mean ± over the seeds)", "Note"],
+        TUNING_PROTOTYPES,
+    )
+    lines += [
+        "",
+        "Never run: a per-second discount, a held-out day type (D87) and any change of the "
+        "deployed reward weights (D76). VecNormalize, the masks, adaptive hold and the "
+        "intervention penalty were only prototyped (above), never registered.",
         "",
     ]
     return lines
@@ -1346,6 +1596,110 @@ SENS_TABLE = (
 )
 
 
+def resolution_text(boot: pd.DataFrame | None, metric: str, name: str) -> str:
+    """What the bootstrap resolved for `metric`, measured (`sens/bootstrap.csv`): the
+    smallest change whose CI excludes 0 and the largest whose CI does not; '' if absent."""
+    if boot is None or boot.empty or not {"metric", "diff", "beyond_noise"} <= set(boot.columns):
+        return ""
+    b = boot[boot["metric"] == metric].assign(_abs=lambda d: pd.to_numeric(d["diff"]).abs())
+    if b.empty:
+        return ""
+
+    def one(r: Any) -> str:
+        n = _num(getattr(r, "n_policies", math.nan))
+        pol = f", {int(n)} policies" if math.isfinite(n) else ""
+        return (
+            f"`{r.setting}` {_sf(r.diff)} s [{_sf(r.ci_low)}, {_sf(r.ci_high)}]{pol}"
+            if {"ci_low", "ci_high"} <= set(b.columns)
+            else f"`{r.setting}` {_sf(r.diff)} s{pol}"
+        )
+
+    yes = b[b["beyond_noise"].astype(bool)].sort_values("_abs")
+    no = b[~b["beyond_noise"].astype(bool)].sort_values("_abs", ascending=False)
+    parts = []
+    if len(yes):
+        parts.append(f"the smallest change whose CI excludes 0 is {one(next(yes.itertuples()))}")
+    if len(no):
+        parts.append(f"the largest whose CI includes 0 is {one(next(no.itertuples()))}")
+    return f"{name} (measured): " + "; ".join(parts) + ". " if parts else ""
+
+
+def sens_safety(data: Mapping) -> list[str]:
+    """Safety of the sensitivity 2 h runs (`sens/safety.csv`) per setting and baseline:
+    danger, collisions, teleports, curb maximum, preemption; the runs with a collision
+    named. Reported, not gating."""
+    saf = (data.get("sens") or {}).get("safety")
+    plan = data.get("sens_plan") or {}
+    if saf is None or saf.empty or "label" not in saf:
+        return []
+    setting = {p["label"]: p["setting"] for p in plan.get("policies", [])}
+    s = saf.assign(setting=saf["label"].map(lambda x: setting.get(x, x)))
+
+    def total(g: pd.DataFrame, col: str) -> float:
+        return (
+            float(pd.to_numeric(g[col], errors="coerce").fillna(0).sum()) if col in g else math.nan
+        )
+
+    def peak(g: pd.DataFrame, col: str) -> float:
+        return float(pd.to_numeric(g[col], errors="coerce").max()) if col in g else math.nan
+
+    rows = []
+    for name, g in s.groupby("setting", sort=False):
+        rows.append(
+            [
+                name,
+                len(g),
+                _f(peak(g, "danger"), 0),
+                _f(total(g, "collisions"), 0),
+                _f(total(g, "teleports"), 0),
+                _f(peak(g, "ped_curb_wait_max"), 0),
+                f"{_f(total(g, 'preempt_served'), 0)}/{_f(total(g, 'preempt_requests'), 0)} "
+                f"({_f(total(g, 'preempt_timeouts'), 0)})",
+            ]
+        )
+    lines = [
+        "**Safety of the sensitivity runs** (`sens/safety.csv`; full 2 h runs, reported, not "
+        "gating):",
+        "",
+    ]
+    lines += _table(
+        [
+            "Setting",
+            "Runs",
+            "Danger max",
+            "Collisions",
+            "Teleports",
+            "Curb max s",
+            "Preemptions served/requests (timeouts)",
+        ],
+        rows,
+    )
+    lines.append("")
+    if "collisions" in s:
+        hit = s[pd.to_numeric(s["collisions"], errors="coerce").fillna(0) > 0]
+        if len(hit):
+            from traffic_twin.rl.sensitivity import BASELINES
+
+            named = ", ".join(
+                f"`{r.label}` seed {r.seed} ({int(r.collisions)})" for r in hit.itertuples()
+            )
+            text = f"Runs with a SUMO collision (count in brackets): {named}."
+            base_seeds = {r.seed for r in hit.itertuples() if r.label in BASELINES}
+            pol_seeds = {r.seed for r in hit.itertuples() if r.label not in BASELINES}
+            shared = sorted(base_seeds & pol_seeds)
+            if shared:
+                text += (
+                    " A baseline without RL also collides on seed "
+                    + ", ".join(str(x) for x in shared)
+                    + ", which points to that seed's traffic rather than to the RL policies; "
+                    "it was not investigated further."
+                )
+            lines += [text, ""]
+        else:
+            lines += ["No sensitivity run has a SUMO collision.", ""]
+    return lines
+
+
 def sensitivity_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> list[str]:
     from traffic_twin.rl.sensitivity import BASELINES, direction, weights_row
 
@@ -1370,6 +1724,9 @@ def sensitivity_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> 
         "Q27).",
         "",
     ]
+    other = sens_other_agent(data)
+    if other:
+        lines += [f"**Not S3's agent.** {other}", ""]
     k = kpis.set_index(["setting", "metric"])
     boot = s.get("bootstrap")
     beyond = set()
@@ -1424,11 +1781,13 @@ def sensitivity_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> 
         "In brackets: change vs the base setting; * = the hierarchical bootstrap 95 % CI of the "
         "change excludes 0 (training seeds, then evaluation seeds; "
         f"{int(_num(boot['resamples'].iloc[0])) if boot is not None and len(boot) else 2000:,} "
-        "resamples, `sens/bootstrap.csv`). Bus effects below about 7 s are not detectable even "
-        "with 5 seeds (analyst estimate). The last column is the convergence check: a pick that "
-        "does not beat S2 on its own objective is read with caution (D76).",
+        "resamples, `sens/bootstrap.csv`). "
+        + resolution_text(boot, "bus/delay_mean", "Bus delay")
+        + "The last column is the convergence check: a pick that does not beat S2 on its own "
+        "objective is read with caution (D76).",
         "",
     ]
+    lines += sens_safety(data)
     lines += _fig(figs, "pareto", "Weight sensitivity Pareto", docs)
     eq = s.get("equity")
     if eq is not None and len(eq):
@@ -1642,6 +2001,12 @@ def stress_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> list[
     )
     lines.append("")
     lines += stress_details(data.get("stress_summary"), cells)
+    if s3_without_pedestrians(data) and data.get("stress_summary") is not None:
+        lines += [
+            "S3's foreseeable cuts are judged from a pedestrian slack S3 does not observe "
+            "(section 11).",
+            "",
+        ]
     lines += _fig(figs, "stress", "Stress panel", docs)
     lines += [
         (
@@ -1657,7 +2022,28 @@ def stress_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> list[
         "the ×0.6 cell measures it on fresh seeds.",
         "",
     ]
+    light = [
+        f"`{c}` {_pct(piv.loc[c].get('S2'))}"
+        for c in ("x0_6", "holiday")
+        if c in cells and "S2" in piv
+    ]
+    if light:
+        lines += [
+            "Measured on the stress seeds, S3 vs S2 (ratio of means): " + ", ".join(light) + ".",
+            "",
+        ]
     return lines
+
+
+def version_text(cv: Any) -> str:
+    """A recorded code version, with what a `-dirty` one stood for (DIRTY_NOTES)."""
+    cv = str(cv)
+    if not cv.endswith("-dirty"):
+        return f"`{cv}`."
+    note = DIRTY_NOTES.get(cv)
+    return f"`{cv}`: " + (
+        f"{note}." if note else "the tree differed from that commit; the record does not say how."
+    )
 
 
 def devtest_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> list[str]:
@@ -1668,6 +2054,9 @@ def devtest_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> list
     paired = data.get("paired")
     if (cmp is None or cmp.empty) and (paired is None or paired.empty):
         return lines + _missing("the dev-test look", TASKS["devtest"])
+    cv = (data.get("verdict") or {}).get("code_version")
+    if cv:
+        lines += [f"Code version recorded by the look (`verdict.json`): {version_text(cv)}", ""]
     if cmp is not None and {"label", "seed", "cost"} <= set(cmp.columns):
         labels = list(dict.fromkeys(cmp["label"].astype(str)))
         lines += [
@@ -1814,6 +2203,15 @@ def safety_section(data: Mapping, figs: Mapping[str, Path], docs: Path) -> list[
         "Masks are not claimed to remove interventions (section 6).",
         "",
     ]
+    if s3_without_pedestrians(data):
+        lines += [
+            "The pedestrian slack behind **foreseeable** is the simulator's (D77). S3 "
+            f"({s3_variant(data)}) does not observe it: it sees the stage, the time in stage "
+            "and each stage's red time, from which the slack can at most be inferred. For S3 a "
+            "foreseeable cut therefore measures how often the shield ends a held green, not "
+            "that the policy saw the slack run out.",
+            "",
+        ]
     lines += _fig(figs, "interventions", "Interventions split", docs)
     shares = []
     cmp = data.get("devtest_compare")
@@ -1863,7 +2261,9 @@ def repro_section(data: Mapping) -> list[str]:
         if versions:
             lines.append("Versions: " + ", ".join(f"{k} {v}" for k, v in versions.items()) + ".")
         cvs = sorted({str(m["code_version"]) for m in runs if m.get("code_version")})
-        lines.append("Code versions of the runs: " + ", ".join(f"`{c}`" for c in cvs) + ".")
+        lines.append(
+            "Code versions of the training runs: " + ", ".join(f"`{c}`" for c in cvs) + "."
+        )
         dirty = [
             m
             for m in runs
@@ -1872,6 +2272,7 @@ def repro_section(data: Mapping) -> list[str]:
         if dirty:
             lines.append(f"{len(dirty)} runs were made with `--allow-dirty` (D80).")
         lines.append("")
+    lines += evaluation_versions(data)
     lines += [
         "Only a reproduce7 result made on the code this page is built from counts here and in "
         "C4 (a clean tree whose files outside docs/ equal that commit's); a result for other "
@@ -1892,6 +2293,35 @@ def repro_section(data: Mapping) -> list[str]:
     return lines
 
 
+def evaluation_versions(data: Mapping) -> list[str]:
+    """The code version each evaluation step recorded (a `-dirty` one explained when
+    DIRTY_NOTES knows it), and the outputs that record none."""
+    lines = []
+    for what, doc in (
+        ("stage-T decision (`decision_T.json`)", data.get("decision_t")),
+        ("S3 selection (`select/decision.json`)", data.get("select")),
+        ("sensitivity runs (`sens/plan.json`)", data.get("sens_plan")),
+        ("dev-test look (`devtest/verdict.json`)", data.get("verdict")),
+    ):
+        if isinstance(doc, Mapping) and doc.get("code_version"):
+            lines.append(f"- {what}: {version_text(doc['code_version'])}")
+    silent = []
+    for what, df in (
+        ("holdout (`holdout/`)", data.get("holdout_summary")),
+        ("stress panel (`stress/`)", data.get("stress_summary")),
+    ):
+        if df is None:
+            continue
+        if "code_version" in df:
+            vs = sorted({str(x) for x in df["code_version"].dropna()})
+            lines.append(f"- {what}: " + ", ".join(f"`{x}`" for x in vs) + ".")
+        else:
+            silent.append(what)
+    if silent:
+        lines.append(f"- {' and '.join(silent)}: the outputs record no code version.")
+    return ["Code versions recorded by the evaluation steps:", "", *lines, ""] if lines else []
+
+
 def _repro_detail(rep: Mapping) -> str:
     """`tasks.py reproduce7` items ({item: [differences]}, empty = same), or the older
     {check: bool} form."""
@@ -1909,11 +2339,30 @@ def _repro_detail(rep: Mapping) -> str:
     return ""
 
 
+def obs_limit(data: Mapping) -> str:
+    """The limitation bullet on what S3 observes (its manifest's dropped groups)."""
+    if s3_without_pedestrians(data):
+        n = (s3_obs(data) or ((), None))[1]
+        feats = f", {n} features" if n is not None else ""
+        return (
+            f"- S3 ({s3_variant(data)}{feats}) reads every signal-controlled lane from the "
+            "simulator (ASSUMED ideal detection) and the ambulance by V2I, and no pedestrian "
+            "count, curb wait or shield slack: the pedestrian shield alone keeps the curb-wait "
+            "bound. Part of a gain over S1 may be an information advantage."
+        )
+    return (
+        "- The observation reads every signal-controlled lane and the pedestrian curb waits from "
+        "the simulator (ASSUMED ideal detection) and the ambulance by V2I; part of a gain over S1 "
+        "may be an information advantage."
+    )
+
+
 def limits_section(data: Mapping) -> list[str]:
     seeds = ((data["rl7"].get("protocol") or {}).get("devtest") or {}).get("seeds")
     k = _range_n(seeds)
     n = str(k) if k else "–"
     min_p = 2 / 2**k if k else math.nan
+    other = sens_other_agent(data)
     return [
         "## 13. Limitations and the Part 8 handoff",
         "",
@@ -1927,13 +2376,18 @@ def limits_section(data: Mapping) -> list[str]:
         "- Training days differ from test days as distinct seeds (each seed a different simulated "
         "day); every day type appears in training and test, a documented deviation from 10.4 "
         "(D87). No held-out day type was run.",
-        "- The observation reads every signal-controlled lane and the pedestrian curb waits from "
-        "the simulator (ASSUMED ideal detection) and the ambulance by V2I; part of a gain over S1 "
-        "may be an information advantage.",
+        obs_limit(data),
         "- The weight sensitivity is descriptive; optimiser noise between training seeds is "
         "mixed with the weight effects (the convergence check shows where). S3 keeps the base "
         "weights. λ 100 is a candidate for a later retrain, decided by the user through a dated "
-        "change before Part 8, never after looking at dev-test or seeds 1-10 (Q27).",
+        "change before Part 8, never after looking at dev-test or seeds 1-10 (Q27)."
+        + (f" {other}" if other else ""),
+        "- The env episodes (validations, holdout, stage-2 selection, stress panel) record the "
+        "danger audit and the curb maximum but not SUMO collisions or teleports, so the "
+        "collision clause of the campaign STOP rule (plan section 9, step 2) could not be "
+        "checked on them. Collisions and teleports are measured only in the full "
+        "`run_scenario` runs: the dev-test runs (section 11, C3) and the sensitivity runs "
+        "(section 8).",
         "- Part 8: A-06 on seeds 1-10 (S3 against S0/S1/S2), S4 = S3's policy with preemption "
         "off (out of distribution: the policy never decided with an ambulance present), and "
         "every `configs/evaluation.yaml` change.",

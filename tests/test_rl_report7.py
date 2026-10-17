@@ -380,8 +380,15 @@ def full_study(
         "C1": {"hl": -8.4, "p": 0.002, "pass": verdict == "pass"},
         "C2": {
             "rows": [
-                {"kpi": "car/time_loss_mean", "s1_mean": 58.0, "s3_mean": 55.0, "worse": False}
+                {
+                    "kpi": "car/time_loss_mean",
+                    "s1_mean": 58.0,
+                    "s3_mean": 55.0,
+                    "rel_pct": -5.17,
+                    "worse": False,
+                }
             ],
+            "limit_pct": 5.0,
             "pass": True,
         },
         "C3": {"violations": [], "pass": True},
@@ -510,6 +517,8 @@ def test_fallback_verdict_text(stub_rl7_cfg, monkeypatch):
     text = report7.build_docs(rl7).read_text(encoding="utf-8")
     assert "**Interim 10.6 verdict: FALLBACK**" in text
     assert "Spec 10.6 applies" in text and "S2) become the main solution" in text
+    # the C2 row names each equity KPI's change against S1 and the limit
+    assert "| C2 equity vs S1 | `car/time_loss_mean` -5.2 %; limit +5 % |" in text
 
 
 def test_partial_inputs(stub_rl7_cfg, monkeypatch, tmp_path):
@@ -705,3 +714,154 @@ def test_stress_details_missing_summary():
     summ = pd.DataFrame({"cell": ["a"], "vs_S1_pct": [3.0]})  # an older, thinner summary
     text = "\n".join(report7.stress_details(summ, ["a"]))
     assert "| `a` | – | – | – | – | – | – | – |" in text
+
+
+# -- post-campaign reporting fixes (Part 7 phase 3 review) --------------------------------
+def _v1_study(stub_rl7_cfg, monkeypatch) -> Path:
+    """The full synthetic study with S3 a V1 policy (pedestrian group dropped, 62 features),
+    the sensitivity policies on the full observation (74), a failed pedestrian C2 row, a
+    collision on one seed for a policy and S0, and a dirty dev-test code version."""
+    rl7 = full_study(stub_rl7_cfg, monkeypatch, verdict="fallback")
+    cfg = load_config(rl7)
+    study = Path(cfg["outputs"]["study"])
+    man = Path(cfg["outputs"]["models"]) / VERSION / "manifest.json"
+    m = json.loads(man.read_text(encoding="utf-8"))
+    m |= {"variant": "v1", "obs_drop": ["pedestrian"], "n_features": 62}
+    man.write_text(json.dumps(m), encoding="utf-8")
+    plan = json.loads((study / "sens" / "plan.json").read_text(encoding="utf-8"))
+    runs = Path(cfg["outputs"]["runs"])
+    for p in plan["policies"]:
+        for f in runs.glob(f"*/{p['run']}/manifest.json"):
+            r = json.loads(f.read_text(encoding="utf-8"))
+            r["observation"] = {"version": "rl-obs-1", "drop": [], "n_features": 74}
+            f.write_text(json.dumps(r), encoding="utf-8")
+    vpath = study / "devtest" / "verdict.json"
+    v = json.loads(vpath.read_text(encoding="utf-8"))
+    v["C2"]["rows"].append({"kpi": "pedestrian/ped_curb_wait_mean", "rel_pct": 6.2, "worse": True})
+    v["C2"]["pass"] = False
+    v["code_version"] = "abc1234-dirty"
+    vpath.write_text(json.dumps(v), encoding="utf-8")
+    saf_path = study / "sens" / "safety.csv"
+    saf = pd.read_csv(saf_path)
+    seed = int(saf["seed"].iloc[0])
+    pol = plan["policies"][1]["label"]
+    hit = saf["seed"].eq(seed) & saf["label"].isin([pol, "S0"])
+    saf.loc[hit, "collisions"] = 1
+    saf.to_csv(saf_path, index=False)
+    return rl7
+
+
+def test_page_states_what_s3_observes(stub_rl7_cfg, monkeypatch):
+    """Plan section 11 (V1 adoption): when S3 drops the pedestrian group the page says so
+    in the summary, the sensitivity, the interventions split and the limitations, and that
+    the sensitivity agents (full observation) are a different agent."""
+    text = report7.build_docs(_v1_study(stub_rl7_cfg, monkeypatch)).read_text(encoding="utf-8")
+    head = text.split("## 2.")[0]
+    assert "S3 does not observe pedestrians: V1 drops the pedestrian feature group" in head
+    assert "none of its 62 features is a pedestrian count, curb wait or shield slack" in head
+    assert "C2's pedestrian result (`pedestrian/ped_curb_wait_mean` +6.2 %)" in head
+    sens_part = text.split("## 8.")[1].split("## 9.")[0]
+    assert "**Not S3's agent.** The sensitivity policies observe 74 features (the full" in (
+        sens_part
+    )
+    assert "62 features (group pedestrian dropped)" in sens_part
+    assert "describe a different agent from S3" in sens_part
+    assert "S3 (V1) does not observe it" in text  # foreseeable cuts, section 11
+    limits = text.split("## 13.")[1]
+    assert "- S3 (V1, 62 features) reads every signal-controlled lane" in limits
+    assert "no pedestrian count, curb wait or shield slack" in limits
+    assert "the pedestrian curb waits from the simulator" not in text
+    assert "different agent from S3" in limits
+    assert "could not be checked on them" in limits  # the collision STOP clause
+
+
+def test_page_with_full_observation_keeps_the_plain_text(stub_rl7_cfg, monkeypatch):
+    text = report7.build_docs(full_study(stub_rl7_cfg, monkeypatch)).read_text(encoding="utf-8")
+    assert "S3 does not observe pedestrians" not in text and "Not S3's agent" not in text
+    assert "the pedestrian curb waits from the simulator (ASSUMED ideal detection)" in text
+
+
+def test_outcome_text_shows_the_margin_to_the_limit():
+    """D73: the stage-T ratio printed to 5 decimals against its limit (V1 passed by 0.0002,
+    which 3 significant figures hide)."""
+    rule = {"margin_rel": 0.015, "min_seed_wins": 2, "ped_guard_rel": 0.05}
+    o = {
+        "score": 94_901.98,
+        "ratio": 0.9847835765,
+        "ped_s": 8547.5,
+        "ped_ratio": 1.0007447594,
+        "reference": False,
+        "wins": 3,
+        "seeds": 3,
+        "a": True,
+        "b": True,
+        "c": True,
+        "qualifies": True,
+    }
+    t = report7.outcome_text(o, rule, "t1")
+    assert "ratio to T1 0.98478 against the limit 0.98500 (below it by 0.00022); (a) yes" in t
+    assert "late mean below T1 on 3 of 3 seeds (need 2); (b) yes" in t
+    assert "pedestrian waiting ratio 1.00074 against the limit 1.05000" in t
+    assert t.endswith("qualifies: yes")
+    assert report7.outcome_text({"reference": True, "score": 96_368.4}, rule, "t1") == (
+        "the reference (score 96,368)"
+    )
+    assert "ratio to T1 1.00956 against the limit 0.98500 (above it by 0.02456)" in (
+        report7.outcome_text({"ratio": 1.009559586}, rule, "t1")
+    )
+    assert report7.outcome_text({"a": False, "x": 2}, {}, "t1") == "(a) no; x 2"
+
+
+def test_resolution_text_is_measured():
+    boot = pd.DataFrame(
+        {
+            "setting": ["wb12", "wb50", "lam100", "wp48"],
+            "metric": "bus/delay_mean",
+            "diff": [6.22, -7.47, -2.98, 3.25],
+            "ci_low": [2.78, -10.76, -6.20, -0.43],
+            "ci_high": [9.52, -4.45, 0.09, 6.78],
+            "beyond_noise": [True, True, False, False],
+            "n_policies": [5, 5, 3, 3],
+        }
+    )
+    t = report7.resolution_text(boot, "bus/delay_mean", "Bus delay")
+    assert t == (
+        "Bus delay (measured): the smallest change whose CI excludes 0 is `wb12` +6.2 s "
+        "[+2.8, +9.5], 5 policies; the largest whose CI includes 0 is `wp48` +3.2 s "
+        "[-0.4, +6.8], 3 policies. "
+    )
+    assert report7.resolution_text(None, "bus/delay_mean", "Bus delay") == ""
+    assert report7.resolution_text(boot, "car/x", "Car") == ""
+
+
+def test_sensitivity_safety_and_dirty_versions(stub_rl7_cfg, monkeypatch):
+    rl7 = _v1_study(stub_rl7_cfg, monkeypatch)
+    text = report7.build_docs(rl7).read_text(encoding="utf-8")
+    sens_part = text.split("## 8.")[1].split("## 9.")[0]
+    assert "**Safety of the sensitivity runs**" in sens_part
+    assert "Runs with a SUMO collision (count in brackets):" in sens_part
+    assert "`S0` seed" in sens_part and "A baseline without RL also collides on seed" in sens_part
+    assert "Bus effects below about 7 s" not in text and "Bus delay (measured):" in sens_part
+    # dev-test code version: a dirty one not in DIRTY_NOTES is stated without a story
+    dev = text.split("## 10.")[1].split("## 11.")[0]
+    assert "(`verdict.json`): `abc1234-dirty`: the tree differed from that commit" in dev
+    repro = text.split("## 12.")[1].split("## 13.")[0]
+    assert "Code versions of the training runs: `abc1234`." in repro
+    assert "- dev-test look (`devtest/verdict.json`): `abc1234-dirty`" in repro
+    assert "stress panel (`stress/`): the outputs record no code version." in repro
+    assert report7.version_text("5bec559-dirty").startswith(
+        "`5bec559-dirty`: the tree was `5bec559` plus untracked planned outputs only"
+    )
+    assert report7.version_text("5bec559") == "`5bec559`."
+
+
+def test_prototype_tables():
+    """Section 6 cites every prototype the plan names (masks, adaptive hold, penalty,
+    VecNormalize) with its numbers, against A0 rather than "the Part 6 DQN"."""
+    lines = "\n".join(report7.variants_section({"decision_t": {}}))
+    assert "Cost vs A0 (binary DQN, 6 envs, 200k)" in lines and "Part 6 DQN" not in lines
+    assert "Intervention penalty κ = 1000" in lines and "−69 %" in lines
+    assert "Mask during training" in lines and "+7.8 %" in lines
+    assert "Inference-time mask" in lines and "+2.4 %" in lines
+    assert "γ 0.99" in lines and "Update-to-data 0.25" in lines and "+9.7 ± 3.1 %" in lines
+    assert "VecNormalize in training" not in lines.split("Never run:")[1].split(".")[0]

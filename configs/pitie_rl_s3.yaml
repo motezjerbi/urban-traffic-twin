@@ -1,0 +1,4 @@
+# S3 (Part 7, D86): the selected Part 7 policy. Demand/emergency/network as S0 (demand_hash 83a4f220fd20).
+extends: pitie_rl.yaml
+scenario: pitie_rl_s3
+rl: {model: models/rl/rl7-dqn-v1-s0-415724a4/model.zip, model_sha256: 151c6f692acc4d23800a0afc2fba68b655f5fa0df18fe91163ccff20894d4c29, config: configs/rl7/v1.yaml}
