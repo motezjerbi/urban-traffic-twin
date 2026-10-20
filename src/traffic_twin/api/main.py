@@ -39,7 +39,7 @@ import pandas as pd
 from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from traffic_twin.api.clock import (
@@ -755,6 +755,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise ApiError("not_found", "mock screens are off (api.yaml dev.mock)")
         page = resources.files("traffic_twin.app").joinpath("mock.html")
         return HTMLResponse(page.read_text(encoding="utf-8"))
+
+    @app.get("/three.min.js", include_in_schema=False)
+    def three_js():
+        page = resources.files("traffic_twin.app").joinpath("three.min.js")
+        if not page.is_file():
+            raise ApiError("not_found", "three.min.js not found")
+        return Response(content=page.read_bytes(), media_type="application/javascript")
 
     @app.get("/", include_in_schema=False)
     def root():

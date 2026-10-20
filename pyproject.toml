@@ -33,7 +33,7 @@ rl = ["gymnasium==1.4.0", "stable-baselines3==2.9.0", "torch==2.14.1"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"traffic_twin.app" = ["*.html"] # mock screens served by the API at /mock (D54)
+"traffic_twin.app" = ["*.html", "*.js"] # mock screens and assets served by the API at /mock (D54)
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
