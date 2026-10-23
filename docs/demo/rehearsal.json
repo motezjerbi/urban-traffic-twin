@@ -123,21 +123,150 @@
   },
   "recorded_at": "2026-10-23T21:04:39+02:00"
  },
- "last": "rehearsal",
+ "last": "readiness",
  "a08": {
   "status": "PASS",
-  "from": "rehearsal",
-  "commit": "ca1a7c1-dirty",
-  "recorded_at": "2026-10-23T21:04:39+02:00"
+  "from": "readiness",
+  "commit": "9b233e0",
+  "recorded_at": "2026-10-23T23:22:20+02:00"
  },
  "a09": {
-  "status": "PENDING",
-  "reason": "no fresh-clone readiness rehearsal yet (python tasks.py demo-readiness on the release commit)"
+  "status": "PASS",
+  "reason": "fresh clone + pack + rehearsal, no manual step",
+  "commit": "9b233e0",
+  "recorded_at": "2026-10-23T23:22:20+02:00"
  },
  "rehearsed_demo": {
   "status": "PENDING",
   "entries": 0,
   "valid": 0,
   "log": "docs/demo/rehearsal_log.yaml"
+ },
+ "readiness": {
+  "kind": "readiness",
+  "mode": "real",
+  "fresh_clone": true,
+  "started_at": "2026-10-23T23:21:49+02:00",
+  "source_dirty": false,
+  "pack_committed": true,
+  "steps": [
+   {
+    "id": "home",
+    "front": "mock",
+    "url": "<api>/mock?view=home"
+   },
+   {
+    "id": "pedestrian",
+    "front": "mock",
+    "url": "<api>/mock?view=pedestrian&scenario=pitie_rules&seed=4000&t=1805&crossing=S&speed=normal"
+   },
+   {
+    "id": "student",
+    "front": "mock",
+    "url": "<api>/mock?view=student&scenario=pitie_rules&seed=4000&t=2700&trajet=N_S&exam=08%3A18"
+   },
+   {
+    "id": "bus",
+    "front": "mock",
+    "url": "<api>/mock?view=bus&scenario=pitie_rules&seed=4000&t=1305&line=91"
+   },
+   {
+    "id": "ambulance",
+    "front": "mock",
+    "url": "<api>/mock?view=ambulance&scenario=pitie_rules&seed=4000&t=2440&kiosk=1"
+   },
+   {
+    "id": "replay",
+    "front": "mock",
+    "url": "<api>/mock?view=replay&scenario=pitie_rl_s3&seed=4000&t=2440&play=0"
+   },
+   {
+    "id": "operator",
+    "front": "mock",
+    "url": "<api>/mock?view=operator"
+   },
+   {
+    "id": "streamlit",
+    "front": "streamlit",
+    "url": "http://127.0.0.1:8501"
+   }
+  ],
+  "degraded": {
+   "no_eta_bundle": "PASS",
+   "no_evaluation": "PASS",
+   "no_runs": "PASS",
+   "api_down": "PASS"
+  },
+  "prerequisites": [
+   {
+    "name": "demo_runs",
+    "status": "ok",
+    "detail": "2 scripted runs found",
+    "hint": ""
+   },
+   {
+    "name": "evaluation_outputs",
+    "status": "ok",
+    "detail": "<tmp>\\tt_demo_readiness_eip6usnh\\clone\\data\\results\\evaluation: Part 4 and Part 8 outputs",
+    "hint": ""
+   },
+   {
+    "name": "eta_reference",
+    "status": "ok",
+    "detail": "ETA bundle eta1-56926796 (reference table)",
+    "hint": ""
+   },
+   {
+    "name": "s3_model_sha",
+    "status": "ok",
+    "detail": "models/rl/rl7-dqn-v1-s0-415724a4/model.zip sha256 151c6f692acc",
+    "hint": ""
+   },
+   {
+    "name": "evaluation_page",
+    "status": "ok",
+    "detail": "docs/evaluation.md is the Part 8 page",
+    "hint": ""
+   }
+  ],
+  "browser": "chrome.exe",
+  "status": "PASS",
+  "passed": true,
+  "summary": {
+   "pass": 112,
+   "fail": 0,
+   "pending": 0,
+   "skip": 1,
+   "rows": 113
+  },
+  "git": {
+   "commit": "9b233e0",
+   "full": "9b233e034f88dc320caf6cbcaa128439fe4cbf8c",
+   "dirty": false,
+   "code_version": "9b233e0"
+  },
+  "duration_s": 31.6,
+  "failed": [],
+  "pending": [],
+  "coverage": {
+   "browser": "chrome.exe",
+   "dom": {
+    "home": "PASS",
+    "pedestrian": "PASS",
+    "student": "PASS",
+    "bus": "PASS",
+    "ambulance": "PASS",
+    "replay": "PASS",
+    "operator": "PASS"
+   },
+   "skipped": [],
+   "clone": {
+    "git clone --local": "PASS",
+    "traffic_twin is imported from the clone": "PASS",
+    "bootstrap --from-pack": "PASS",
+    "clone tree still clean after the rehearsal": "PASS"
+   }
+  },
+  "recorded_at": "2026-10-23T23:22:20+02:00"
  }
 }

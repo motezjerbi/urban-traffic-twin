@@ -8,7 +8,7 @@ Bd de l'Hôpital × Bd Saint-Marcel, next to the Pitié-Salpêtrière hospital, 
 
 Authors: Motez Jerbi, mrvolcon1<br>
 Institution: to be confirmed · Supervisor: to be confirmed<br>
-Date: 2026-10-23 · Code version: `ca1a7c1-dirty`
+Date: 2026-10-23 · Code version: `9b233e0`
 
 > Every number in this report comes from simulation. The twin is calibrated on City of Paris sensor data, but its signal program is ASSUMED until the field visit (3-5 Nov 2026). Until then the signal timing and queue checks are NOT_MEASURED and every result is provisional. A value that does not exist yet is printed **PENDING**, never estimated.
 
@@ -607,8 +607,8 @@ The table is generated from the evidence files (spec 17, D115). The statuses are
 | A-05 | Preemption reduces the ambulance travel time compared with S0. | **PASS** | main family S2 vs S0, ambulance travel time: HL -36.5 s [-70.0, -14.0] s, exact one-sided p 0.0020 (n = 10) |
 | A-06 | RL is compared with the baselines on 10 seeds with a statistical test; the result is presented, favourable or not. | **PASS** | presented: S3 vs S1 (actuated): all/person_delay_mean 57.1 → 46.0 s (n = 10), HL -9.5 s [95 % CI -17.5, -6.4], exact two-sided p 0.0020, Holm p 0.0059 (α 0.05): S3 better |
 | A-07 | The announced 80 % ETA interval covers between 75 % and 85 % of the cases. | **PASS** | coverage 80.6 % [80.2 %, 81.0 %] on the realistic test worlds (band 75-85 %); median MAE 10.2 s against 39.6 s for the reference |
-| A-08 | Every view answers through the API, shows 'données simulées' and handles the loading, error and degraded states. | **PASS** | the recorded rehearsal (every view, states, footer), 2026-10-23, code ca1a7c1-dirty |
-| A-09 | The full demo runs without manual intervention on the code. | **PENDING** | no fresh-clone readiness rehearsal yet (python tasks.py demo-readiness on the release commit) |
+| A-08 | Every view answers through the API, shows 'données simulées' and handles the loading, error and degraded states. | **PASS** | the recorded rehearsal (every view, states, footer), 2026-10-23, code 9b233e0 |
+| A-09 | The full demo runs without manual intervention on the code. | **PASS** | the fresh-clone readiness rehearsal on a fresh clone, 2026-10-23, code 9b233e0 |
 | A-10 | A test with 3 to 5 users is carried out and synthesised. | **PENDING** | no session yet; 3 to 5 real sessions needed (spec 12.2) |
 
 **The demo.** A-09 also has a human counterpart. The deliverable "demonstration rehearsed" needs at least one human rehearsal, logged in `docs/demo/rehearsal_log.yaml` with a date, a commit and no manual code edit. So far 0 such rehearsals are logged: rehearsed by a presenter **PENDING**.
@@ -699,7 +699,7 @@ Every result the report quotes, number or result sentence, is a fact of `docs/re
 | `data/results/validation/pitie_fixed/summary.json` | `b5262bc9197c` | ca1a7c1 | 12: `val.a02`, `val.calibration`, `val.geh`, `val.preregistered`, `val.queue_not_measured`, `val.seeds`, … |
 | `data/rl7/devtest/verdict.json` | `867bba664fc7` | 5bec559-dirty | 25: `rl7.c1`, `rl7.c2`, `rl7.c3`, `rl7.c4`, `rl7.criteria_sentence`, `rl7.failed`, … |
 | `docs/api.md` | `c99b51f83919` | ca1a7c1 | 3: `api.bench` |
-| `docs/demo/rehearsal.json` | `0a5fe3a52006` | ca1a7c1-dirty | 7: `demo.a08`, `demo.a09`, `demo.date`, `demo.fresh_clone` |
+| `docs/demo/rehearsal.json` | `6ca4d2b320b0` | 9b233e0 | 10: `demo.a08`, `demo.a09`, `demo.commit`, `demo.date`, `demo.fresh_clone` |
 | `docs/demo/rehearsal_log.yaml` | `91afb01e38f7` | – | 1: `demo.human_rehearsals` |
 | `docs/figures/rl7/sensitivity.csv` | `ee579ef9135d` | – | 2: `rl7.sensitivity` |
 | `docs/report/meta.yaml` | `e0e517d52cdc` | – | 9: `meta.authors`, `meta.date`, `meta.field_visit`, `meta.institution`, `meta.site`, `meta.subtitle`, … |

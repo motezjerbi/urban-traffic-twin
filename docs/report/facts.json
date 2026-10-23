@@ -1,5 +1,5 @@
 {
- "code_version": "ca1a7c1-dirty",
+ "code_version": "9b233e0",
  "facts": {
   "a01.head": {
    "code_version": "ca1a7c1",
@@ -459,7 +459,7 @@
   "acceptance.A-08": {
    "code_version": null,
    "criterion": "Every view answers through the API, shows 'données simulées' and handles the loading, error and degraded states.",
-   "evidence": "the recorded rehearsal (every view, states, footer), 2026-10-23, code ca1a7c1-dirty",
+   "evidence": "the recorded rehearsal (every view, states, footer), 2026-10-23, code 9b233e0",
    "source": "docs/demo/rehearsal.json",
    "source_sha256": null,
    "text": "PASS",
@@ -469,12 +469,12 @@
   "acceptance.A-09": {
    "code_version": null,
    "criterion": "The full demo runs without manual intervention on the code.",
-   "evidence": "no fresh-clone readiness rehearsal yet (python tasks.py demo-readiness on the release commit)",
+   "evidence": "the fresh-clone readiness rehearsal on a fresh clone, 2026-10-23, code 9b233e0",
    "source": "docs/demo/rehearsal.json",
    "source_sha256": null,
-   "text": "PENDING",
+   "text": "PASS",
    "unit": null,
-   "value": "PENDING"
+   "value": "PASS"
   },
   "acceptance.A-10": {
    "code_version": null,
@@ -511,25 +511,25 @@
    "value": 53.6
   },
   "demo.a08": {
-   "code_version": "ca1a7c1-dirty",
+   "code_version": "9b233e0",
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
    "text": "PASS",
    "unit": null,
    "value": "PASS"
   },
   "demo.a08.commit": {
-   "code_version": "ca1a7c1-dirty",
+   "code_version": "9b233e0",
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
-   "text": "ca1a7c1-dirty",
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
+   "text": "9b233e0",
    "unit": null,
-   "value": "ca1a7c1-dirty"
+   "value": "9b233e0"
   },
   "demo.a08.date": {
-   "code_version": "ca1a7c1-dirty",
+   "code_version": "9b233e0",
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
    "text": "2026-10-23",
    "unit": null,
    "value": "2026-10-23"
@@ -544,63 +544,60 @@
    "value": null
   },
   "demo.a09": {
-   "code_version": null,
+   "code_version": "9b233e0",
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
-   "text": "PENDING",
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
+   "text": "PASS",
    "unit": null,
-   "value": "PENDING"
+   "value": "PASS"
   },
   "demo.a09.commit": {
-   "code_version": null,
-   "pending": "not in the source",
+   "code_version": "9b233e0",
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": null,
-   "text": null,
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
+   "text": "9b233e0",
    "unit": null,
-   "value": null
+   "value": "9b233e0"
   },
   "demo.a09.date": {
-   "code_version": null,
-   "pending": "not in the source",
+   "code_version": "9b233e0",
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": null,
-   "text": null,
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
+   "text": "2026-10-23",
    "unit": null,
-   "value": null
+   "value": "2026-10-23"
   },
   "demo.a09.reason": {
-   "code_version": null,
+   "code_version": "9b233e0",
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
-   "text": "no fresh-clone readiness rehearsal yet (python tasks.py demo-readiness on the release commit)",
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
+   "text": "fresh clone + pack + rehearsal, no manual step",
    "unit": null,
-   "value": "no fresh-clone readiness rehearsal yet (python tasks.py demo-readiness on the release commit)"
+   "value": "fresh clone + pack + rehearsal, no manual step"
   },
   "demo.commit": {
    "code_version": null,
-   "pending": "not in the source",
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": null,
-   "text": null,
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
+   "text": "9b233e0",
    "unit": null,
-   "value": null
+   "value": "9b233e0"
   },
   "demo.date": {
    "code_version": null,
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
    "text": "2026-10-23",
    "unit": null,
    "value": "2026-10-23"
   },
   "demo.fresh_clone": {
-   "code_version": null,
+   "code_version": "9b233e0",
    "source": "docs/demo/rehearsal.json",
-   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
-   "text": "no",
+   "source_sha256": "6ca4d2b320b00af042d8c205a43e53c8ef5b32e0e193ebe6b8a98d51cd5b6f3a",
+   "text": "yes",
    "unit": null,
-   "value": false
+   "value": true
   },
   "demo.human_rehearsals": {
    "code_version": null,
@@ -3146,12 +3143,12 @@
    ]
   },
   "meta.code": {
-   "code_version": "ca1a7c1-dirty",
+   "code_version": "9b233e0",
    "source": null,
    "source_sha256": null,
-   "text": "ca1a7c1-dirty",
+   "text": "9b233e0",
    "unit": null,
-   "value": "ca1a7c1-dirty"
+   "value": "9b233e0"
   },
   "meta.date": {
    "code_version": null,
