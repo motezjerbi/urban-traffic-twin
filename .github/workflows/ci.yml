@@ -30,6 +30,11 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Fonts
+        # Carlito is metric-compatible with Calibri, the deck font: report/slides.py
+        # measures slide titles with it, so Linux checks titles exactly as Windows does.
+        run: sudo apt-get update && sudo apt-get install -y fonts-crosextra-carlito
+
       - name: Install
         # eclipse-sumo wheels ship the sumo/netconvert binaries, so the `sumo`-marked
         # integration tests run here too. SUMO is pinned in pyproject.toml. torch comes
