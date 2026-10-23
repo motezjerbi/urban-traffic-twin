@@ -210,6 +210,24 @@ def test_pitie_pedestrian_panel_uses_the_single_wait(pitie_cfg):
     assert _ped_panel([grid]) == ["ped_wait_max"] and _ped_panel([grid, sc]) == ["ped_wait_max"]
 
 
+def test_evaluation_pedestrian_panel_is_the_judged_curb_wait(pitie_cfg):
+    """The evaluation figures name `ped_curb_wait_max` (A-04 since the 2026-10-12 change,
+    D27) with the 90 s target, not the single wait that is reported only; without the
+    curb rows the panel falls back to the other pedestrian KPIs."""
+    sc = _scenario("pitie_fixed")
+    sc.config = {
+        **CONFIG,
+        "measurement": pitie_cfg["measurement"],
+        "ped_headline_kpi": "ped_curb_wait_max",
+    }
+    assert plots.ped_headline_kpi(sc) == "ped_curb_wait_max"
+    assert _ped_panel([sc]) == ["ped_wait_max"]  # no curb rows in this fixture
+    curb = sc.kpis[sc.kpis["kpi"] == "ped_wait_max"].assign(kpi="ped_curb_wait_max")
+    sc.kpis = pd.concat([sc.kpis, curb], ignore_index=True)
+    assert _ped_panel([sc]) == ["ped_curb_wait_max"]
+    assert "ped_curb_wait_max" in plots.PED_TARGET_KPIS  # drawn against the target line
+
+
 def _grid_scenario() -> plots.Scenario:
     """The frozen grid baseline (seeds 1-3, tests/data fixture captured before Part 3) as
     today's runs report it: with the single-wait rows kpi.py now adds (77-78 s)."""

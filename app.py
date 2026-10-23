@@ -326,6 +326,9 @@ section[data-testid="stSidebar"] { min-width: 335px !important; max-width: 335px
 .sb-h small { color: #8B98A8; font-weight: 500; font-size: .8rem; margin-left: .4rem; font-family: 'IBM Plex Sans', sans-serif; }
 .sb-note { color: #8B98A8; font-size: .78rem; margin: .5rem 0 0; line-height: 1.35; }
 .sb-desc { color: #8B98A8; font-size: .76rem; margin: -.25rem 0 .1rem 2.7rem; line-height: 1.3; }
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p.sb-desc { font-size: .76rem; margin: -.25rem 0 .1rem 2.7rem;
+      line-height: 1.3; }
+[data-testid="stSidebar"] [class*="st-key-scn_card_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0; }
 [data-testid="stSidebar"] .stButton button { width: 100%; background: #171E26; border: 1px solid #2A3441; color: #E6EDF3;
       border-radius: 9px; font-size: .84rem; padding: .3rem .5rem; }
 [data-testid="stSidebar"] .stButton button:hover { border-color: #2DD4A0; color: #2DD4A0; }
@@ -633,6 +636,7 @@ def main() -> None:
         ),
     )
     n = len(ranked)
+    main_ranked = [x for x in ranked if (info[x].get("role") or "main") == "main"]
 
     def delta_html(g, lower_better=True):
         if g is None:
@@ -655,7 +659,17 @@ def main() -> None:
         role_tag = f" · {ROLE_NAMES[role]}" if role in ROLE_NAMES else ""
         if scn in ranked:
             rk = ranked.index(scn) + 1
-            tag = " · le moins bon" if rk == 1 and n > 1 else (" · le meilleur" if rk == n else "")
+            # "le meilleur" / "le moins bon" among the main scenarios only (ablations and
+            # exploratory runs are ranked but never named best, as in the /mock Operator)
+            tag = (
+                (
+                    " · le moins bon"
+                    if scn == main_ranked[0] and len(main_ranked) > 1
+                    else (" · le meilleur (hors ablations)" if scn == main_ranked[-1] else "")
+                )
+                if scn in main_ranked
+                else ""
+            )
             pw, amb, car = (
                 val(scn, "all", "person_delay_mean"),
                 val(scn, "ambulance", "travel_time_total"),

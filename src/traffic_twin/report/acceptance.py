@@ -138,11 +138,18 @@ def acceptance(facts: dict) -> list[dict]:
     if n is None or of is None:
         add("A-03", "PENDING", "evaluation summary missing", "eval.a03.n")
     elif int(n) == int(of):
+        per = _v(facts, "eval.a03.n_kpis")
+        counts = sorted(set(per.values())) if isinstance(per, dict) and per else []
+        if len(counts) == 1:
+            kpis = f" ({counts[0]} KPIs in each family)"
+        elif per:
+            kpis = f" (KPIs per family: {_t(facts, 'eval.a03.n_kpis')})"
+        else:
+            kpis = ""
         add(
             "A-03",
             "PASS",
-            f"{n} of {of} controllers on one scenario and one KPI set "
-            f"({_t(facts, 'eval.a03.n_kpis')} KPIs per family)",
+            f"{n} of {of} controllers on one scenario and one KPI set{kpis}",
             "eval.a03.n",
         )
     elif p8:
@@ -168,7 +175,7 @@ def acceptance(facts: dict) -> list[dict]:
         add(
             "A-04",
             _verdict(v),
-            f"{v} over {runs} runs, 0 dangerous sequences required{tail}",
+            f"{v} over {runs} runs (the criterion allows 0 dangerous sequences){tail}",
             "eval.a04.verdict",
         )
     else:
@@ -233,9 +240,12 @@ def acceptance(facts: dict) -> list[dict]:
             fresh = _v(facts, "demo.fresh_clone")
             extra = " on a fresh clone" if cid == "A-09" and fresh else ""
             why = _t(facts, f"{key}.reason") if v != "PASS" else None
-            ev = f"{what}{extra}" + (f", {date}" if date else "")
+            if v == "PENDING" and why:
+                ev = why  # the recorded reason already names what is missing
+            else:
+                ev = f"{what}{extra}" + (f", {date}" if date else "")
+                ev += f" ({why})" if why else ""
             ev += f", code {commit}" if commit else ""
-            ev += f" ({why})" if why else ""
             add(cid, _verdict(v), ev, key)
 
     # A-10: DONE with 3-5 complete sessions, never PASS (D112)

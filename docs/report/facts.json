@@ -1,0 +1,3819 @@
+{
+ "code_version": "ca1a7c1-dirty",
+ "facts": {
+  "a01.head": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/_rebaseline/ca1a7c1/verify.json",
+   "source_sha256": "458d07b109b7d2043dd69803b155499ea7f90ca5d70877205a48eb31c2e78fb0",
+   "text": "ca1a7c1",
+   "unit": null,
+   "value": "ca1a7c1"
+  },
+  "a01.identical": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/_rebaseline/ca1a7c1/verify.json",
+   "source_sha256": "458d07b109b7d2043dd69803b155499ea7f90ca5d70877205a48eb31c2e78fb0",
+   "text": "70",
+   "unit": null,
+   "value": 70
+  },
+  "a01.of": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/_rebaseline/ca1a7c1/verify.json",
+   "source_sha256": "458d07b109b7d2043dd69803b155499ea7f90ca5d70877205a48eb31c2e78fb0",
+   "text": "70",
+   "unit": null,
+   "value": 70
+  },
+  "a06.inputs_ok": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "yes",
+   "unit": null,
+   "value": true
+  },
+  "a06.model_sha8": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "151c6f69",
+   "unit": null,
+   "value": "151c6f692acc4d23800a0afc2fba68b655f5fa0df18fe91163ccff20894d4c29"
+  },
+  "a06.n_required": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "a06.primary": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "S1",
+   "unit": null,
+   "value": "S1"
+  },
+  "a06.primary_sentence": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "S3 vs S1 (actuated): all/person_delay_mean 57.1 → 46.0 s (n = 10), HL -9.5 s [95 % CI -17.5, -6.4], exact two-sided p 0.0020, Holm p 0.0059 (α 0.05): S3 better",
+   "unit": null,
+   "value": "S3 vs S1 (actuated): all/person_delay_mean 57.1 → 46.0 s (n = 10), HL -9.5 s [95 % CI -17.5, -6.4], exact two-sided p 0.0020, Holm p 0.0059 (α 0.05): S3 better"
+  },
+  "a06.problems": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "none",
+   "unit": null,
+   "value": []
+  },
+  "a06.registration.commit": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "ca1a7c1",
+   "unit": null,
+   "value": "ca1a7c1"
+  },
+  "a06.registration.committed_at": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "2026-10-23T20:26:19+02:00",
+   "unit": null,
+   "value": "2026-10-23T20:26:19+02:00"
+  },
+  "a06.registration.first_s3_started_at": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "2026-10-23T18:43:48.875285+00:00",
+   "unit": null,
+   "value": "2026-10-23T18:43:48.875285+00:00"
+  },
+  "a06.registration.order": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "before",
+   "unit": null,
+   "value": "before"
+  },
+  "a06.s0.ci": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "[-29.4, -10.7] s",
+   "unit": null,
+   "value": [
+    -29.413329596162814,
+    -10.701432685710877
+   ]
+  },
+  "a06.s0.hl": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "-14.3 s",
+   "unit": "s",
+   "value": -14.29263735034128
+  },
+  "a06.s0.mean_ref": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "63.6 s",
+   "unit": "s",
+   "value": 63.558103192467364
+  },
+  "a06.s0.mean_s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "46.0 s",
+   "unit": "s",
+   "value": 46.039123507315274
+  },
+  "a06.s0.n": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "a06.s0.outcome": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "better",
+   "unit": null,
+   "value": "better"
+  },
+  "a06.s0.p": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "0.0020",
+   "unit": null,
+   "value": 0.001953125
+  },
+  "a06.s0.p_holm": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "0.0059",
+   "unit": null,
+   "value": 0.005859375
+  },
+  "a06.s0.sd_ref": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "14.5 s",
+   "unit": "s",
+   "value": 14.49606251427799
+  },
+  "a06.s0.sd_s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "3.2 s",
+   "unit": "s",
+   "value": 3.1506099875408373
+  },
+  "a06.s0.sentence": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "S3 vs S0 (fixed): all/person_delay_mean 63.6 → 46.0 s (n = 10), HL -14.3 s [95 % CI -29.4, -10.7], exact two-sided p 0.0020, Holm p 0.0059 (α 0.05): S3 better",
+   "unit": null,
+   "value": "S3 vs S0 (fixed): all/person_delay_mean 63.6 → 46.0 s (n = 10), HL -14.3 s [95 % CI -29.4, -10.7], exact two-sided p 0.0020, Holm p 0.0059 (α 0.05): S3 better"
+  },
+  "a06.s1.ci": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "[-17.5, -6.4] s",
+   "unit": null,
+   "value": [
+    -17.470054596950344,
+    -6.422926681212935
+   ]
+  },
+  "a06.s1.hl": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "-9.5 s",
+   "unit": "s",
+   "value": -9.518685567782644
+  },
+  "a06.s1.mean_ref": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "57.1 s",
+   "unit": "s",
+   "value": 57.129814132581714
+  },
+  "a06.s1.mean_s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "46.0 s",
+   "unit": "s",
+   "value": 46.039123507315274
+  },
+  "a06.s1.n": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "a06.s1.outcome": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "better",
+   "unit": null,
+   "value": "better"
+  },
+  "a06.s1.p": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "0.0020",
+   "unit": null,
+   "value": 0.001953125
+  },
+  "a06.s1.p_holm": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "0.0059",
+   "unit": null,
+   "value": 0.005859375
+  },
+  "a06.s1.sd_ref": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "9.4 s",
+   "unit": "s",
+   "value": 9.359398495888628
+  },
+  "a06.s1.sd_s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "3.2 s",
+   "unit": "s",
+   "value": 3.1506099875408373
+  },
+  "a06.s1.sentence": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "S3 vs S1 (actuated): all/person_delay_mean 57.1 → 46.0 s (n = 10), HL -9.5 s [95 % CI -17.5, -6.4], exact two-sided p 0.0020, Holm p 0.0059 (α 0.05): S3 better",
+   "unit": null,
+   "value": "S3 vs S1 (actuated): all/person_delay_mean 57.1 → 46.0 s (n = 10), HL -9.5 s [95 % CI -17.5, -6.4], exact two-sided p 0.0020, Holm p 0.0059 (α 0.05): S3 better"
+  },
+  "a06.s2.ci": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "[-5.0, -0.6] s",
+   "unit": null,
+   "value": [
+    -5.008929744525602,
+    -0.5789305427964173
+   ]
+  },
+  "a06.s2.hl": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "-2.5 s",
+   "unit": "s",
+   "value": -2.5394334488007857
+  },
+  "a06.s2.mean_ref": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "48.9 s",
+   "unit": "s",
+   "value": 48.90105533954027
+  },
+  "a06.s2.mean_s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "46.0 s",
+   "unit": "s",
+   "value": 46.039123507315274
+  },
+  "a06.s2.n": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "a06.s2.outcome": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "better",
+   "unit": null,
+   "value": "better"
+  },
+  "a06.s2.p": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "0.0137",
+   "unit": null,
+   "value": 0.013671875
+  },
+  "a06.s2.p_holm": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "0.0137",
+   "unit": null,
+   "value": 0.013671875
+  },
+  "a06.s2.sd_ref": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "4.4 s",
+   "unit": "s",
+   "value": 4.380222143678419
+  },
+  "a06.s2.sd_s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "3.2 s",
+   "unit": "s",
+   "value": 3.1506099875408373
+  },
+  "a06.s2.sentence": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "S3 vs S2 (rules): all/person_delay_mean 48.9 → 46.0 s (n = 10), HL -2.5 s [95 % CI -5.0, -0.6], exact two-sided p 0.0137, Holm p 0.0137 (α 0.05): S3 better",
+   "unit": null,
+   "value": "S3 vs S2 (rules): all/person_delay_mean 48.9 → 46.0 s (n = 10), HL -2.5 s [95 % CI -5.0, -0.6], exact two-sided p 0.0137, Holm p 0.0137 (α 0.05): S3 better"
+  },
+  "a06.status": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "acceptance.A-01": {
+   "code_version": null,
+   "criterion": "The simulation runs headless and reproducibly: two runs with the same seed give the same KPIs.",
+   "evidence": "70 of 70 re-made evaluation runs byte-identical (code ca1a7c1)",
+   "source": "data/results/_rebaseline/ca1a7c1/verify.json",
+   "source_sha256": null,
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "acceptance.A-02": {
+   "code_version": null,
+   "criterion": "The simulated flow per arm is within the fixed threshold of the real flow.",
+   "evidence": "6 of 6 inbound arm × slot rows within ±15 % of the real flow; GEH < 5 on 10 of 10 counts",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": null,
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "acceptance.A-03": {
+   "code_version": null,
+   "criterion": "The four controllers (fixed, actuated, rules, RL) run on the same scenario and produce the KPI file.",
+   "evidence": "4 of 4 controllers on one scenario and one KPI set (83 KPIs in each family)",
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": null,
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "acceptance.A-04": {
+   "code_version": null,
+   "criterion": "No dangerous signal sequence in the 10 test seeds, and the longest pedestrian wait stays under the bound.",
+   "evidence": "PASS over 110 runs (the criterion allows 0 dangerous sequences); worst curb wait 88 s (bound 90 s)",
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": null,
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "acceptance.A-05": {
+   "code_version": null,
+   "criterion": "Preemption reduces the ambulance travel time compared with S0.",
+   "evidence": "main family S2 vs S0, ambulance travel time: HL -36.5 s [-70.0, -14.0] s, exact one-sided p 0.0020 (n = 10)",
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": null,
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "acceptance.A-06": {
+   "code_version": null,
+   "criterion": "RL is compared with the baselines on 10 seeds with a statistical test; the result is presented, favourable or not.",
+   "evidence": "presented: S3 vs S1 (actuated): all/person_delay_mean 57.1 → 46.0 s (n = 10), HL -9.5 s [95 % CI -17.5, -6.4], exact two-sided p 0.0020, Holm p 0.0059 (α 0.05): S3 better",
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": null,
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "acceptance.A-07": {
+   "code_version": null,
+   "criterion": "The announced 80 % ETA interval covers between 75 % and 85 % of the cases.",
+   "evidence": "coverage 80.6 % [80.2 %, 81.0 %] on the realistic test worlds (band 75-85 %); median MAE 10.2 s against 39.6 s for the reference",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": null,
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "acceptance.A-08": {
+   "code_version": null,
+   "criterion": "Every view answers through the API, shows 'données simulées' and handles the loading, error and degraded states.",
+   "evidence": "the recorded rehearsal (every view, states, footer), 2026-10-23, code ca1a7c1-dirty",
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": null,
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "acceptance.A-09": {
+   "code_version": null,
+   "criterion": "The full demo runs without manual intervention on the code.",
+   "evidence": "no fresh-clone readiness rehearsal yet (python tasks.py demo-readiness on the release commit)",
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": null,
+   "text": "PENDING",
+   "unit": null,
+   "value": "PENDING"
+  },
+  "acceptance.A-10": {
+   "code_version": null,
+   "criterion": "A test with 3 to 5 users is carried out and synthesised.",
+   "evidence": "no session yet; 3 to 5 real sessions needed (spec 12.2)",
+   "source": "docs/usertests/synthesis.json",
+   "source_sha256": null,
+   "text": "PENDING",
+   "unit": null,
+   "value": "PENDING"
+  },
+  "api.bench.date": {
+   "code_version": "ca1a7c1",
+   "source": "docs/api.md",
+   "source_sha256": "c99b51f83919409a32ee538bfeca1433d4001393a60f3e05adbacfb43bf40b3c",
+   "text": "2026-10-23",
+   "unit": null,
+   "value": "2026-10-23"
+  },
+  "api.bench.verdict": {
+   "code_version": "ca1a7c1",
+   "source": "docs/api.md",
+   "source_sha256": "c99b51f83919409a32ee538bfeca1433d4001393a60f3e05adbacfb43bf40b3c",
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "api.bench.worst_p95": {
+   "code_version": "ca1a7c1",
+   "source": "docs/api.md",
+   "source_sha256": "c99b51f83919409a32ee538bfeca1433d4001393a60f3e05adbacfb43bf40b3c",
+   "text": "53.6 ms",
+   "unit": "ms",
+   "value": 53.6
+  },
+  "demo.a08": {
+   "code_version": "ca1a7c1-dirty",
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "demo.a08.commit": {
+   "code_version": "ca1a7c1-dirty",
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "text": "ca1a7c1-dirty",
+   "unit": null,
+   "value": "ca1a7c1-dirty"
+  },
+  "demo.a08.date": {
+   "code_version": "ca1a7c1-dirty",
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "text": "2026-10-23",
+   "unit": null,
+   "value": "2026-10-23"
+  },
+  "demo.a08.reason": {
+   "code_version": null,
+   "pending": "not in the source",
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": null,
+   "text": null,
+   "unit": null,
+   "value": null
+  },
+  "demo.a09": {
+   "code_version": null,
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "text": "PENDING",
+   "unit": null,
+   "value": "PENDING"
+  },
+  "demo.a09.commit": {
+   "code_version": null,
+   "pending": "not in the source",
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": null,
+   "text": null,
+   "unit": null,
+   "value": null
+  },
+  "demo.a09.date": {
+   "code_version": null,
+   "pending": "not in the source",
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": null,
+   "text": null,
+   "unit": null,
+   "value": null
+  },
+  "demo.a09.reason": {
+   "code_version": null,
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "text": "no fresh-clone readiness rehearsal yet (python tasks.py demo-readiness on the release commit)",
+   "unit": null,
+   "value": "no fresh-clone readiness rehearsal yet (python tasks.py demo-readiness on the release commit)"
+  },
+  "demo.commit": {
+   "code_version": null,
+   "pending": "not in the source",
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": null,
+   "text": null,
+   "unit": null,
+   "value": null
+  },
+  "demo.date": {
+   "code_version": null,
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "text": "2026-10-23",
+   "unit": null,
+   "value": "2026-10-23"
+  },
+  "demo.fresh_clone": {
+   "code_version": null,
+   "source": "docs/demo/rehearsal.json",
+   "source_sha256": "0a5fe3a52006a93080c6f7cd74041778f2cd6b6b2baf53c4fed5f8bb2957abfc",
+   "text": "no",
+   "unit": null,
+   "value": false
+  },
+  "demo.human_rehearsals": {
+   "code_version": null,
+   "source": "docs/demo/rehearsal_log.yaml",
+   "source_sha256": "91afb01e38f70d96900cce5783fc0f239c01d8cc8e8a1b1ee8043df8466860ab",
+   "text": "0",
+   "unit": null,
+   "value": 0
+  },
+  "demo.rehearsed": {
+   "code_version": null,
+   "pending": "no human rehearsal in docs/demo/rehearsal_log.yaml with a date, a commit and manual_code_edits: 0 (D116)",
+   "source": "docs/demo/rehearsal_log.yaml",
+   "source_sha256": null,
+   "text": null,
+   "unit": null,
+   "value": null
+  },
+  "eta.a07.band": {
+   "code_version": "8fd1026-dirty",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": "89572956c661e07b02910bf21f89d92b47030b226d5ef6eccb0d8845c660a04d",
+   "text": "75-85 %",
+   "unit": null,
+   "value": [
+    0.75,
+    0.85
+   ]
+  },
+  "eta.a07.ci": {
+   "code_version": "8fd1026-dirty",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": "89572956c661e07b02910bf21f89d92b47030b226d5ef6eccb0d8845c660a04d",
+   "text": "[80.2 %, 81.0 %]",
+   "unit": null,
+   "value": [
+    0.801711,
+    0.810438
+   ]
+  },
+  "eta.a07.coverage_pct": {
+   "code_version": "8fd1026-dirty",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": "89572956c661e07b02910bf21f89d92b47030b226d5ef6eccb0d8845c660a04d",
+   "text": "80.6 %",
+   "unit": "%",
+   "value": 80.6168
+  },
+  "eta.a07.mae": {
+   "code_version": "8fd1026-dirty",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": "89572956c661e07b02910bf21f89d92b47030b226d5ef6eccb0d8845c660a04d",
+   "text": "10.2 s",
+   "unit": "s",
+   "value": 10.209199
+  },
+  "eta.a07.n": {
+   "code_version": "8fd1026-dirty",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": "89572956c661e07b02910bf21f89d92b47030b226d5ef6eccb0d8845c660a04d",
+   "text": "483,100",
+   "unit": null,
+   "value": 483100
+  },
+  "eta.a07.n_worlds": {
+   "code_version": "8fd1026-dirty",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": "89572956c661e07b02910bf21f89d92b47030b226d5ef6eccb0d8845c660a04d",
+   "text": "72",
+   "unit": null,
+   "value": 72
+  },
+  "eta.a07.ref_mae": {
+   "code_version": "8fd1026-dirty",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": "89572956c661e07b02910bf21f89d92b47030b226d5ef6eccb0d8845c660a04d",
+   "text": "39.6 s",
+   "unit": "s",
+   "value": 39.649416
+  },
+  "eta.a07.verdict": {
+   "code_version": "8fd1026-dirty",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": "89572956c661e07b02910bf21f89d92b47030b226d5ef6eccb0d8845c660a04d",
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "eta.interval_pct": {
+   "code_version": null,
+   "source": "configs/eta.yaml",
+   "source_sha256": "52a86941dd9d501400ef4e69c7e03cb065c096dba9fe05a30dda03b303ab86d7",
+   "text": "80 %",
+   "unit": "%",
+   "value": 80.0
+  },
+  "eta.model_version": {
+   "code_version": "8fd1026-dirty",
+   "source": "data/models/eta/eta1-56926796/eval.json",
+   "source_sha256": "89572956c661e07b02910bf21f89d92b47030b226d5ef6eccb0d8845c660a04d",
+   "text": "eta1-56926796",
+   "unit": null,
+   "value": "eta1-56926796"
+  },
+  "eval.a03.n": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "4",
+   "unit": null,
+   "value": 4
+  },
+  "eval.a03.n_kpis": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "ambulance_probe 83, main 83",
+   "unit": null,
+   "value": {
+    "ambulance_probe": 83,
+    "main": 83
+   }
+  },
+  "eval.a03.of": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "4",
+   "unit": null,
+   "value": 4
+  },
+  "eval.a03.text": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "4/4",
+   "unit": null,
+   "value": "4/4"
+  },
+  "eval.a04.bound": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/a04.csv",
+   "source_sha256": "9e7a4ed55140a7a77646fd89cdeeb1b8340baa722a8027c7d8a2c03164729f0c",
+   "text": "90 s",
+   "unit": "s",
+   "value": 90.0
+  },
+  "eval.a04.runs": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "110",
+   "unit": null,
+   "value": 110
+  },
+  "eval.a04.verdict": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "eval.a04.worst_curb_wait": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/a04.csv",
+   "source_sha256": "9e7a4ed55140a7a77646fd89cdeeb1b8340baa722a8027c7d8a2c03164729f0c",
+   "text": "88 s",
+   "unit": "s",
+   "value": 88.0
+  },
+  "eval.a05.ci": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "[-70.0, -14.0] s",
+   "unit": null,
+   "value": [
+    -70.0,
+    -14.0
+   ]
+  },
+  "eval.a05.hl": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "-36.5 s",
+   "unit": "s",
+   "value": -36.5
+  },
+  "eval.a05.mean_s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/a05.json",
+   "source_sha256": "86652b4a1d4b673de38ac9a6d2b91df22c18c19aabef3b507ebabc67b3ea15d4",
+   "text": "152.2 s",
+   "unit": "s",
+   "value": 152.2
+  },
+  "eval.a05.mean_s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/a05.json",
+   "source_sha256": "86652b4a1d4b673de38ac9a6d2b91df22c18c19aabef3b507ebabc67b3ea15d4",
+   "text": "110.5 s",
+   "unit": "s",
+   "value": 110.5
+  },
+  "eval.a05.n": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "eval.a05.p": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "0.0020",
+   "unit": null,
+   "value": 0.001953125
+  },
+  "eval.a05.probe.hl": {
+   "code_version": null,
+   "source": "data/results/evaluation/a05.json",
+   "source_sha256": "86652b4a1d4b673de38ac9a6d2b91df22c18c19aabef3b507ebabc67b3ea15d4",
+   "text": "-83.1 s",
+   "unit": "s",
+   "value": -83.14285714285715
+  },
+  "eval.a05.probe.p": {
+   "code_version": null,
+   "source": "data/results/evaluation/a05.json",
+   "source_sha256": "86652b4a1d4b673de38ac9a6d2b91df22c18c19aabef3b507ebabc67b3ea15d4",
+   "text": "0.0010",
+   "unit": null,
+   "value": 0.0009765625
+  },
+  "eval.a05.probe_nop.hl": {
+   "code_version": null,
+   "source": "data/results/evaluation/a05.json",
+   "source_sha256": "86652b4a1d4b673de38ac9a6d2b91df22c18c19aabef3b507ebabc67b3ea15d4",
+   "text": "-15.8 s",
+   "unit": "s",
+   "value": -15.785714285714278
+  },
+  "eval.a05.probe_nop.p": {
+   "code_version": null,
+   "source": "data/results/evaluation/a05.json",
+   "source_sha256": "86652b4a1d4b673de38ac9a6d2b91df22c18c19aabef3b507ebabc67b3ea15d4",
+   "text": "0.0010",
+   "unit": null,
+   "value": 0.0009765625
+  },
+  "eval.a05.sentence": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "shortens the ambulance travel time by a Hodges-Lehmann shift of 36.5 s",
+   "unit": null,
+   "value": -36.5
+  },
+  "eval.a05.verdict": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "eval.changes_n": {
+   "code_version": null,
+   "source": "configs/evaluation.yaml",
+   "source_sha256": "349aa029d4f5137c17b014e49a18f8adb44100177d6700934609e8d9f71f2ae4",
+   "text": "9",
+   "unit": null,
+   "value": 9
+  },
+  "eval.equity.sentence": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "9 of the 9 scenarios (family and controller, over the evaluation seeds) that lower the person-weighted delay significantly against S0 also make a KPI more than 5 % worse than S0 (user groups in brackets): main S1 (bus, pedestrian); main S2 (bus, car, pedestrian); main S2_noP (bus, car); main S3 (pedestrian); main S4 (pedestrian); ambulance_probe S2 (bus, car, pedestrian); ambulance_probe S2_noP (bus, car, pedestrian); ambulance_probe S3 (pedestrian); ambulance_probe S4 (pedestrian); each of them pays for its average gain somewhere",
+   "unit": null,
+   "value": {
+    "ambulance_probe S2": [
+     "bus",
+     "car",
+     "pedestrian"
+    ],
+    "ambulance_probe S2_noP": [
+     "bus",
+     "car",
+     "pedestrian"
+    ],
+    "ambulance_probe S3": [
+     "pedestrian"
+    ],
+    "ambulance_probe S4": [
+     "pedestrian"
+    ],
+    "main S1": [
+     "bus",
+     "pedestrian"
+    ],
+    "main S2": [
+     "bus",
+     "car",
+     "pedestrian"
+    ],
+    "main S2_noP": [
+     "bus",
+     "car"
+    ],
+    "main S3": [
+     "pedestrian"
+    ],
+    "main S4": [
+     "pedestrian"
+    ]
+   }
+  },
+  "eval.equity_pct": {
+   "code_version": null,
+   "source": "configs/evaluation.yaml",
+   "source_sha256": "349aa029d4f5137c17b014e49a18f8adb44100177d6700934609e8d9f71f2ae4",
+   "text": "5 %",
+   "unit": "%",
+   "value": 5.0
+  },
+  "eval.hidden_degradation": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "main S1, main S2, main S2_noP, main S3, main S4, ambulance_probe S2, ambulance_probe S2_noP, ambulance_probe S3, ambulance_probe S4",
+   "unit": null,
+   "value": [
+    "main S1",
+    "main S2",
+    "main S2_noP",
+    "main S3",
+    "main S4",
+    "ambulance_probe S2",
+    "ambulance_probe S2_noP",
+    "ambulance_probe S3",
+    "ambulance_probe S4"
+   ]
+  },
+  "eval.kpi.all.person_delay_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "63.6 s",
+   "unit": "s",
+   "value": 63.558103192467364
+  },
+  "eval.kpi.all.person_delay_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "57.1 s",
+   "unit": "s",
+   "value": 57.1298141325817
+  },
+  "eval.kpi.all.person_delay_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "48.9 s",
+   "unit": "s",
+   "value": 48.90105533954028
+  },
+  "eval.kpi.all.person_delay_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "48.9 s",
+   "unit": "s",
+   "value": 48.938920639900175
+  },
+  "eval.kpi.ambulance.stop_duration_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "60.9 s",
+   "unit": "s",
+   "value": 60.9
+  },
+  "eval.kpi.ambulance.stop_duration_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "54.0 s",
+   "unit": "s",
+   "value": 53.983333333333334
+  },
+  "eval.kpi.ambulance.stop_duration_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "34.8 s",
+   "unit": "s",
+   "value": 34.75
+  },
+  "eval.kpi.ambulance.stop_duration_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "51.2 s",
+   "unit": "s",
+   "value": 51.25
+  },
+  "eval.kpi.ambulance.stops.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1.30",
+   "unit": null,
+   "value": 1.3
+  },
+  "eval.kpi.ambulance.stops.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1.60",
+   "unit": null,
+   "value": 1.6
+  },
+  "eval.kpi.ambulance.stops.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1.20",
+   "unit": null,
+   "value": 1.2
+  },
+  "eval.kpi.ambulance.stops.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1.40",
+   "unit": null,
+   "value": 1.4
+  },
+  "eval.kpi.ambulance.travel_time_total.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "152.2 s",
+   "unit": "s",
+   "value": 152.2
+  },
+  "eval.kpi.ambulance.travel_time_total.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "149.1 s",
+   "unit": "s",
+   "value": 149.1
+  },
+  "eval.kpi.ambulance.travel_time_total.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "110.5 s",
+   "unit": "s",
+   "value": 110.5
+  },
+  "eval.kpi.ambulance.travel_time_total.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "134.4 s",
+   "unit": "s",
+   "value": 134.4
+  },
+  "eval.kpi.bus.delay_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "61.0 s",
+   "unit": "s",
+   "value": 61.00552127659574
+  },
+  "eval.kpi.bus.delay_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "62.6 s",
+   "unit": "s",
+   "value": 62.55205319148936
+  },
+  "eval.kpi.bus.delay_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "56.1 s",
+   "unit": "s",
+   "value": 56.107765957446816
+  },
+  "eval.kpi.bus.delay_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "57.2 s",
+   "unit": "s",
+   "value": 57.18156382978723
+  },
+  "eval.kpi.bus.dwell_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "eval.kpi.bus.dwell_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "eval.kpi.bus.dwell_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "eval.kpi.bus.dwell_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "eval.kpi.bus.headway_std.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "23.4 s",
+   "unit": "s",
+   "value": 23.410894192721408
+  },
+  "eval.kpi.bus.headway_std.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "21.6 s",
+   "unit": "s",
+   "value": 21.561351757340425
+  },
+  "eval.kpi.bus.headway_std.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "23.3 s",
+   "unit": "s",
+   "value": 23.31239532614292
+  },
+  "eval.kpi.bus.headway_std.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "23.4 s",
+   "unit": "s",
+   "value": 23.396375579371572
+  },
+  "eval.kpi.car.throughput_vph.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1178.8 veh/h",
+   "unit": "veh/h",
+   "value": 1178.85
+  },
+  "eval.kpi.car.throughput_vph.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1179.5 veh/h",
+   "unit": "veh/h",
+   "value": 1179.55
+  },
+  "eval.kpi.car.throughput_vph.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1185.7 veh/h",
+   "unit": "veh/h",
+   "value": 1185.65
+  },
+  "eval.kpi.car.throughput_vph.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1184.7 veh/h",
+   "unit": "veh/h",
+   "value": 1184.7
+  },
+  "eval.kpi.car.time_loss_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "75.9 s",
+   "unit": "s",
+   "value": 75.85096396604082
+  },
+  "eval.kpi.car.time_loss_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "65.8 s",
+   "unit": "s",
+   "value": 65.80007721060244
+  },
+  "eval.kpi.car.time_loss_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "56.6 s",
+   "unit": "s",
+   "value": 56.567477254624905
+  },
+  "eval.kpi.car.time_loss_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "55.9 s",
+   "unit": "s",
+   "value": 55.87454481567943
+  },
+  "eval.kpi.car.wait_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "60.9 s",
+   "unit": "s",
+   "value": 60.90700259670732
+  },
+  "eval.kpi.car.wait_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "52.0 s",
+   "unit": "s",
+   "value": 51.97656303381107
+  },
+  "eval.kpi.car.wait_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "44.2 s",
+   "unit": "s",
+   "value": 44.16930501861587
+  },
+  "eval.kpi.car.wait_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "43.5 s",
+   "unit": "s",
+   "value": 43.50839172041383
+  },
+  "eval.kpi.car.wait_p95.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "164.5 s",
+   "unit": "s",
+   "value": 164.475
+  },
+  "eval.kpi.car.wait_p95.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "140.0 s",
+   "unit": "s",
+   "value": 139.95999999999998
+  },
+  "eval.kpi.car.wait_p95.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "111.6 s",
+   "unit": "s",
+   "value": 111.63499999999999
+  },
+  "eval.kpi.car.wait_p95.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "109.6 s",
+   "unit": "s",
+   "value": 109.55999999999995
+  },
+  "eval.kpi.pedestrian.crossing_complete_rate.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9998143567594235
+  },
+  "eval.kpi.pedestrian.crossing_complete_rate.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9998138771097649
+  },
+  "eval.kpi.pedestrian.crossing_complete_rate.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9999383857054835
+  },
+  "eval.kpi.pedestrian.crossing_complete_rate.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9998768850904775
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_max.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "85.6 s",
+   "unit": "s",
+   "value": 85.6
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_max.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "87.4 s",
+   "unit": "s",
+   "value": 87.4
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_max.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "88.0 s",
+   "unit": "s",
+   "value": 88.0
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_max.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "88.0 s",
+   "unit": "s",
+   "value": 88.0
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "18.9 s",
+   "unit": "s",
+   "value": 18.89511104892694
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "19.2 s",
+   "unit": "s",
+   "value": 19.234765352409614
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "19.4 s",
+   "unit": "s",
+   "value": 19.377285034249404
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "19.1 s",
+   "unit": "s",
+   "value": 19.14888203677398
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_p95.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "72.9 s",
+   "unit": "s",
+   "value": 72.86499999999998
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_p95.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "72.0 s",
+   "unit": "s",
+   "value": 71.96999999999998
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_p95.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "73.4 s",
+   "unit": "s",
+   "value": 73.35499999999999
+  },
+  "eval.kpi.pedestrian.ped_curb_wait_p95.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/main/kpis.csv",
+   "source_sha256": "15aafb6d029cce4d52c14eaf69e537a6de96d0ffd039a2ce4a1d6143595a9e21",
+   "text": "73.2 s",
+   "unit": "s",
+   "value": 73.15499999999997
+  },
+  "eval.n_seeds": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "eval.occupancy.bus": {
+   "code_version": null,
+   "source": "configs/evaluation.yaml",
+   "source_sha256": "349aa029d4f5137c17b014e49a18f8adb44100177d6700934609e8d9f71f2ae4",
+   "text": "25",
+   "unit": null,
+   "value": 25.0
+  },
+  "eval.occupancy.car": {
+   "code_version": null,
+   "source": "configs/evaluation.yaml",
+   "source_sha256": "349aa029d4f5137c17b014e49a18f8adb44100177d6700934609e8d9f71f2ae4",
+   "text": "1.3",
+   "unit": null,
+   "value": 1.3
+  },
+  "eval.person_delay.rel_s1_vs_s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "-10.1 %",
+   "unit": "%",
+   "value": -10.114035405398186
+  },
+  "eval.person_delay.rel_s2_vs_s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "-23.1 %",
+   "unit": "%",
+   "value": -23.06086418051597
+  },
+  "eval.person_delay.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "63.6 s",
+   "unit": "s",
+   "value": 63.558103192467364
+  },
+  "eval.person_delay.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "57.1 s",
+   "unit": "s",
+   "value": 57.1298141325817
+  },
+  "eval.person_delay.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "48.9 s",
+   "unit": "s",
+   "value": 48.90105533954028
+  },
+  "eval.person_delay.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "48.9 s",
+   "unit": "s",
+   "value": 48.938920639900175
+  },
+  "eval.person_delay.s2_verb": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "lowers",
+   "unit": null,
+   "value": -23.06086418051597
+  },
+  "eval.person_delay.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "46.0 s",
+   "unit": "s",
+   "value": 46.03912350731527
+  },
+  "eval.person_delay.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "45.9 s",
+   "unit": "s",
+   "value": 45.9082182553142
+  },
+  "eval.preregistered": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "2026-10-12",
+   "unit": null,
+   "value": "2026-10-12"
+  },
+  "eval.seeds": {
+   "code_version": null,
+   "source": "data/results/evaluation/summary.json",
+   "source_sha256": "5585c124879a4ca584634f71df8a8009919df3f0e472d6e8fdd8ce67fee5d8b9",
+   "text": "1-10",
+   "unit": null,
+   "value": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  "final.all.person_delay_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "63.6 s",
+   "unit": "s",
+   "value": 63.558103192467364
+  },
+  "final.all.person_delay_mean.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.all.person_delay_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "57.1 s",
+   "unit": "s",
+   "value": 57.129814132581714
+  },
+  "final.all.person_delay_mean.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-10.1 %",
+   "unit": "%",
+   "value": -10.114035405398159
+  },
+  "final.all.person_delay_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "48.9 s",
+   "unit": "s",
+   "value": 48.90105533954027
+  },
+  "final.all.person_delay_mean.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-23.1 %",
+   "unit": "%",
+   "value": -23.060864180515985
+  },
+  "final.all.person_delay_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "48.9 s",
+   "unit": "s",
+   "value": 48.93892063990017
+  },
+  "final.all.person_delay_mean.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-23.0 %",
+   "unit": "%",
+   "value": -23.00128829882985
+  },
+  "final.all.person_delay_mean.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "46.0 s",
+   "unit": "s",
+   "value": 46.039123507315274
+  },
+  "final.all.person_delay_mean.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-27.6 %",
+   "unit": "%",
+   "value": -27.56372327868395
+  },
+  "final.all.person_delay_mean.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "45.9 s",
+   "unit": "s",
+   "value": 45.908218255314196
+  },
+  "final.all.person_delay_mean.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-27.8 %",
+   "unit": "%",
+   "value": -27.769684824774565
+  },
+  "final.ambulance.stop_duration_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "60.9 s",
+   "unit": "s",
+   "value": 60.9
+  },
+  "final.ambulance.stop_duration_mean.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.ambulance.stop_duration_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "54.0 s",
+   "unit": "s",
+   "value": 53.983333333333334
+  },
+  "final.ambulance.stop_duration_mean.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-11.4 %",
+   "unit": "%",
+   "value": -11.357416529830322
+  },
+  "final.ambulance.stop_duration_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "34.8 s",
+   "unit": "s",
+   "value": 34.75
+  },
+  "final.ambulance.stop_duration_mean.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-42.9 %",
+   "unit": "%",
+   "value": -42.939244663382595
+  },
+  "final.ambulance.stop_duration_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "51.2 s",
+   "unit": "s",
+   "value": 51.25
+  },
+  "final.ambulance.stop_duration_mean.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-15.8 %",
+   "unit": "%",
+   "value": -15.845648604269291
+  },
+  "final.ambulance.stop_duration_mean.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "38.5 s",
+   "unit": "s",
+   "value": 38.45
+  },
+  "final.ambulance.stop_duration_mean.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-36.9 %",
+   "unit": "%",
+   "value": -36.86371100164203
+  },
+  "final.ambulance.stop_duration_mean.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "61.6 s",
+   "unit": "s",
+   "value": 61.65
+  },
+  "final.ambulance.stop_duration_mean.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+1.2 %",
+   "unit": "%",
+   "value": 1.2315270935960632
+  },
+  "final.ambulance.stops.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.30",
+   "unit": null,
+   "value": 1.3
+  },
+  "final.ambulance.stops.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.ambulance.stops.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.60",
+   "unit": null,
+   "value": 1.6
+  },
+  "final.ambulance.stops.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+23.1 %",
+   "unit": "%",
+   "value": 23.076923076923084
+  },
+  "final.ambulance.stops.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.20",
+   "unit": null,
+   "value": 1.2
+  },
+  "final.ambulance.stops.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-7.7 %",
+   "unit": "%",
+   "value": -7.692307692307699
+  },
+  "final.ambulance.stops.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.40",
+   "unit": null,
+   "value": 1.4
+  },
+  "final.ambulance.stops.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+7.7 %",
+   "unit": "%",
+   "value": 7.692307692307687
+  },
+  "final.ambulance.stops.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.10",
+   "unit": null,
+   "value": 1.1
+  },
+  "final.ambulance.stops.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-15.4 %",
+   "unit": "%",
+   "value": -15.384615384615385
+  },
+  "final.ambulance.stops.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.10",
+   "unit": null,
+   "value": 1.1
+  },
+  "final.ambulance.stops.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-15.4 %",
+   "unit": "%",
+   "value": -15.384615384615385
+  },
+  "final.ambulance.travel_time_total.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "152.2 s",
+   "unit": "s",
+   "value": 152.2
+  },
+  "final.ambulance.travel_time_total.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.ambulance.travel_time_total.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "149.1 s",
+   "unit": "s",
+   "value": 149.1
+  },
+  "final.ambulance.travel_time_total.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-2.0 %",
+   "unit": "%",
+   "value": -2.036793692509853
+  },
+  "final.ambulance.travel_time_total.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "110.5 s",
+   "unit": "s",
+   "value": 110.5
+  },
+  "final.ambulance.travel_time_total.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-27.4 %",
+   "unit": "%",
+   "value": -27.398160315374497
+  },
+  "final.ambulance.travel_time_total.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "134.4 s",
+   "unit": "s",
+   "value": 134.4
+  },
+  "final.ambulance.travel_time_total.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-11.7 %",
+   "unit": "%",
+   "value": -11.695137976346903
+  },
+  "final.ambulance.travel_time_total.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "101.3 s",
+   "unit": "s",
+   "value": 101.3
+  },
+  "final.ambulance.travel_time_total.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-33.4 %",
+   "unit": "%",
+   "value": -33.44283837056504
+  },
+  "final.ambulance.travel_time_total.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "125.3 s",
+   "unit": "s",
+   "value": 125.3
+  },
+  "final.ambulance.travel_time_total.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-17.7 %",
+   "unit": "%",
+   "value": -17.67411300919842
+  },
+  "final.available": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "yes",
+   "unit": null,
+   "value": true
+  },
+  "final.bus.delay_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "61.0 s",
+   "unit": "s",
+   "value": 61.00552127659576
+  },
+  "final.bus.delay_mean.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.bus.delay_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "62.6 s",
+   "unit": "s",
+   "value": 62.55205319148936
+  },
+  "final.bus.delay_mean.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+2.5 %",
+   "unit": "%",
+   "value": 2.5350687651396475
+  },
+  "final.bus.delay_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "56.1 s",
+   "unit": "s",
+   "value": 56.1077659574468
+  },
+  "final.bus.delay_mean.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-8.0 %",
+   "unit": "%",
+   "value": -8.028380409935021
+  },
+  "final.bus.delay_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "57.2 s",
+   "unit": "s",
+   "value": 57.18156382978723
+  },
+  "final.bus.delay_mean.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-6.3 %",
+   "unit": "%",
+   "value": -6.268215346396122
+  },
+  "final.bus.delay_mean.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "47.6 s",
+   "unit": "s",
+   "value": 47.593382978723405
+  },
+  "final.bus.delay_mean.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-22.0 %",
+   "unit": "%",
+   "value": -21.98512203028713
+  },
+  "final.bus.delay_mean.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "47.4 s",
+   "unit": "s",
+   "value": 47.407021276595756
+  },
+  "final.bus.delay_mean.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-22.3 %",
+   "unit": "%",
+   "value": -22.290605367250503
+  },
+  "final.bus.dwell_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "final.bus.dwell_mean.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.bus.dwell_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "final.bus.dwell_mean.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.bus.dwell_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "final.bus.dwell_mean.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.bus.dwell_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "final.bus.dwell_mean.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.bus.dwell_mean.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "final.bus.dwell_mean.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.bus.dwell_mean.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "20.0 s",
+   "unit": "s",
+   "value": 20.0
+  },
+  "final.bus.dwell_mean.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.bus.headway_std.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "23.4 s",
+   "unit": "s",
+   "value": 23.410894192721408
+  },
+  "final.bus.headway_std.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.bus.headway_std.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "21.6 s",
+   "unit": "s",
+   "value": 21.561351757340425
+  },
+  "final.bus.headway_std.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-7.9 %",
+   "unit": "%",
+   "value": -7.90034938501416
+  },
+  "final.bus.headway_std.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "23.3 s",
+   "unit": "s",
+   "value": 23.31239532614292
+  },
+  "final.bus.headway_std.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-0.4 %",
+   "unit": "%",
+   "value": -0.420739446206686
+  },
+  "final.bus.headway_std.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "23.4 s",
+   "unit": "s",
+   "value": 23.39637557937157
+  },
+  "final.bus.headway_std.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-0.1 %",
+   "unit": "%",
+   "value": -0.062016483566673664
+  },
+  "final.bus.headway_std.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "23.4 s",
+   "unit": "s",
+   "value": 23.429072724104987
+  },
+  "final.bus.headway_std.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+0.1 %",
+   "unit": "%",
+   "value": 0.07764988058094335
+  },
+  "final.bus.headway_std.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "23.3 s",
+   "unit": "s",
+   "value": 23.327656339785246
+  },
+  "final.bus.headway_std.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-0.4 %",
+   "unit": "%",
+   "value": -0.35555178820141364
+  },
+  "final.car.throughput_vph.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1178.8 veh/h",
+   "unit": "veh/h",
+   "value": 1178.85
+  },
+  "final.car.throughput_vph.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.car.throughput_vph.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1179.5 veh/h",
+   "unit": "veh/h",
+   "value": 1179.55
+  },
+  "final.car.throughput_vph.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+0.1 %",
+   "unit": "%",
+   "value": 0.05937990414386363
+  },
+  "final.car.throughput_vph.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1185.7 veh/h",
+   "unit": "veh/h",
+   "value": 1185.65
+  },
+  "final.car.throughput_vph.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+0.6 %",
+   "unit": "%",
+   "value": 0.5768333545404625
+  },
+  "final.car.throughput_vph.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1184.7 veh/h",
+   "unit": "veh/h",
+   "value": 1184.7
+  },
+  "final.car.throughput_vph.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+0.5 %",
+   "unit": "%",
+   "value": 0.49624634177376503
+  },
+  "final.car.throughput_vph.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1185.7 veh/h",
+   "unit": "veh/h",
+   "value": 1185.7
+  },
+  "final.car.throughput_vph.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+0.6 %",
+   "unit": "%",
+   "value": 0.5810747762650115
+  },
+  "final.car.throughput_vph.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1185.3 veh/h",
+   "unit": "veh/h",
+   "value": 1185.35
+  },
+  "final.car.throughput_vph.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+0.6 %",
+   "unit": "%",
+   "value": 0.5513848241930797
+  },
+  "final.car.time_loss_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "75.9 s",
+   "unit": "s",
+   "value": 75.85096396604082
+  },
+  "final.car.time_loss_mean.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.car.time_loss_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "65.8 s",
+   "unit": "s",
+   "value": 65.80007721060244
+  },
+  "final.car.time_loss_mean.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-13.3 %",
+   "unit": "%",
+   "value": -13.250835889097278
+  },
+  "final.car.time_loss_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "56.6 s",
+   "unit": "s",
+   "value": 56.567477254624905
+  },
+  "final.car.time_loss_mean.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-25.4 %",
+   "unit": "%",
+   "value": -25.422863076663482
+  },
+  "final.car.time_loss_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "55.9 s",
+   "unit": "s",
+   "value": 55.87454481567943
+  },
+  "final.car.time_loss_mean.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-26.3 %",
+   "unit": "%",
+   "value": -26.336407747309607
+  },
+  "final.car.time_loss_mean.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "56.2 s",
+   "unit": "s",
+   "value": 56.241881015719414
+  },
+  "final.car.time_loss_mean.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-25.9 %",
+   "unit": "%",
+   "value": -25.852120955378467
+  },
+  "final.car.time_loss_mean.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "56.1 s",
+   "unit": "s",
+   "value": 56.07905359542114
+  },
+  "final.car.time_loss_mean.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-26.1 %",
+   "unit": "%",
+   "value": -26.066788524232532
+  },
+  "final.car.wait_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "60.9 s",
+   "unit": "s",
+   "value": 60.90700259670732
+  },
+  "final.car.wait_mean.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.car.wait_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "52.0 s",
+   "unit": "s",
+   "value": 51.97656303381107
+  },
+  "final.car.wait_mean.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-14.7 %",
+   "unit": "%",
+   "value": -14.66241841193321
+  },
+  "final.car.wait_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "44.2 s",
+   "unit": "s",
+   "value": 44.16930501861587
+  },
+  "final.car.wait_mean.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-27.5 %",
+   "unit": "%",
+   "value": -27.48074419113887
+  },
+  "final.car.wait_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "43.5 s",
+   "unit": "s",
+   "value": 43.50839172041383
+  },
+  "final.car.wait_mean.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-28.6 %",
+   "unit": "%",
+   "value": -28.56586292958385
+  },
+  "final.car.wait_mean.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "44.2 s",
+   "unit": "s",
+   "value": 44.16689073105311
+  },
+  "final.car.wait_mean.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-27.5 %",
+   "unit": "%",
+   "value": -27.484708082743836
+  },
+  "final.car.wait_mean.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "44.0 s",
+   "unit": "s",
+   "value": 44.020209966776335
+  },
+  "final.car.wait_mean.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-27.7 %",
+   "unit": "%",
+   "value": -27.725535504917296
+  },
+  "final.car.wait_p95.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "164.5 s",
+   "unit": "s",
+   "value": 164.475
+  },
+  "final.car.wait_p95.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.car.wait_p95.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "140.0 s",
+   "unit": "s",
+   "value": 139.95999999999998
+  },
+  "final.car.wait_p95.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-14.9 %",
+   "unit": "%",
+   "value": -14.905000759993925
+  },
+  "final.car.wait_p95.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "111.6 s",
+   "unit": "s",
+   "value": 111.63499999999999
+  },
+  "final.car.wait_p95.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-32.1 %",
+   "unit": "%",
+   "value": -32.1264629882961
+  },
+  "final.car.wait_p95.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "109.6 s",
+   "unit": "s",
+   "value": 109.55999999999995
+  },
+  "final.car.wait_p95.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-33.4 %",
+   "unit": "%",
+   "value": -33.38805289557687
+  },
+  "final.car.wait_p95.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "113.7 s",
+   "unit": "s",
+   "value": 113.73499999999999
+  },
+  "final.car.wait_p95.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-30.8 %",
+   "unit": "%",
+   "value": -30.84967320261438
+  },
+  "final.car.wait_p95.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "112.9 s",
+   "unit": "s",
+   "value": 112.91499999999996
+  },
+  "final.car.wait_p95.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-31.3 %",
+   "unit": "%",
+   "value": -31.348229214166302
+  },
+  "final.layout": {
+   "code_version": null,
+   "source": "configs/evaluation.yaml",
+   "source_sha256": "349aa029d4f5137c17b014e49a18f8adb44100177d6700934609e8d9f71f2ae4",
+   "text": "15 rows, labels S0, S1, S2, S3, S2_noP, S4",
+   "unit": null,
+   "value": {
+    "ablations": [
+     "S2_noP",
+     "S4"
+    ],
+    "columns": [
+     "S0",
+     "S1",
+     "S2",
+     "S3"
+    ],
+    "rows": [
+     "car/time_loss_mean",
+     "car/wait_mean",
+     "car/wait_p95",
+     "car/throughput_vph",
+     "bus/delay_mean",
+     "bus/headway_std",
+     "bus/dwell_mean",
+     "pedestrian/ped_curb_wait_mean",
+     "pedestrian/ped_curb_wait_p95",
+     "pedestrian/ped_curb_wait_max",
+     "pedestrian/crossing_complete_rate",
+     "ambulance/travel_time_total",
+     "ambulance/stops",
+     "ambulance/stop_duration_mean",
+     "all/person_delay_mean"
+    ]
+   }
+  },
+  "final.pedestrian.crossing_complete_rate.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9998143567594233
+  },
+  "final.pedestrian.crossing_complete_rate.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.pedestrian.crossing_complete_rate.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9998138771097649
+  },
+  "final.pedestrian.crossing_complete_rate.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": -4.797387186394886e-05
+  },
+  "final.pedestrian.crossing_complete_rate.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9999383857054838
+  },
+  "final.pedestrian.crossing_complete_rate.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.012405197547127322
+  },
+  "final.pedestrian.crossing_complete_rate.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9998768850904775
+  },
+  "final.pedestrian.crossing_complete_rate.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.00625399411715577
+  },
+  "final.pedestrian.crossing_complete_rate.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9999352750809061
+  },
+  "final.pedestrian.crossing_complete_rate.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.01209407733198109
+  },
+  "final.pedestrian.crossing_complete_rate.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.00",
+   "unit": null,
+   "value": 0.9998758573744297
+  },
+  "final.pedestrian.crossing_complete_rate.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.006151203429971552
+  },
+  "final.pedestrian.ped_curb_wait_max.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "85.6 s",
+   "unit": "s",
+   "value": 85.6
+  },
+  "final.pedestrian.ped_curb_wait_max.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.pedestrian.ped_curb_wait_max.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "87.4 s",
+   "unit": "s",
+   "value": 87.4
+  },
+  "final.pedestrian.ped_curb_wait_max.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+2.1 %",
+   "unit": "%",
+   "value": 2.102803738317771
+  },
+  "final.pedestrian.ped_curb_wait_max.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "88.0 s",
+   "unit": "s",
+   "value": 88.0
+  },
+  "final.pedestrian.ped_curb_wait_max.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+2.8 %",
+   "unit": "%",
+   "value": 2.8037383177570208
+  },
+  "final.pedestrian.ped_curb_wait_max.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "88.0 s",
+   "unit": "s",
+   "value": 88.0
+  },
+  "final.pedestrian.ped_curb_wait_max.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+2.8 %",
+   "unit": "%",
+   "value": 2.8037383177570208
+  },
+  "final.pedestrian.ped_curb_wait_max.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "88.0 s",
+   "unit": "s",
+   "value": 88.0
+  },
+  "final.pedestrian.ped_curb_wait_max.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+2.8 %",
+   "unit": "%",
+   "value": 2.8037383177570208
+  },
+  "final.pedestrian.ped_curb_wait_max.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "88.0 s",
+   "unit": "s",
+   "value": 88.0
+  },
+  "final.pedestrian.ped_curb_wait_max.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+2.8 %",
+   "unit": "%",
+   "value": 2.8037383177570208
+  },
+  "final.pedestrian.ped_curb_wait_mean.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "18.9 s",
+   "unit": "s",
+   "value": 18.89511104892694
+  },
+  "final.pedestrian.ped_curb_wait_mean.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.pedestrian.ped_curb_wait_mean.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "19.2 s",
+   "unit": "s",
+   "value": 19.23476535240961
+  },
+  "final.pedestrian.ped_curb_wait_mean.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+1.8 %",
+   "unit": "%",
+   "value": 1.797577704641018
+  },
+  "final.pedestrian.ped_curb_wait_mean.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "19.4 s",
+   "unit": "s",
+   "value": 19.377285034249404
+  },
+  "final.pedestrian.ped_curb_wait_mean.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+2.6 %",
+   "unit": "%",
+   "value": 2.551845205216985
+  },
+  "final.pedestrian.ped_curb_wait_mean.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "19.1 s",
+   "unit": "s",
+   "value": 19.148882036773983
+  },
+  "final.pedestrian.ped_curb_wait_mean.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+1.3 %",
+   "unit": "%",
+   "value": 1.3430510526766914
+  },
+  "final.pedestrian.ped_curb_wait_mean.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "20.2 s",
+   "unit": "s",
+   "value": 20.22621996039628
+  },
+  "final.pedestrian.ped_curb_wait_mean.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+7.0 %",
+   "unit": "%",
+   "value": 7.044726585742578
+  },
+  "final.pedestrian.ped_curb_wait_mean.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "20.1 s",
+   "unit": "s",
+   "value": 20.137284172256393
+  },
+  "final.pedestrian.ped_curb_wait_mean.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+6.6 %",
+   "unit": "%",
+   "value": 6.574045106763204
+  },
+  "final.pedestrian.ped_curb_wait_p95.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "72.9 s",
+   "unit": "s",
+   "value": 72.86499999999998
+  },
+  "final.pedestrian.ped_curb_wait_p95.s0.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "0.0 %",
+   "unit": "%",
+   "value": 0.0
+  },
+  "final.pedestrian.ped_curb_wait_p95.s1": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "72.0 s",
+   "unit": "s",
+   "value": 71.96999999999998
+  },
+  "final.pedestrian.ped_curb_wait_p95.s1.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "-1.2 %",
+   "unit": "%",
+   "value": -1.2282989089411833
+  },
+  "final.pedestrian.ped_curb_wait_p95.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "73.4 s",
+   "unit": "s",
+   "value": 73.35499999999999
+  },
+  "final.pedestrian.ped_curb_wait_p95.s2.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+0.7 %",
+   "unit": "%",
+   "value": 0.6724764976326236
+  },
+  "final.pedestrian.ped_curb_wait_p95.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "73.2 s",
+   "unit": "s",
+   "value": 73.15499999999997
+  },
+  "final.pedestrian.ped_curb_wait_p95.s2_nop.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+0.4 %",
+   "unit": "%",
+   "value": 0.3979962945172444
+  },
+  "final.pedestrian.ped_curb_wait_p95.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "75.5 s",
+   "unit": "s",
+   "value": 75.51499999999999
+  },
+  "final.pedestrian.ped_curb_wait_p95.s3.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+3.6 %",
+   "unit": "%",
+   "value": 3.6368626912784086
+  },
+  "final.pedestrian.ped_curb_wait_p95.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "75.4 s",
+   "unit": "s",
+   "value": 75.35499999999999
+  },
+  "final.pedestrian.ped_curb_wait_p95.s4.rel": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "+3.4 %",
+   "unit": "%",
+   "value": 3.4172785287861274
+  },
+  "final.probe.ambulance.stops.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.71",
+   "unit": null,
+   "value": 1.7142857142857142
+  },
+  "final.probe.ambulance.stops.s1": {
+   "code_version": null,
+   "pending": "the single Part 8 run on seeds 1-10 (tasks.py part8) has not been made",
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": null,
+   "text": null,
+   "unit": null,
+   "value": null
+  },
+  "final.probe.ambulance.stops.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.23",
+   "unit": null,
+   "value": 1.2285714285714286
+  },
+  "final.probe.ambulance.stops.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.13",
+   "unit": null,
+   "value": 1.1285714285714286
+  },
+  "final.probe.ambulance.stops.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.16",
+   "unit": null,
+   "value": 1.157142857142857
+  },
+  "final.probe.ambulance.stops.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "1.49",
+   "unit": null,
+   "value": 1.4857142857142858
+  },
+  "final.probe.ambulance.travel_time_total.s0": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "179.8 s",
+   "unit": "s",
+   "value": 179.78571428571428
+  },
+  "final.probe.ambulance.travel_time_total.s1": {
+   "code_version": null,
+   "pending": "the single Part 8 run on seeds 1-10 (tasks.py part8) has not been made",
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": null,
+   "text": null,
+   "unit": null,
+   "value": null
+  },
+  "final.probe.ambulance.travel_time_total.s2": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "87.0 s",
+   "unit": "s",
+   "value": 87.04285714285714
+  },
+  "final.probe.ambulance.travel_time_total.s2_nop": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "106.0 s",
+   "unit": "s",
+   "value": 106.0
+  },
+  "final.probe.ambulance.travel_time_total.s3": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "86.5 s",
+   "unit": "s",
+   "value": 86.5
+  },
+  "final.probe.ambulance.travel_time_total.s4": {
+   "code_version": null,
+   "source": "data/results/evaluation/final_table.csv",
+   "source_sha256": "0aca8e896cbdcbdf2ef071a16097de3509209e793ab8da352558e6b99f14a549",
+   "text": "129.5 s",
+   "unit": "s",
+   "value": 129.51428571428573
+  },
+  "meta.authors": {
+   "code_version": null,
+   "source": "docs/report/meta.yaml",
+   "source_sha256": "e0e517d52cdce39a72c533c33bb577a3446e924b5bd759c60120d41c203de12f",
+   "text": "Motez Jerbi, mrvolcon1",
+   "unit": null,
+   "value": [
+    "Motez Jerbi",
+    "mrvolcon1"
+   ]
+  },
+  "meta.code": {
+   "code_version": "ca1a7c1-dirty",
+   "source": null,
+   "source_sha256": null,
+   "text": "ca1a7c1-dirty",
+   "unit": null,
+   "value": "ca1a7c1-dirty"
+  },
+  "meta.date": {
+   "code_version": null,
+   "source": "docs/report/meta.yaml",
+   "source_sha256": "e0e517d52cdce39a72c533c33bb577a3446e924b5bd759c60120d41c203de12f",
+   "text": "2026-10-23",
+   "unit": null,
+   "value": "2026-10-23"
+  },
+  "meta.field_visit": {
+   "code_version": null,
+   "source": "docs/report/meta.yaml",
+   "source_sha256": "e0e517d52cdce39a72c533c33bb577a3446e924b5bd759c60120d41c203de12f",
+   "text": "3-5 Nov 2026",
+   "unit": null,
+   "value": "3-5 Nov 2026"
+  },
+  "meta.institution": {
+   "code_version": null,
+   "source": "docs/report/meta.yaml",
+   "source_sha256": "e0e517d52cdce39a72c533c33bb577a3446e924b5bd759c60120d41c203de12f",
+   "text": "to be confirmed",
+   "unit": null,
+   "value": ""
+  },
+  "meta.site": {
+   "code_version": null,
+   "source": "docs/report/meta.yaml",
+   "source_sha256": "e0e517d52cdce39a72c533c33bb577a3446e924b5bd759c60120d41c203de12f",
+   "text": "Bd de l'Hôpital × Bd Saint-Marcel, next to the Pitié-Salpêtrière hospital, Paris 13e",
+   "unit": null,
+   "value": "Bd de l'Hôpital × Bd Saint-Marcel, next to the Pitié-Salpêtrière hospital, Paris 13e"
+  },
+  "meta.subtitle": {
+   "code_version": null,
+   "source": "docs/report/meta.yaml",
+   "source_sha256": "e0e517d52cdce39a72c533c33bb577a3446e924b5bd759c60120d41c203de12f",
+   "text": "A calibrated digital twin of one Paris junction: signal control for every user",
+   "unit": null,
+   "value": "A calibrated digital twin of one Paris junction: signal control for every user"
+  },
+  "meta.supervisor": {
+   "code_version": null,
+   "source": "docs/report/meta.yaml",
+   "source_sha256": "e0e517d52cdce39a72c533c33bb577a3446e924b5bd759c60120d41c203de12f",
+   "text": "to be confirmed",
+   "unit": null,
+   "value": ""
+  },
+  "meta.title": {
+   "code_version": null,
+   "source": "docs/report/meta.yaml",
+   "source_sha256": "e0e517d52cdce39a72c533c33bb577a3446e924b5bd759c60120d41c203de12f",
+   "text": "Urban Traffic Twin",
+   "unit": null,
+   "value": "Urban Traffic Twin"
+  },
+  "meta.version": {
+   "code_version": null,
+   "source": "docs/report/meta.yaml",
+   "source_sha256": "e0e517d52cdce39a72c533c33bb577a3446e924b5bd759c60120d41c203de12f",
+   "text": "v1 — provisional (before the field visit)",
+   "unit": null,
+   "value": "v1 — provisional (before the field visit)"
+  },
+  "net.clearance": {
+   "code_version": null,
+   "source": "sumo/network/pitie/pitie.net.xml",
+   "source_sha256": "d6f0055b817641ff92f61e94397d9803042db1577ee41db36c05bc108d0890c0",
+   "text": "49 s",
+   "unit": "s",
+   "value": 49.0
+  },
+  "net.cycle": {
+   "code_version": null,
+   "source": "sumo/network/pitie/pitie.net.xml",
+   "source_sha256": "d6f0055b817641ff92f61e94397d9803042db1577ee41db36c05bc108d0890c0",
+   "text": "123 s",
+   "unit": "s",
+   "value": 123.0
+  },
+  "net.foe_greens": {
+   "code_version": null,
+   "source": "sumo/network/pitie/pitie.net.xml",
+   "source_sha256": "d6f0055b817641ff92f61e94397d9803042db1577ee41db36c05bc108d0890c0",
+   "text": "0",
+   "unit": null,
+   "value": 0
+  },
+  "net.green_total": {
+   "code_version": null,
+   "source": "sumo/network/pitie/pitie.net.xml",
+   "source_sha256": "d6f0055b817641ff92f61e94397d9803042db1577ee41db36c05bc108d0890c0",
+   "text": "74 s",
+   "unit": "s",
+   "value": 74.0
+  },
+  "net.intergreen_violations": {
+   "code_version": null,
+   "source": "sumo/network/pitie/pitie.net.xml",
+   "source_sha256": "d6f0055b817641ff92f61e94397d9803042db1577ee41db36c05bc108d0890c0",
+   "text": "0",
+   "unit": null,
+   "value": 0
+  },
+  "net.phases": {
+   "code_version": null,
+   "source": "sumo/network/pitie/pitie.net.xml",
+   "source_sha256": "d6f0055b817641ff92f61e94397d9803042db1577ee41db36c05bc108d0890c0",
+   "text": "17",
+   "unit": null,
+   "value": 17
+  },
+  "net.red_bound": {
+   "code_version": null,
+   "source": "sumo/network/pitie/pitie.net.xml",
+   "source_sha256": "d6f0055b817641ff92f61e94397d9803042db1577ee41db36c05bc108d0890c0",
+   "text": "88 s",
+   "unit": "s",
+   "value": 88.0
+  },
+  "net.tls_check": {
+   "code_version": null,
+   "source": "sumo/network/pitie/pitie.net.xml",
+   "source_sha256": "d6f0055b817641ff92f61e94397d9803042db1577ee41db36c05bc108d0890c0",
+   "text": "OK",
+   "unit": null,
+   "value": true
+  },
+  "net.worst_red": {
+   "code_version": null,
+   "source": "sumo/network/pitie/pitie.net.xml",
+   "source_sha256": "d6f0055b817641ff92f61e94397d9803042db1577ee41db36c05bc108d0890c0",
+   "text": "42 s on crossings NB and WB, 86 s on crossings S and W",
+   "unit": null,
+   "value": {
+    "NB": 42.0,
+    "S": 86.0,
+    "W": 86.0,
+    "WB": 42.0
+   }
+  },
+  "rep106.c1.hl": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "-9.5 s",
+   "unit": "s",
+   "value": -9.518685567782644
+  },
+  "rep106.c1.p": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "0.0020",
+   "unit": null,
+   "value": 0.001953125
+  },
+  "rep106.c1.pass": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "pass",
+   "unit": null,
+   "value": true
+  },
+  "rep106.c2.pass": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "fail",
+   "unit": null,
+   "value": false
+  },
+  "rep106.c2.worst": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "pedestrian/ped_curb_wait_mean +5.2 %",
+   "unit": null,
+   "value": {
+    "kpi": "pedestrian/ped_curb_wait_mean",
+    "mean_s1": 19.23476535240961,
+    "mean_s3": 20.22621996039628,
+    "rel_pct": 5.154492866545235,
+    "worse": true
+   }
+  },
+  "rep106.c3.pass": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "pass",
+   "unit": null,
+   "value": true
+  },
+  "rep106.c3.violations": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "0",
+   "unit": null,
+   "value": 0
+  },
+  "rep106.c4.cited": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "pass",
+   "unit": null,
+   "value": "pass"
+  },
+  "rep106.confirms": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "confirm",
+   "unit": null,
+   "value": true
+  },
+  "rep106.main_solution": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "S2",
+   "unit": null,
+   "value": "S2"
+  },
+  "rep106.text": {
+   "code_version": null,
+   "source": "data/results/evaluation/a06.json",
+   "source_sha256": "0c4d10289793c9478ea498acb172a1c4e40648449e27386d3604d7a8fd8002d7",
+   "text": "Seeds 1-10 confirm the interim FALLBACK (C2 fails on pedestrian/ped_curb_wait_mean). The main solution stays S2.",
+   "unit": null,
+   "value": "Seeds 1-10 confirm the interim FALLBACK (C2 fails on pedestrian/ped_curb_wait_mean). The main solution stays S2."
+  },
+  "rl7.c1.ci": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "[-15.5, -6.4] s",
+   "unit": null,
+   "value": [
+    -15.47570322961921,
+    -6.430419339841542
+   ]
+  },
+  "rl7.c1.hl": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "-9.5 s",
+   "unit": "s",
+   "value": -9.535031189383055
+  },
+  "rl7.c1.p": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "0.0020",
+   "unit": null,
+   "value": 0.001953125
+  },
+  "rl7.c1.p_holm": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "0.0137",
+   "unit": null,
+   "value": 0.013671875
+  },
+  "rl7.c1.pass": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "pass",
+   "unit": null,
+   "value": true
+  },
+  "rl7.c1.s1_mean": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "57.5 s",
+   "unit": "s",
+   "value": 57.466466232244464
+  },
+  "rl7.c1.s3_mean": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "46.7 s",
+   "unit": "s",
+   "value": 46.70676748291154
+  },
+  "rl7.c2.bus_rel": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "-21.7 %",
+   "unit": "%",
+   "value": -21.675625236694774
+  },
+  "rl7.c2.car_rel": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "-13.9 %",
+   "unit": "%",
+   "value": -13.921363886253735
+  },
+  "rl7.c2.limit": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "5 %",
+   "unit": "%",
+   "value": 5.0
+  },
+  "rl7.c2.pass": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "fail",
+   "unit": null,
+   "value": false
+  },
+  "rl7.c2.ped_rel": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "+6.2 %",
+   "unit": "%",
+   "value": 6.196355622110139
+  },
+  "rl7.c2.sentence": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "Against S1, S3 changes the car time loss by -13.9 % (lower, better), the bus delay by -21.7 % (lower, better) and the pedestrian mean curb wait by +6.2 % (higher, worse, over the limit)",
+   "unit": null,
+   "value": [
+    -13.921363886253735,
+    -21.675625236694774,
+    6.196355622110139
+   ]
+  },
+  "rl7.c3.pass": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "pass",
+   "unit": null,
+   "value": true
+  },
+  "rl7.c3.violations": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "0",
+   "unit": null,
+   "value": 0
+  },
+  "rl7.c4.pass": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "pass",
+   "unit": null,
+   "value": true
+  },
+  "rl7.c4.text": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "5 of 5",
+   "unit": null,
+   "value": "5/5"
+  },
+  "rl7.criteria_sentence": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "C1, the person-weighted delay against the actuated baseline S1, is a pass (HL -9.5 s, Holm p 0.0137); C2, equity against S1 within 5 %, is a fail: over the limit for the pedestrian mean curb wait; C3, safety, is a pass with 0 violations; C4, reproducibility, is a pass (reproduce7 at 2b41e22: identical)",
+   "unit": null,
+   "value": {
+    "C1": true,
+    "C2": false,
+    "C3": true,
+    "C4": true
+   }
+  },
+  "rl7.failed": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "C2",
+   "unit": null,
+   "value": [
+    "C2"
+   ]
+  },
+  "rl7.model_sha8": {
+   "code_version": null,
+   "source": "models/rl/rl7-dqn-v1-s0-415724a4/manifest.json",
+   "source_sha256": "0232ba6c3ec0fdb608984570cfdc10da3a54782affd4c90b5a22a1389c68cf25",
+   "text": "151c6f69",
+   "unit": null,
+   "value": "151c6f692acc4d23800a0afc2fba68b655f5fa0df18fe91163ccff20894d4c29"
+  },
+  "rl7.model_version": {
+   "code_version": null,
+   "source": "models/rl/rl7-dqn-v1-s0-415724a4/manifest.json",
+   "source_sha256": "0232ba6c3ec0fdb608984570cfdc10da3a54782affd4c90b5a22a1389c68cf25",
+   "text": "rl7-dqn-v1-s0-415724a4",
+   "unit": null,
+   "value": "rl7-dqn-v1-s0-415724a4"
+  },
+  "rl7.n_features": {
+   "code_version": null,
+   "source": "models/rl/rl7-dqn-v1-s0-415724a4/manifest.json",
+   "source_sha256": "0232ba6c3ec0fdb608984570cfdc10da3a54782affd4c90b5a22a1389c68cf25",
+   "text": "62",
+   "unit": null,
+   "value": 62
+  },
+  "rl7.obs_drop": {
+   "code_version": null,
+   "source": "models/rl/rl7-dqn-v1-s0-415724a4/manifest.json",
+   "source_sha256": "0232ba6c3ec0fdb608984570cfdc10da3a54782affd4c90b5a22a1389c68cf25",
+   "text": "pedestrian",
+   "unit": null,
+   "value": [
+    "pedestrian"
+   ]
+  },
+  "rl7.s2.hl": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "-1.7 s",
+   "unit": "s",
+   "value": -1.6543101303782137
+  },
+  "rl7.s2.p": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "0.0488",
+   "unit": null,
+   "value": 0.048828125
+  },
+  "rl7.s2_framing": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "S3 beats rules (S2) on the primary KPI",
+   "unit": null,
+   "value": "S3 beats rules (S2) on the primary KPI"
+  },
+  "rl7.seeds": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "3020-3029",
+   "unit": null,
+   "value": [
+    3020,
+    3021,
+    3022,
+    3023,
+    3024,
+    3025,
+    3026,
+    3027,
+    3028,
+    3029
+   ]
+  },
+  "rl7.sensitivity.flagged": {
+   "code_version": null,
+   "source": "docs/figures/rl7/sensitivity.csv",
+   "source_sha256": "ee579ef9135d8138274734b3e6b7c97cb2d43068a5c1c1e7b6b90a372b13041a",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "rl7.sensitivity.n_settings": {
+   "code_version": null,
+   "source": "docs/figures/rl7/sensitivity.csv",
+   "source_sha256": "ee579ef9135d8138274734b3e6b7c97cb2d43068a5c1c1e7b6b90a372b13041a",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "rl7.steps": {
+   "code_version": null,
+   "source": "models/rl/rl7-dqn-v1-s0-415724a4/manifest.json",
+   "source_sha256": "0232ba6c3ec0fdb608984570cfdc10da3a54782affd4c90b5a22a1389c68cf25",
+   "text": "1,000,000",
+   "unit": null,
+   "value": 1000000
+  },
+  "rl7.verdict": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "FALLBACK",
+   "unit": null,
+   "value": "FALLBACK"
+  },
+  "rl7.verdict_sentence": {
+   "code_version": "5bec559-dirty",
+   "source": "data/rl7/devtest/verdict.json",
+   "source_sha256": "867bba664fc7dd85fbb6eefbbcbe435e6b7dd378f568d15bc5b577112de174cd",
+   "text": "Spec 10.6 applies: RL does not beat the actuated baseline on the pre-registered criteria, so the rules controller S2 is the main solution and RL is reported as a study",
+   "unit": null,
+   "value": "fallback"
+  },
+  "usertests.n": {
+   "code_version": null,
+   "source": "docs/usertests/synthesis.json",
+   "source_sha256": "3496222999b6a01a68d6fb74de6f44df7f8665f3431b4847222e96ad631a6e0d",
+   "text": "0",
+   "unit": null,
+   "value": 0
+  },
+  "usertests.status": {
+   "code_version": null,
+   "source": "docs/usertests/synthesis.json",
+   "source_sha256": "3496222999b6a01a68d6fb74de6f44df7f8665f3431b4847222e96ad631a6e0d",
+   "text": "PENDING",
+   "unit": null,
+   "value": "PENDING"
+  },
+  "val.a02.pass": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "6",
+   "unit": null,
+   "value": 6
+  },
+  "val.a02.rows": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "6",
+   "unit": null,
+   "value": 6
+  },
+  "val.a02.verdict": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "PASS",
+   "unit": null,
+   "value": "PASS"
+  },
+  "val.calibration": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "converged",
+   "unit": null,
+   "value": "converged"
+  },
+  "val.calibration.rescaled": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "no arm needed rescaling (every recommended arm scale is 1)",
+   "unit": null,
+   "value": {
+    "N": 1.0,
+    "S": 1.0,
+    "W": 1.0
+   }
+  },
+  "val.flow_threshold_pct": {
+   "code_version": null,
+   "source": "configs/validation.yaml",
+   "source_sha256": "585fc373d5fec20395aa6b84a6171595cadcd3db8740ee4d922bcf33396d6d26",
+   "text": "15 %",
+   "unit": "%",
+   "value": 15.0
+  },
+  "val.geh.n_below": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "val.geh.n_counts": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "10",
+   "unit": null,
+   "value": 10
+  },
+  "val.geh.share_pct": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "100 %",
+   "unit": "%",
+   "value": 100.0
+  },
+  "val.geh_target_share_pct": {
+   "code_version": null,
+   "source": "configs/validation.yaml",
+   "source_sha256": "585fc373d5fec20395aa6b84a6171595cadcd3db8740ee4d922bcf33396d6d26",
+   "text": "85 %",
+   "unit": "%",
+   "value": 85.0
+  },
+  "val.preregistered": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "2026-10-11",
+   "unit": null,
+   "value": "2026-10-11"
+  },
+  "val.queue_not_measured": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "6",
+   "unit": null,
+   "value": 6
+  },
+  "val.seeds": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "1-10",
+   "unit": null,
+   "value": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  "val.signal_not_measured": {
+   "code_version": "ca1a7c1",
+   "source": "data/results/validation/pitie_fixed/summary.json",
+   "source_sha256": "b5262bc9197cadbce5ed899317e7ec5317ca0ae838e086c8b2ace3c43c8c7a73",
+   "text": "41",
+   "unit": null,
+   "value": 41
+  }
+ },
+ "schema": "report-facts-1"
+}

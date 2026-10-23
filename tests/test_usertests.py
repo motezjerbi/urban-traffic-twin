@@ -80,7 +80,12 @@ def _fake_answers(protocol: dict, *, pending: bool = False, problems=()) -> dict
 
 # -- protocol --------------------------------------------------------------------------
 def test_protocol_is_registered_with_the_d111_tasks(protocol):
-    assert protocol["preregistered"] == "2026-10-23" and protocol["changes"] == []
+    assert protocol["preregistered"] == "2026-10-23"
+    # one dated change, made before any participant: the T-OP question names the main
+    # scenarios (ablations excluded), as the key (operator.labels) always did
+    assert [c["date"] for c in protocol["changes"]] == ["2026-10-23"]
+    assert "T-OP" in protocol["changes"][0]["what"]
+    assert protocol["operator"]["labels"] == ["S0", "S1", "S2", "S3"]
     assert protocol["run"] == {"scenario": "pitie_rules", "seed": 4000}
     assert protocol["participants"] == {"min": 3, "max": 5}
     tasks = pr.tasks_by_id(protocol)

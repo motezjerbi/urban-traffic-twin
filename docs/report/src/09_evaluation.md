@@ -9,8 +9,10 @@ Spec 17 asks that the targets be fixed before the controllers are evaluated, so 
 **The Part 8 keys.** S3 and S4, their pairs, the three new A-05 secondary tests, the A-06 rule, the spec 10.6 replication and the final-table layout were written in a dated change before any S3 or S4 run on seeds 1-10. A run lock in `evaluate` refuses any run on those seeds from an uncommitted tree or before that registration is committed. The record is:
 
 - registration commit `{{a06.registration.commit}}`, committed {{a06.registration.committed_at}};
-- first S3 run on the evaluation seeds started {{a06.registration.first_s3_started_at}};
-- registration before the runs: **{{a06.registration.order}}**.
+- first retained S3 run on the evaluation seeds (the registered `tasks.py part8` run) started {{a06.registration.first_s3_started_at}}; the earlier, discarded look is disclosed below;
+- registration before the retained runs: **{{a06.registration.order}}**.
+
+**Disclosure: one early S3 look.** After the Part 8 keys were written and before the registration commit, a gate check called `python -m traffic_twin.evaluation.compare --run-missing` directly, outside the run lock (only `evaluate` and the `tasks.py` tasks check it). It ran S3 on seeds 1-10 from the uncommitted tree (2026-10-23, started 17:12-17:13 UTC) and showed three rows of the main S0-S3 pair table: two pedestrian waits, with the outcome "S3 worse", and the ambulance time loss, with the outcome "S3 better". The A-06 KPI `all/person_delay_mean`, the S1-S3 and S2-S3 pairs, the spec 10.6 check, S4 and the probe family were not shown; the A-05 secondary test main S0 against S3 uses the ambulance travel time, a KPI related to the one shown. The registered text was not changed after that look except to add this disclosure. Those runs and the comparison were moved out of the repository and are never used: every S3 and S4 run on seeds 1-10 in this report comes from the single `tasks.py part8` run at the registration commit. The details are in the "why" of the first 2026-10-23 change of `configs/evaluation.yaml`, a column the table below leaves out.
 
 <!-- include: docs/evaluation.md#Pre-registration | table: 1 | cols: Date,Change -->
 
@@ -47,7 +49,7 @@ The Part 7 criteria C1 to C3 are repeated exactly on seeds 1-10 against S1; C4 i
 
 <!-- generate: rep106 -->
 
-{{rep106.text}} Seeds 1-10 **{{rep106.confirms}}** the interim FALLBACK. Whatever this check gives, the main solution stays **{{rep106.main_solution}}**: the choice was fixed at week 7 (spec 15), and A-06 does not reopen it.
+{{rep106.text}} That choice of **{{rep106.main_solution}}** does not depend on this check: it was fixed at week 7 (spec 15), and A-06 does not reopen it.
 
 ### KPIs per user (S0 to S2, main family)
 
@@ -80,7 +82,7 @@ Across every evaluated run, the longest pedestrian curb wait is {{eval.a04.worst
 
 <!-- include: docs/evaluation.md#Equity and hidden degradation (13.3) | table: 1 -->
 
-Hidden degradation is flagged for: {{eval.hidden_degradation}}. {{eval.equity.sentence}}. Spec 13.3 asks for this check because an average gain can hide a user group that pays for it.
+{{eval.equity.sentence}}. Spec 13.3 asks for this check because an average gain can hide a user group that pays for it.
 
 ![Change against S0 per KPI and scenario](../../figures/pitie/eval/equity_heatmap.png)
 

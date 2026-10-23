@@ -1,0 +1,143 @@
+{
+ "schema": 1,
+ "note": "A-08 / A-09 evidence written by `python -m traffic_twin.demo rehearsal --record` and `demo readiness` (D115, D116). Simulated data only.",
+ "rehearsal": {
+  "kind": "rehearsal",
+  "mode": "real",
+  "fresh_clone": false,
+  "started_at": "2026-10-23T21:04:15+02:00",
+  "browser": "chrome.exe",
+  "api_config": "configs/api.yaml",
+  "prerequisites": [
+   {
+    "name": "demo_runs",
+    "status": "ok",
+    "detail": "2 scripted runs found",
+    "hint": ""
+   },
+   {
+    "name": "evaluation_outputs",
+    "status": "ok",
+    "detail": "<repo>\\data\\results\\evaluation: Part 4 and Part 8 outputs",
+    "hint": ""
+   },
+   {
+    "name": "eta_reference",
+    "status": "ok",
+    "detail": "ETA bundle eta1-56926796 (reference table)",
+    "hint": ""
+   },
+   {
+    "name": "s3_model_sha",
+    "status": "ok",
+    "detail": "models/rl/rl7-dqn-v1-s0-415724a4/model.zip sha256 151c6f692acc",
+    "hint": ""
+   },
+   {
+    "name": "evaluation_page",
+    "status": "ok",
+    "detail": "docs/evaluation.md is the Part 8 page",
+    "hint": ""
+   }
+  ],
+  "steps": [
+   {
+    "id": "home",
+    "front": "mock",
+    "url": "<api>/mock?view=home"
+   },
+   {
+    "id": "pedestrian",
+    "front": "mock",
+    "url": "<api>/mock?view=pedestrian&scenario=pitie_rules&seed=4000&t=1805&crossing=S&speed=normal"
+   },
+   {
+    "id": "student",
+    "front": "mock",
+    "url": "<api>/mock?view=student&scenario=pitie_rules&seed=4000&t=2700&trajet=N_S&exam=08%3A18"
+   },
+   {
+    "id": "bus",
+    "front": "mock",
+    "url": "<api>/mock?view=bus&scenario=pitie_rules&seed=4000&t=1305&line=91"
+   },
+   {
+    "id": "ambulance",
+    "front": "mock",
+    "url": "<api>/mock?view=ambulance&scenario=pitie_rules&seed=4000&t=2440&kiosk=1"
+   },
+   {
+    "id": "replay",
+    "front": "mock",
+    "url": "<api>/mock?view=replay&scenario=pitie_rl_s3&seed=4000&t=2440&play=0"
+   },
+   {
+    "id": "operator",
+    "front": "mock",
+    "url": "<api>/mock?view=operator"
+   },
+   {
+    "id": "streamlit",
+    "front": "streamlit",
+    "url": "http://127.0.0.1:8501"
+   }
+  ],
+  "degraded": {
+   "no_eta_bundle": "PASS",
+   "no_evaluation": "PASS",
+   "no_runs": "PASS",
+   "api_down": "PASS"
+  },
+  "status": "PASS",
+  "passed": true,
+  "summary": {
+   "pass": 106,
+   "fail": 0,
+   "pending": 0,
+   "skip": 1,
+   "rows": 107
+  },
+  "duration_s": 24.7,
+  "git": {
+   "commit": "ca1a7c1",
+   "full": "ca1a7c122813f3b375ee6b9d213e89fca246a8c4",
+   "dirty": true,
+   "code_version": "ca1a7c1-dirty"
+  },
+  "platform": "Windows 11",
+  "python": "3.12.10",
+  "failed": [],
+  "pending": [],
+  "coverage": {
+   "browser": "chrome.exe",
+   "dom": {
+    "home": "PASS",
+    "pedestrian": "PASS",
+    "student": "PASS",
+    "bus": "PASS",
+    "ambulance": "PASS",
+    "replay": "PASS",
+    "operator": "PASS"
+   },
+   "skipped": []
+  },
+  "recorded_at": "2026-10-23T21:04:39+02:00"
+ },
+ "last": "rehearsal",
+ "a08": {
+  "status": "PASS",
+  "from": "rehearsal",
+  "commit": "ca1a7c1-dirty",
+  "recorded_at": "2026-10-23T21:04:39+02:00"
+ },
+ "a09": {
+  "status": "PENDING",
+  "reason": "no fresh-clone readiness rehearsal yet (python tasks.py demo-readiness on the release commit)"
+ },
+ "rehearsed_demo": {
+  "status": "PENDING",
+  "entries": 0,
+  "valid": 0,
+  "log": "docs/demo/rehearsal_log.yaml"
+ }
+}

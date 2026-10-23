@@ -322,6 +322,7 @@ def bar_chart(
     name="chart",
     legend=False,
     per_point_colors=None,
+    label_size=13,
 ):
     """A native clustered column chart; `series` = [(name, values, label texts)]."""
     cd = CategoryChartData()
@@ -357,7 +358,12 @@ def bar_chart(
             tf = pt.data_label.text_frame
             tf.text = lab  # literal text: no locale decimal comma
             r = tf.paragraphs[0].runs[0]
-            r.font.size, r.font.bold, r.font.color.rgb, r.font.name = Pt(13), True, INK, FONT
+            r.font.size, r.font.bold, r.font.color.rgb, r.font.name = (
+                Pt(label_size),
+                True,
+                INK,
+                FONT,
+            )
             pt.data_label.position = XL_LABEL_POSITION.OUTSIDE_END
     va = ch.value_axis
     va.has_major_gridlines = True
@@ -1062,6 +1068,7 @@ def s08_equity(prs, f: F, n: int) -> None:
             colors=[SERIES[lb] for lb in labels[: len(series)]],
             legend=True,
             name="chart-equity",
+            label_size=11 if len(series) > 2 else 13,
         )
     x = M + Inches(8.7)
     cw = W - x - M
@@ -1262,9 +1269,35 @@ def s10_rl(prs, f: F, n: int) -> None:
             color=MUTED,
             name=f"crit-small-{cid}",
         )
-    fig = f.root / "docs/figures/rl7/s3_forest.png"
-    if fig.is_file():
-        picture(s, fig, M, Inches(4.4), Inches(8.2), Inches(2.4), "fig-s3-forest")
+    if f.part8():
+        # the test of record in large text (the Part 7 forest raster is unreadable at
+        # slide size; its figure stays in the report and on the Part 7 page)
+        lines = [
+            [
+                (
+                    "A-06 on seeds 1-10, S3 − reference, person-weighted delay",
+                    {"size": 15, "bold": True, "color": INK, "space_after": 4},
+                )
+            ]
+        ]
+        for ref, name in (("s1", "S1 actuated (primary)"), ("s2", "S2 rules"), ("s0", "S0 fixed")):
+            o = f.tp(f"a06.{ref}.outcome")
+            o = f"S3 {o}" if o in ("better", "worse") else o
+            lines.append(
+                [
+                    (f"vs {name}: ", {"size": 15, "bold": True, "color": INK}),
+                    (
+                        f"HL {f.tp(f'a06.{ref}.hl')}, 95 % CI {f.tp(f'a06.{ref}.ci')}, "
+                        f"Holm p {f.tp(f'a06.{ref}.p_holm')}: {o}",
+                        {"size": 15, "color": INK},
+                    ),
+                ]
+            )
+        text(s, M, Inches(4.55), Inches(8.2), Inches(2.2), lines, name="a06-rows")
+    else:
+        fig = f.root / "docs/figures/rl7/s3_forest.png"
+        if fig.is_file():
+            picture(s, fig, M, Inches(4.4), Inches(8.2), Inches(2.4), "fig-s3-forest")
     x = M + Inches(8.55)
     cw = W - x - M
     if f.part8():
@@ -1503,12 +1536,26 @@ def s13_acceptance(prs, f: F, n: int) -> None:
             name=f"acc-what-{r['id']}",
         )
     footer(s, n, dark=True)
-    notes(
-        s,
-        "Each lamp is generated from its evidence file. PENDING means the evidence does "
-        "not exist yet: the Part 8 run, the recorded rehearsal or the real user tests. "
-        "A-06 passes when the comparison is valid and shown, whatever its direction; A-10 "
-        "needs three to five real users.",
+    notes(s, acceptance_notes(rows, f.v("demo.human_rehearsals")))
+
+
+def acceptance_notes(rows: list[dict], human_rehearsals) -> str:
+    """Slide 13's speaker notes, generated from the same rows as its lamps: what is still
+    PENDING is named from the evidence, never from a fixed list."""
+    pending = [r for r in rows if r["status"] == "PENDING"]
+    if pending:
+        waits = "; ".join(
+            f"{r['id']} ({SHORT.get(r['id'], r['id'])}): {r['evidence']}" for r in pending
+        )
+        say = f"PENDING means the evidence does not exist yet. Still pending: {waits}."
+    else:
+        say = "No criterion is PENDING."
+    if not human_rehearsals:
+        say += " The presenter's own rehearsal of the demo is not recorded yet."
+    return (
+        f"Each lamp is generated from its evidence file. {say} A-06 passes when the "
+        "comparison is valid and shown, whatever its direction; A-10 needs three to five "
+        "real users."
     )
 
 

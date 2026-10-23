@@ -114,15 +114,21 @@ HEADLINE_KPIS = [
     ("ambulance", "time_loss_mean", "Ambulance", "Time loss (s)"),
     ("pedestrian", "ped_wait_single_max", "Pedestrian", "Max single wait (s)"),
     ("pedestrian", "ped_wait_max", "Pedestrian", "Max wait (s)"),
+    ("pedestrian", "ped_curb_wait_max", "Pedestrian", "Max curb wait (s)"),
 ]
-PED_TARGET_KPIS = ("ped_wait_single_max", "ped_wait_max")
+PED_TARGET_KPIS = ("ped_wait_single_max", "ped_wait_max", "ped_curb_wait_max")
 
 
 def ped_headline_kpi(scenario: Scenario) -> str:
-    """The pedestrian KPI a scenario is judged on. Part 3 scenarios (a `measurement`
-    section: the Pitié junction) use the longest single wait (90 s target, D14). The
-    frozen grid baseline keeps the largest time lost over a walk, as in its README table
-    and its committed figure (Part 2), even though its runs now also report single waits."""
+    """The pedestrian KPI a scenario is judged on. An explicit `ped_headline_kpi` in the
+    config wins (the evaluation figures: A-04 judges `ped_curb_wait_max` since the
+    2026-10-12 change, D27). Part 3 scenarios (a `measurement` section: the Pitié
+    junction) use the longest single wait (90 s target, D14). The frozen grid baseline
+    keeps the largest time lost over a walk, as in its README table and its committed
+    figure (Part 2), even though its runs now also report single waits."""
+    chosen = scenario.config.get("ped_headline_kpi")
+    if chosen:
+        return str(chosen)
     return "ped_wait_single_max" if scenario.config.get("measurement") else "ped_wait_max"
 
 
@@ -131,12 +137,15 @@ def headline_panels(scenarios: list[Scenario]) -> list[tuple[str, str, str, str]
     pedestrian panel shows the scenarios' `ped_headline_kpi` (single wait only when every
     scenario is judged on it), falling back to the other pedestrian KPI only for runs that
     do not report the chosen one."""
-    single = bool(scenarios) and all(
-        ped_headline_kpi(s) == "ped_wait_single_max" for s in scenarios
-    )
+    chosen = {ped_headline_kpi(s) for s in scenarios}
+    single = bool(scenarios) and chosen == {"ped_wait_single_max"}
     preferred = ["ped_wait_single_max", "ped_wait_max"]
     if not single:
         preferred.reverse()
+    if len(chosen) == 1 and next(iter(chosen)) not in preferred:
+        preferred.insert(0, next(iter(chosen)))  # an explicit choice (ped_curb_wait_max)
+    else:
+        preferred.append("ped_curb_wait_max")
     order = [p for p in HEADLINE_KPIS if p[0] != "pedestrian"]
     ped = {p[1]: p for p in HEADLINE_KPIS if p[0] == "pedestrian"}
     order += [ped[k] for k in preferred]

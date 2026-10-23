@@ -690,7 +690,7 @@ def test_equity_sentence_names_the_flagged_controllers_and_groups(tmp_path):
     ]
     _patch_json(root, "data/results/evaluation/summary.json", hidden_degradation=rows)
     f = collect_facts(root)["eval.equity.sentence"]
-    assert f["text"].startswith("1 of the 2 controller runs")
+    assert f["text"].startswith("1 of the 2 scenarios (family and controller")
     assert "main S1 (bus, pedestrian)" in f["text"] and "S3" not in f["text"]
     assert "each of them" not in f["text"]  # S3 lowers the delay without a flag
     assert f["value"] == {"main S1": ["bus", "pedestrian"]}
@@ -742,7 +742,40 @@ def test_part7_sentences_come_from_the_verdict_file(tmp_path):
     facts = collect_facts(root)
     assert "S1, is a fail (HL +2.0" in facts["rl7.criteria_sentence"]["text"]
     assert facts["rl7.failed"]["text"] == "C1, C2"
+    # the frozen "pass" is never stated alone: C1 and C2 fail, so the page says fallback
+    assert facts["rl7.verdict_sentence"]["text"].startswith("Spec 10.6 applies")
+    # every criterion met and reproduce7 identical: the verdict is a pass
+    root = make_root(tmp_path / "c")
+    _patch_json(
+        root,
+        "data/rl7/devtest/verdict.json",
+        C2={"limit_pct": 5.0, "pass": True, "rows": [{"kpi": "car/time_loss_mean", "rel_pct": -1}]},
+    )
+    _w(root, "data/rl7/_reproduce/abc1234/reproduce7.json", {"head": "abc1234", "same": True})
+    facts = collect_facts(root)
     assert facts["rl7.verdict_sentence"]["text"].startswith("RL beats")
+    assert facts["rl7.c4.pass"]["text"] == "pass"
+
+
+def test_part7_c4_states_the_reproduce7_result_not_the_frozen_pending(tmp_path):
+    """C4 is completed with the newest reproduce7 result (rl.study.final_verdict), as
+    evaluation/final.cite_c4 does: the frozen `pending: [C4.repro]` is never stated alone."""
+    root = make_root(tmp_path)
+    _patch_json(
+        root,
+        "data/rl7/devtest/verdict.json",
+        pending=["C4.repro"],
+        C4={"runs_below_s1": 5, "of": 5, "runs_pass": True, "pass": None},
+    )
+    crit = collect_facts(root)["rl7.criteria_sentence"]["text"]
+    assert "C4, reproducibility, is pending (the stage-F runs pass, its repeat check" in crit
+    assert "rl7.c4.pass" not in {k for k, f in collect_facts(root).items() if f.get("text")}
+    _w(root, "data/rl7/_reproduce/2b41e22/reproduce7.json", {"head": "2b41e22", "same": True})
+    facts = collect_facts(root)
+    crit = facts["rl7.criteria_sentence"]["text"]
+    assert "C4, reproducibility, is a pass (reproduce7 at 2b41e22: identical)" in crit
+    assert "pending" not in crit
+    assert facts["rl7.c4.pass"]["text"] == "pass"
 
 
 def test_calibration_rescaling_is_read_from_the_validation_summary(tmp_path):

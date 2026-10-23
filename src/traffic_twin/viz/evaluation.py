@@ -152,8 +152,12 @@ def plot_overview(kpis: pd.DataFrame, labels: list[str], out: Path, ped_target: 
             kpis=kpis[kpis["label"] == x][["seed", "user_type", "kpi", "value"]],
             trips=pd.DataFrame(),
             state=pd.DataFrame(),
-            # Pitié runs are judged on the single pedestrian wait (`measurement` set)
-            config={"measurement": True, "safety": {"ped_max_wait_s": ped_target}},
+            # A-04 judges the pedestrian curb wait since the 2026-10-12 change (D27)
+            config={
+                "measurement": True,
+                "ped_headline_kpi": "ped_curb_wait_max",
+                "safety": {"ped_max_wait_s": ped_target},
+            },
         )
         for x in shown
     ]

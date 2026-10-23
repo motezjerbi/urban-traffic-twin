@@ -18,8 +18,9 @@ and the API reads those files (DuckDB). **Supabase is an optional mirror**: the 
 
 Developer guide (module map, data flow, controller contract, invariants):
 [docs/architecture.md](docs/architecture.md). Simulation vs reality validation:
-[docs/validation.md](docs/validation.md). Controller evaluation S0 vs S1 vs S2:
-[docs/evaluation.md](docs/evaluation.md). ETA model and its evaluation:
+[docs/validation.md](docs/validation.md). Controller evaluation S0 to S4 (Parts 4 and 8):
+[docs/evaluation.md](docs/evaluation.md). Final report (English, v1, provisional):
+[docs/report/report.md](docs/report/report.md). ETA model and its evaluation:
 [docs/eta.md](docs/eta.md). API v1: [docs/api.md](docs/api.md). RL environment and first
 trainings: [docs/rl.md](docs/rl.md). Full RL training, tuning and weight sensitivity:
 [docs/rl_training.md](docs/rl_training.md). Site visit checklist:
@@ -43,7 +44,13 @@ controller, first short RL trainings) are done on the same terms: their models l
 simulator, and their results are provisional until the field visit. Part 7 (full RL
 training, tuning, weight sensitivity, the selected policy S3) is done on the same terms;
 its interim spec 10.6 verdict is FALLBACK, so the rules (S2) are the main solution and RL
-is reported as a study, while Part 8 still evaluates S3 as registered.
+is reported as a study, while Part 8 still evaluates S3 as registered. Part 8 (S0 to S4 on
+seeds 1-10, A-06, the final comparison table) is done on the same terms: seeds 1-10
+confirm the FALLBACK, so S2 stays the main solution. Part 9 (the app on the final results,
+the replay, the user-test package) is done except the user tests themselves, which need
+3 to 5 real participants and are PENDING. Part 10 (report, deck, demo tooling and
+automated rehearsal) is done except the rehearsal by the presenter and the defence, which
+are PENDING.
 
 | Part | Content | Status |
 | --- | --- | --- |
@@ -54,9 +61,9 @@ is reported as a study, while Part 8 still evaluates S3 as registered.
 | 5 | ETA model (XGBoost quantiles, conformal interval), API v1, mock screens | done (field visit pending) |
 | 6 | Gymnasium env, RL controller, first short RL trainings, episode timing | done (field visit pending) |
 | 7 | Full RL training, tuning, weight sensitivity | done (field visit pending) |
-| 8 | Final evaluation (10 seeds) | |
-| 9 | App views and replay, user tests | |
-| 10 | Report and demo | |
+| 8 | Final evaluation (10 seeds) | done (provisional, field visit pending) |
+| 9 | App views and replay, user tests | done (field visit pending; user tests pending) |
+| 10 | Report and demo | done (field visit pending; presenter rehearsal pending, defence pending) |
 
 ## Quick start
 
@@ -104,6 +111,27 @@ make install
 make baseline
 make check
 ```
+
+### From a fresh clone (demo only)
+
+`data/` is not versioned, so a fresh clone has no runs. The committed demo pack
+`docs/demo/demo_pack.zip` holds what the API reads for the demo: the demo runs at seed
+4000, the evaluation outputs (final table, A-06, series, digest; not the evaluation runs)
+and the ETA files. To show the demo without running any simulation (Windows):
+
+```powershell
+git clone https://github.com/motezjerbi/urban-traffic-twin.git
+cd urban-traffic-twin
+python -m venv .venv
+.venv\Scripts\python.exe tasks.py install      # the same extras as above
+.venv\Scripts\python.exe tasks.py bootstrap    # restore the pack into data/ (hash-checked, never overwrites)
+.venv\Scripts\python.exe tasks.py demo         # API on 127.0.0.1:8000 + Operator on 127.0.0.1:8501
+```
+
+`bootstrap` never rebuilds the evaluation; reproducing the results needs the full chains
+above (`part3` to `part8`). `tasks.py demo-readiness` checks this path from a local clone
+of HEAD and records the result in `docs/demo/rehearsal.json` (A-09); it has not yet run on
+the release commit, so A-09 is PENDING.
 
 Main tasks (`python tasks.py --help` lists them all; `-n` prints the commands without
 running them; several tasks run in order, e.g. `tasks.py net sim plots`). The Part 3 tasks
@@ -1490,7 +1518,7 @@ As computed by `rl.study devtest` in `data/rl7/devtest/verdict.json`:
 | C1 person-weighted delay, S3 vs S1 | HL -9.5 s [-15.5, -6.4], exact p 0.002 (Holm 0.014); 57.5 s to 46.7 s | yes |
 | C2 equity vs S1 (limit +5 %) | car time loss -13.9 %, bus delay -21.7 %, pedestrian mean curb wait **+6.2 %** (19.16 s to 20.35 s) | **no** |
 | C3 safety | no violation | yes |
-| C4 reproducibility | 5 of 5 stage-F picks below S1 on the holdout windows (4 required); `reproduce7` pending, it runs after the commit | pending |
+| C4 reproducibility | 5 of 5 stage-F picks below S1 on the holdout windows (4 required); `reproduce7` at `2b41e22`: identical (recorded in [docs/rl_training.md](docs/rl_training.md) after the commit) | yes |
 
 - **Verdict: FALLBACK.** C2 fails, and a failed criterion is final whatever
   `reproduce7` gives. Spec 10.6 applies: RL does not beat the actuated baseline on the
@@ -1620,25 +1648,20 @@ with the OMP_/MKL_/OPENBLAS_ variables and the validation pool its provenance re
 
 ## Final evaluation of S0 to S4 (Part 8)
 
-**Results pending.** S3 and S4 have not run on the evaluation seeds 1-10 yet: they run
-once, with `tasks.py part8`, on the registration commit (the first commit that adds the
-`a06` block to `configs/evaluation.yaml`). Until then this section describes the
-pre-registered protocol only, the final comparison table and A-06 do not exist, and no S3
-or S4 number for seeds 1-10 is published anywhere (the Part 7 numbers above are the
-development-test seeds).
-
 Part 8 adds the selected RL policy S3 (Part 7) and S4, the same policy with emergency
 preemption off, to the pre-registered evaluation of Part 4, tests S3 against the three
 baselines (A-06), repeats the spec 10.6 check of Part 7 on seeds 1-10 and writes the final
 comparison table of spec S8. S2 stays the main solution whatever the result (Part 7
 FALLBACK). Decision numbers D91-D120 refer to
-[Parts 8-10 decisions](docs/architecture.md#parts-8-10-decisions).
+[Parts 8-10 decisions](docs/architecture.md#parts-8-10-decisions). The generated page
+[docs/evaluation.md](docs/evaluation.md) has the final table, A-06, the 10.6 check and
+every pair table; the [results](#results-on-seeds-1-10) below are copied from it and from
+`data/results/evaluation/`.
 
-**Provisional until the field visit.** Like every earlier part, the Part 8 results will
-rest on simulated runs on the ASSUMED signal program (cycle 123 s) and the calibrated
-demand, with the signal timing and the queues NOT_MEASURED (spec 13.4): they are
-provisional until the field visit, after which `part8` is rerun with the unchanged S3
-model (D119).
+**Provisional until the field visit.** Like every earlier part, the Part 8 results rest on
+simulated runs on the ASSUMED signal program (cycle 123 s) and the calibrated demand, with
+the signal timing and the queues NOT_MEASURED (spec 13.4): they are provisional until the
+field visit, after which `part8` is rerun with the unchanged S3 model (D119).
 
 ### Pre-registration (D91-D101)
 
@@ -1709,6 +1732,87 @@ model (D119).
   early S3 / S4 run left in `data/results/` is still caught: `part8-guard` refuses it
   and `evaluate` records `first_s3_started_at` before the registration commit.
 
+### Results on seeds 1-10
+
+Simulated, on the ASSUMED program, provisional until the field visit. Every number below
+comes from `data/results/evaluation/` (`summary.json`, `a06.json`, `a05.json`,
+`final_table.csv`) and is printed in [docs/evaluation.md](docs/evaluation.md).
+
+- **The single run.** `tasks.py part8` ran once, on 2026-10-23, from the clean
+  registration commit `ca1a7c1` (committed 2026-10-23 20:26:19 +02:00). The first S3 run
+  started at 20:43:48 +02:00, after the registration (`registration.order` = before). The
+  70 re-made S0-S2 runs are identical to the published ones (`verify.json`: 70 of 70, no
+  difference; A-01), so every Part 4 number stands. The 40 S3 and S4 runs were added: 110
+  runs in all, every one at code version `ca1a7c1`. Nothing was rerun or retuned.
+- **A-03:** 4/4 controllers (fixed, actuated, rules, rl) on one scenario and one KPI set,
+  83 KPIs in each family.
+- **A-04: PASS** over 110 runs. In both families: 0 collisions, 0 teleports, 0 danger
+  audit; worst curb wait 88.0 s for every controller except S0 (86.0 s), bound 90 s.
+  Preemption served 10 of 10 requests for S2 and S3 in the main family and 70 of 70 in the
+  probe family, with 0 time-outs. The guard intervened in the RL runs only: 29.0 per run
+  for S3 and 30.0 for S4 in the main family (mostly `ped_wait`: 27.7 and 29.0), 31.7 and
+  31.3 in the probe family; S0, S1, S2 and S2_noP had none.
+- **A-05: PASS.** The primary (main, S0 vs S2, ambulance `travel_time_total`, one-sided)
+  is reproduced unchanged: 152.2 → 110.5 s, HL -36.5 s [95 % CI -70.0, -14.0], p 0.0020.
+  The three new secondary tests also pass at p 0.0010: main S0 vs S3 HL -54.0 s
+  [-89.5, -17.5]; probe S0 vs S3 -88.7 s [-120.2, -70.9]; probe S4 vs S3 -42.7 s
+  [-53.5, -34.6].
+- **A-06: PASS** (procedural: n = 10 per comparison, the S3 model sha256 and the four
+  input pins match, one demand per family, A-03 passing). Person-weighted delay
+  `all/person_delay_mean`, exact two-sided Wilcoxon, Holm across the three:
+
+  | Reference | Reference mean (s) | S3 mean (s) | HL [95 % CI] (s) | p | Holm p | Outcome |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | S1 (primary) | 57.1 | 46.0 | -9.5 [-17.5, -6.4] | 0.0020 | 0.0059 | S3 better |
+  | S2 | 48.9 | 46.0 | -2.5 [-5.0, -0.6] | 0.0137 | 0.0137 | S3 better |
+  | S0 | 63.6 | 46.0 | -14.3 [-29.4, -10.7] | 0.0020 | 0.0059 | S3 better |
+
+  Primary sentence (`a06.json`): "S3 vs S1 (actuated): all/person_delay_mean 57.1 → 46.0
+  s (n = 10), HL -9.5 s [95 % CI -17.5, -6.4], exact two-sided p 0.0020, Holm p 0.0059
+  (α 0.05): S3 better."
+- **Spec 10.6 check against S1 (reported, not gating).** C1 passes (HL -9.5 s, p 0.0020).
+  C2 fails: the pedestrian mean curb wait is 5.2 % worse than S1 (19.2 → 20.2 s, limit
+  5 %), while car time loss is 14.5 % and bus delay 23.9 % better. C3 passes with no
+  violation, and C4 is cited as passing from Part 7. "Seeds 1-10 confirm the interim
+  FALLBACK (C2 fails on pedestrian/ped_curb_wait_mean). The main solution stays S2."
+- **Equity.** Against S0 every scenario improves the person-weighted delay and has some
+  hidden degradation. For S3 and S4 it is the same three flags in both families: the
+  pedestrian mean curb wait at crossings NB, S and WB. In the D96 tables of S3 against S1
+  and S2, which cover only the per-user primaries and the C2 KPIs, only the pedestrian
+  mean curb wait of S3 against S1 is worse (+5.2 %, p 0.0137); against S2 none of those
+  KPIs is flagged (pedestrian mean curb wait +4.4 %, p 0.064). The full registered S1-S3
+  and S2-S3 pair tables (every KPI, subgroups included, same 5 % rule) flag S3 on more
+  rows: against S2, 12 rows, all subgroups, among them the
+  pedestrian mean curb wait at crossings NB (+10.2 %), S (+7.6 %) and WB (+10.1 %) and
+  the car time loss on arm W (+29.2 %); against S1, 15 rows, among them the same three
+  crossings and the bus headway regularity of line 57. See
+  [docs/evaluation.md](docs/evaluation.md) and `data/results/evaluation/main/pairs/`.
+- **S4** (S3 without preemption, out of distribution): the probe ambulance takes 129.5 s
+  against 86.5 s with S3 (HL -42.7 s above), so preemption still matters with the RL
+  policy; its other KPIs stay close to S3.
+
+Final comparison table, main family (mean over seeds 1-10, change against S0; S2_noP and
+S4 are ablations):
+
+| KPI | S0 | S1 | S2 | S3 | S2_noP | S4 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Car time loss (s) | 75.9 | 65.8 (-13.3 %) | 56.6 (-25.4 %) | 56.2 (-25.9 %) | 55.9 (-26.3 %) | 56.1 (-26.1 %) |
+| Car throughput (veh/h) | 1179 | 1180 | 1186 | 1186 | 1185 | 1185 |
+| Bus delay (s) | 61.0 | 62.6 (+2.5 %) | 56.1 (-8.0 %) | 47.6 (-22.0 %) | 57.2 (-6.3 %) | 47.4 (-22.3 %) |
+| Pedestrian mean curb wait (s) | 18.9 | 19.2 (+1.8 %) | 19.4 (+2.6 %) | 20.2 (+7.0 %) | 19.1 (+1.3 %) | 20.1 (+6.6 %) |
+| Pedestrian max curb wait (s) | 85.6 | 87.4 | 88.0 | 88.0 | 88.0 | 88.0 |
+| Ambulance travel time (s) | 152.2 | 149.1 (-2.0 %) | 110.5 (-27.4 %) | 101.3 (-33.4 %) | 134.4 (-11.7 %) | 125.3 (-17.7 %) |
+| Person-weighted delay (s) | 63.6 | 57.1 (-10.1 %) | 48.9 (-23.1 %) | 46.0 (-27.6 %) | 48.9 (-23.0 %) | 45.9 (-27.8 %) |
+
+Ambulance-probe family, ambulance travel time (s): S0 179.8, S2 87.0, S3 86.5, S2_noP
+106.0, S4 129.5. The full table (15 KPI rows plus the safety, activity, equity and
+occupancy rows) is the first section of [docs/evaluation.md](docs/evaluation.md).
+
+**Reading.** On these simulated runs S3 has the lowest person-weighted delay and is
+significantly better than S0, S1 and S2, but it makes pedestrians wait longer at the curb
+than S1 by more than the pre-registered 5 % limit. That is why the decision fixed at week
+7 stands: S2 is the main solution, and S3 is reported as a study, not adopted.
+
 ### Part 8 tasks
 
 | Task | What it does |
@@ -1726,15 +1830,36 @@ rebaseline-verify`.
 
 ## App, replay and user tests (Part 9)
 
-**Results pending.** The app reads the final results once Part 8 has run, and the user
-tests need 3 to 5 real participants, whom the tooling never replaces. A-10 is
-**PENDING**: fewer than 3 sessions are recorded (none so far). It becomes DONE with 3 to 5
-complete sessions and is never a PASS.
+The app is connected to the Part 8 outputs, and the user-test package (protocol, kit,
+results file, synthesis) is ready. The user tests themselves need 3 to 5 real
+participants, whom the tooling never replaces. A-10 is **PENDING**: fewer than 3 sessions
+are recorded (none so far), and [docs/usertests.md](docs/usertests.md) shows PENDING in
+every result cell. It becomes DONE with 3 to 5 complete sessions and is never a pass. The
+protocol is [docs/usertest_protocol.md](docs/usertest_protocol.md).
 
 **Provisional until the field visit.** Every value the app shows is simulated, from runs
 on the ASSUMED signal program; every view says "données simulées" with the calibration
 date and, while the program is provisional, "programme de feux provisoire" (ENF-05). The
 field visit can change every number.
+
+What was checked in the integration (2026-10-23, real data):
+
+- **Demo runs** (`tasks.py demo-runs8`, from the clean `ca1a7c1`): S2_noP, S3 and S4 at
+  seed 4000 in `data/demo/`, each with 0 teleports, 0 collisions, 0 emergency stops and no
+  vehicle left waiting at the end. The S3 and S4 runs have no ETA prediction (the ETA
+  model never saw the `rl` controller), so the student view answers in its degraded mode.
+- **API latency** (`tasks.py api-bench`, [docs/api.md](docs/api.md)): ENF-02 PASS over 119
+  indexed runs, worst p95 53.6 ms, new Parts 8-9 endpoints included.
+- **Walkthrough** (`tasks.py demo-check` against `tasks.py demo`): 63 of 63 checks pass
+  with the Streamlit Operator running. The S3 and S4 values on screen (Operator card,
+  Streamlit cards, equity tab) equal `final_table.csv`. The ambulance view is degraded by
+  design: only one of the three corridor junctions is modelled.
+- **Screenshots** (`tasks.py app-shots`): 17 images in `docs/figures/app/` (each user
+  view, the replay of the S3 run, the Operator card, an invalid deep link and the
+  Streamlit tabs).
+- **User-test kit** (`tasks.py usertest-kit`): `docs/usertests/usertest_kit.pdf`, 14
+  pages; the expected answers hold on the `pitie_rules` seed 4000 run, and the Operator
+  task's answer, computed from `/kpi`, is S3 (lowest person-weighted delay).
 
 ### Two front ends on one API (D102-D108)
 
@@ -1789,10 +1914,21 @@ field visit can change every number.
 
 ## Report, slides and demo (Part 10)
 
-**Results pending.** The report, the deck and the rehearsal record are built in the Part
-8-10 integration, from the outputs of Part 8. The rehearsed demo also needs one rehearsal
-by the presenter, logged in `docs/demo/rehearsal_log.yaml` with no manual code edit:
-until then it is **PENDING**.
+The report, the deck, the demo pack and the automated rehearsal record were built in the
+Parts 8-10 integration (2026-10-23) from the Part 8 outputs:
+[docs/report/report.md](docs/report/report.md) and
+[docs/report/report.pdf](docs/report/report.pdf) (29 pages, from 453 facts in
+`docs/report/facts.json`), the deck
+[docs/slides/urban_traffic_twin.pptx](docs/slides/urban_traffic_twin.pptx) (15 slides),
+the runbook [docs/demo/runbook.md](docs/demo/runbook.md), and `docs/demo/demo_pack.zip`
+(102 files, 10.5 MB, with `MANIFEST.json`). The recorded headless rehearsal
+(`docs/demo/rehearsal.json`, real data, Chrome) passed 106 checks with 0 failures and 1
+skip (the Streamlit browser check, covered by AppTest): every view and the four degraded
+cases (no ETA bundle, no evaluation, no runs, API down). So A-08 passes. A-09 waits for
+`tasks.py demo-readiness` on the release commit. The rehearsed demo also needs one
+rehearsal by the presenter, logged in `docs/demo/rehearsal_log.yaml` with no manual code
+edit: until then it is **PENDING**, and so is the defence. In the generated acceptance
+table, A-01 to A-08 pass; A-09 and A-10 are PENDING.
 
 **Provisional until the field visit.** The report is version 1, "provisional (before the
 field visit)": it rests on simulated data and the ASSUMED signal program. If the field
@@ -1976,7 +2112,8 @@ src/traffic_twin/
   control/          Controller interface, registry, fixed time, actuated, rules (S2),
                     rl (trained policy), safety guard, pedestrian shield, preemption
   validation/       reference, field, flows, signal, queues, calibration_loop, report
-  evaluation/       paired statistics, scenario comparison, runs, evaluate (Part 4)
+  evaluation/       paired statistics, scenario comparison, runs, evaluate (Part 4),
+                    final (A-06, 10.6 check, final table, series, digest; Part 8)
   viz/              KPI figures (plots), validation, evaluation and RL figures, figure style
   ml/               ETA: day types, features, dataset, quantile model, prediction,
                     evaluation, departure advice (Part 5)

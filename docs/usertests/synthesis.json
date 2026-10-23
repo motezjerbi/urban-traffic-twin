@@ -1,0 +1,389 @@
+{
+  "schema_version": 1,
+  "synthetic": false,
+  "status": "PENDING",
+  "n": 0,
+  "a10": {
+    "status": "PENDING",
+    "n_complete": 0,
+    "n_sessions": 0,
+    "range": [
+      3,
+      5
+    ],
+    "text": "0 complete session(s) of the 3-5 that spec 12.2 asks for; the protocol and kit are ready, no result is estimated"
+  },
+  "preregistered": "2026-10-23",
+  "required_tasks": [
+    "T-PED",
+    "T-PMR",
+    "T-STU",
+    "T-BUS",
+    "T-AMB",
+    "T-OP"
+  ],
+  "targets": {
+    "pedestrian_time_s": 5,
+    "max_clicks": 2,
+    "ambulance_glance_s": 3
+  },
+  "tasks": [
+    {
+      "id": "T-PED",
+      "view": "pedestrian",
+      "optional": false,
+      "n": 0,
+      "skipped": 0,
+      "success": 0,
+      "success_or_partial": 0,
+      "time_median_s": null,
+      "times_s": [],
+      "time_limit_s": 30,
+      "clicks_median": null,
+      "clicks_max": null,
+      "within_clicks": 0,
+      "hints": 0,
+      "errors": {},
+      "seq_median": null
+    },
+    {
+      "id": "T-PMR",
+      "view": "pedestrian",
+      "optional": false,
+      "n": 0,
+      "skipped": 0,
+      "success": 0,
+      "success_or_partial": 0,
+      "time_median_s": null,
+      "times_s": [],
+      "time_limit_s": 30,
+      "clicks_median": null,
+      "clicks_max": null,
+      "within_clicks": 0,
+      "hints": 0,
+      "errors": {},
+      "seq_median": null
+    },
+    {
+      "id": "T-STU",
+      "view": "student",
+      "optional": false,
+      "n": 0,
+      "skipped": 0,
+      "success": 0,
+      "success_or_partial": 0,
+      "time_median_s": null,
+      "times_s": [],
+      "time_limit_s": 60,
+      "clicks_median": null,
+      "clicks_max": null,
+      "within_clicks": 0,
+      "hints": 0,
+      "errors": {},
+      "seq_median": null
+    },
+    {
+      "id": "T-BUS",
+      "view": "bus",
+      "optional": false,
+      "n": 0,
+      "skipped": 0,
+      "success": 0,
+      "success_or_partial": 0,
+      "time_median_s": null,
+      "times_s": [],
+      "time_limit_s": 60,
+      "clicks_median": null,
+      "clicks_max": null,
+      "within_clicks": 0,
+      "hints": 0,
+      "errors": {},
+      "seq_median": null
+    },
+    {
+      "id": "T-AMB",
+      "view": "ambulance",
+      "optional": false,
+      "n": 0,
+      "skipped": 0,
+      "success": 0,
+      "success_or_partial": 0,
+      "time_median_s": null,
+      "times_s": [],
+      "time_limit_s": 20,
+      "clicks_median": null,
+      "clicks_max": null,
+      "within_clicks": 0,
+      "hints": 0,
+      "errors": {},
+      "seq_median": null
+    },
+    {
+      "id": "T-OP",
+      "view": "operator",
+      "optional": false,
+      "n": 0,
+      "skipped": 0,
+      "success": 0,
+      "success_or_partial": 0,
+      "time_median_s": null,
+      "times_s": [],
+      "time_limit_s": 90,
+      "clicks_median": null,
+      "clicks_max": null,
+      "within_clicks": 0,
+      "hints": 0,
+      "errors": {},
+      "seq_median": null
+    },
+    {
+      "id": "T-REPLAY",
+      "view": "replay",
+      "optional": true,
+      "n": 0,
+      "skipped": 0,
+      "success": 0,
+      "success_or_partial": 0,
+      "time_median_s": null,
+      "times_s": [],
+      "time_limit_s": 120,
+      "clicks_median": null,
+      "clicks_max": null,
+      "within_clicks": 0,
+      "hints": 0,
+      "errors": {},
+      "seq_median": null
+    }
+  ],
+  "rounds": {},
+  "enf06": {
+    "pedestrian_time": {
+      "status": "PENDING (n<3)"
+    },
+    "clicks": {
+      "status": "PENDING (n<3)"
+    },
+    "glance": {
+      "status": "PENDING (n<3)"
+    }
+  },
+  "enf05": {
+    "status": "PENDING (n<3)"
+  },
+  "sus": null,
+  "profiles": [],
+  "issues": {
+    "n": 12,
+    "open": 12,
+    "fixed": 0,
+    "wontfix": 0,
+    "verified": 0,
+    "rows": [
+      {
+        "id": "U01",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-AMB",
+          "T-BUS",
+          "T-OP",
+          "T-REPLAY"
+        ],
+        "sessions": [],
+        "severity": 4,
+        "kind": "trust",
+        "description": "The run selector lists invented S3 runs (s3_rl_dqn, including the reserved seeds 1 and 2); choosing one silently shows the S2 run's data under an S3 label.",
+        "fix": "Run list from /scenarios only, resolved by scenario and seed (D105, D106); no hard-coded run options.",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U02",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-OP"
+        ],
+        "sessions": [],
+        "severity": 4,
+        "kind": "trust",
+        "description": "The operator view shows S3 results written into the page (S3_DATA) instead of values read from the API; S3 has not been evaluated on seeds 1-10 yet.",
+        "fix": "Operator card reads /kpi for every registered label (D102, D107); S3 appears only from the Part 8 outputs.",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U03",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-AMB"
+        ],
+        "sessions": [],
+        "severity": 3,
+        "kind": "trust",
+        "description": "The ambulance view shows a fixed countdown ('00:28') that no data supports.",
+        "fix": "Junction status from /ambulance/next-intersections only; 'ETA destination : non modélisé' (§4.4, D107).",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U04",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-BUS"
+        ],
+        "sessions": [],
+        "severity": 3,
+        "kind": "trust",
+        "description": "The bus view fills missing fields with invented values (a fixed headway, a fixed vehicle id, a next-arrival text) and a 'live telematics' label.",
+        "fix": "No `b.<field> || <literal>` fallbacks; absent values say 'non disponible' (D107).",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U05",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-STU"
+        ],
+        "sessions": [],
+        "severity": 3,
+        "kind": "term",
+        "description": "The student view shows raw LaTeX ('$p_{50}$') and a broken arrow ('ightarrow'): a backslash-r in the template literal became a carriage return.",
+        "fix": "Plain French labels ('intervalle à 80 %'); no backslash-r escapes in the script (§4.4, D107).",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U06",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-REPLAY"
+        ],
+        "sessions": [],
+        "severity": 3,
+        "kind": "trust",
+        "description": "The landing map is a browser-side random animation labelled 'S3 RL DQN' and 'SUMO 60 FPS', not data from a simulated run.",
+        "fix": "The map becomes the EF-21 replay of a run read from /replay (positions, signals, events); no Math.random in the page (D105).",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U07",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-PED",
+          "T-PMR",
+          "T-STU",
+          "T-BUS",
+          "T-OP"
+        ],
+        "sessions": [],
+        "severity": 3,
+        "kind": "layout",
+        "description": "The page opens on the map with seven buttons, not on a home screen with one card per user profile (spec 12).",
+        "fix": "Home screen with the 5 profile cards, Relecture and Opérateur (D102, §4.4).",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U09",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-PED",
+          "T-PMR",
+          "T-STU",
+          "T-BUS",
+          "T-AMB",
+          "T-OP",
+          "T-REPLAY"
+        ],
+        "sessions": [],
+        "severity": 3,
+        "kind": "other",
+        "description": "No deep links: the facilitator cannot set the run and the instant of a task, so the start state of each task cannot be reproduced.",
+        "fix": "Deep links view, scenario, seed, t, kiosk (D106), applied after the run list is built.",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U10",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-PED",
+          "T-STU",
+          "T-BUS",
+          "T-AMB"
+        ],
+        "sessions": [],
+        "severity": 3,
+        "kind": "trust",
+        "description": "Labels overstate the data ('en direct', 'certifié', 'Garantie', real-sensor wording) while the data are simulated and the signal program is provisional (ENF-05).",
+        "fix": "Footer in every view with 'données simulées', the calibration date and 'programme de feux provisoire'; the overstated labels removed (D104, D107).",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U08",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-PMR"
+        ],
+        "sessions": [],
+        "severity": 2,
+        "kind": "layout",
+        "description": "A pedestrian at a crossing other than S with the reduced speed needs 3 clicks (view, crossing, speed), over the ENF-06 limit of 2. T-PMR uses crossing S, so the tests would not show it.",
+        "fix": "Speed buttons on the Piéton home card and the last choice remembered (§4.4).",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U11",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-PED",
+          "T-PMR",
+          "T-STU",
+          "T-BUS",
+          "T-AMB",
+          "T-OP"
+        ],
+        "sessions": [],
+        "severity": 2,
+        "kind": "other",
+        "description": "Views have no loading, unavailable or error state: a slow or failed API call leaves old or empty values on the screen without saying so (spec 12.1).",
+        "fix": "data-view-state on every view (loading, ok, degraded, stale, unavailable, error), a 4 s fetch timeout and a last-good value with its time (D104).",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      },
+      {
+        "id": "U12",
+        "found_by": "walkthrough",
+        "tasks": [
+          "T-OP"
+        ],
+        "sessions": [],
+        "severity": 2,
+        "kind": "other",
+        "description": "The Streamlit Operator reads docs/evaluation.md directly instead of the API (spec 8.6), so it can show results that the API does not serve.",
+        "fix": "Operator through traffic_twin.app.client and the /evaluation, /compare, /series and /sensitivity endpoints (D102, D108).",
+        "status": "open",
+        "commit": null,
+        "verified": null
+      }
+    ]
+  },
+  "sources": {
+    "configs/usertests.yaml": "8d0dc0a5cb434a6e30bcd59c09a9b8d1ab014621284cdf2437e05f73edabfaa4",
+    "docs/usertests/results.yaml": "d08037cba857cc2ccb4a495abcd5e892f7fdb03fe6f92bf23d4b641e21eb4d94"
+  }
+}

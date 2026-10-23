@@ -44,7 +44,6 @@ eval.a05.verdict
 eval.changes_n
 eval.equity.sentence
 eval.equity_pct
-eval.hidden_degradation
 eval.occupancy.bus
 eval.occupancy.car
 eval.person_delay.rel_s2_vs_s0
@@ -72,7 +71,6 @@ net.phases
 net.red_bound
 net.tls_check
 net.worst_red
-rep106.confirms
 rep106.main_solution
 rep106.text
 rl7.c1.ci

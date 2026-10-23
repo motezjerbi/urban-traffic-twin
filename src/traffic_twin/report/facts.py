@@ -572,12 +572,14 @@ def equity_sentence(rows: list[dict], eq_text: str | None) -> tuple:
     n_better = len(better) or len(hidden)
     if not hidden:
         return value, (
-            f"Of the {n_better} controller runs that lower the person-weighted delay "
+            f"Of the {n_better} scenarios (family and controller, over the evaluation seeds) that "
+            "lower the person-weighted delay "
             f"significantly against S0, none makes a car arm, bus flow or crossing {limit}"
             "worse than S0"
         )
     text = (
-        f"{len(hidden)} of the {n_better} controller runs that lower the person-weighted "
+        f"{len(hidden)} of the {n_better} scenarios (family and controller, over the evaluation "
+        "seeds) that lower the person-weighted "
         f"delay significantly against S0 also make a KPI {limit}worse than S0 (user groups "
         f"in brackets): {named}"
     )
@@ -863,7 +865,11 @@ def read_rl7(c: Collector) -> None:
     ]
     c.declare(keys, f"{RL7_VERDICT.as_posix()} not found (tasks.py rl7-devtest)")
     if c.exists(RL7_VERDICT):
-        v = c.json(RL7_VERDICT)
+        from traffic_twin.rl.study import final_verdict, latest_reproduce
+
+        # the frozen dev-test verdict completed with the newest reproduce7 result, as the
+        # Part 7 page and evaluation/final.cite_c4 state it: never verdict.json alone
+        v = final_verdict(c.json(RL7_VERDICT), latest_reproduce(c.path(RL7_VERDICT.parent.parent)))
         src, cv = RL7_VERDICT, v.get("code_version")
 
         def put(k, val, text=None, unit=None):
@@ -902,7 +908,7 @@ def read_rl7(c: Collector) -> None:
             ("c1", c1, "pass"),
             ("c2", c2, "pass"),
             ("c3", c3, "pass"),
-            ("c4", c4, "runs_pass"),
+            ("c4", c4, "pass"),
         ):
             if blk.get(field) is not None:
                 put(f"rl7.{k}.pass", bool(blk[field]), "pass" if blk[field] else "fail")
@@ -938,7 +944,7 @@ def _rl7_sentences(c: Collector, v: dict, put) -> None:
         "C1": blocks["C1"].get("pass"),
         "C2": blocks["C2"].get("pass"),
         "C3": blocks["C3"].get("pass"),
-        "C4": blocks["C4"].get("runs_pass"),
+        "C4": blocks["C4"].get("pass"),
     }
     failed = [k for k, x in passes.items() if x is False]
     put("rl7.failed", failed, ", ".join(failed) if failed else "none")
@@ -958,7 +964,14 @@ def _rl7_sentences(c: Collector, v: dict, put) -> None:
     if passes["C3"] is not None:
         n = len(blocks["C3"].get("violations") or [])
         parts.append(f"C3, safety, is {_pass_word(passes['C3'])} with {n} violations")
-    repro = " (its repeat check is pending)" if "C4.repro" in (v.get("pending") or []) else ""
+    rec = blocks["C4"].get("repro") or {}
+    if "C4.repro" in (v.get("pending") or []) or rec.get("same") is None:
+        runs = blocks["C4"].get("runs_pass")
+        state = "the stage-F runs pass, " if runs else ""
+        repro = f" ({state}its repeat check, reproduce7, has not run)"
+    else:
+        head = f" at {rec['head']}" if rec.get("head") else ""
+        repro = f" (reproduce7{head}: {'identical' if rec['same'] else 'different'})"
     parts.append(f"C4, reproducibility, is {_pass_word(passes['C4'])}{repro}")
     put("rl7.criteria_sentence", passes, "; ".join(parts))
     rows = [r for r in c2.get("rows") or [] if r.get("rel_pct") is not None]

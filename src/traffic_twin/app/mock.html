@@ -3804,7 +3804,7 @@ async function operator() {
         <div class="hero-eta-label" style="color:#C084FC"><span>📊</span> <span>Retard moyen par personne, par scénario (famille principale)</span></div>
       </div>
       <div class="op-best" data-field="op-best" data-value="${dv(best ? best.label : "")}">
-        ${best ? `Plus faible retard moyen par personne : <strong>${esc(best.label)}</strong> (${best.mean.toFixed(1)} s)` : "Aucun scénario évalué disponible"}
+        ${best ? `Plus faible retard moyen par personne, parmi les scénarios principaux (hors ablations) : <strong>${esc(best.label)}</strong> (${best.mean.toFixed(1)} s)` : "Aucun scénario évalué disponible"}
       </div>
       <div class="table-box">
         <table>
@@ -3812,7 +3812,7 @@ async function operator() {
           <tbody>${rows || `<tr><td colspan="5" class="muted">aucun scénario enregistré</td></tr>`}</tbody>
         </table>
       </div>
-      <div class="muted" style="margin-top:10px">Ablations et scénarios exploratoires grisés. ${ev.status === "ok" || (folded && evBad) ? "" : `Évaluation finale : ${esc(ev.notice || "indisponible")}.`}</div>
+      <div class="muted" style="margin-top:10px">Ablations et scénarios exploratoires grisés, hors classement. ${ev.status === "ok" || (folded && evBad) ? "" : `Évaluation finale : ${esc(ev.notice || "indisponible")}.`}</div>
       <div style="margin-top:16px">${operatorLink}</div>
     </div>
   `];

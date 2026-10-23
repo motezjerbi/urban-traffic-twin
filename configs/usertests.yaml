@@ -91,9 +91,9 @@ tasks:
     start: {view: home}                    # no instant: the Operator card reads /kpi
     check: {view: operator, params: {}}
     card_fr: >-
-      Vous êtes opérateur. D'après l'application, quel scénario a le plus faible retard moyen
-      par personne ?
-    card_en: "You are the operator. According to the app, which scenario has the lowest mean delay per person?"
+      Vous êtes opérateur. D'après l'application, quel scénario principal (hors ablations)
+      a le plus faible retard moyen par personne ?
+    card_en: "You are the operator. According to the app, which main scenario (ablations excluded) has the lowest mean delay per person?"
     expect:
       - {endpoint: /kpi, field: argmin, computed: operator}
     answer_fr: "Le scénario indiqué par la clé (calculé depuis /kpi à la génération du kit)"
@@ -119,4 +119,15 @@ questionnaire: {seq_per_task: true, sus: optional}   # SEQ 1-7 after each task; 
 error_codes: [wrong_view, wrong_answer, misread, term, hesitation, help, slider, gave_up, bug, other]
 outcomes: [success, partial, fail, skipped]   # partial = correct after the hint or over the click limit
 issue_kinds: [wrong_view, misread, term, layout, trust, bug, other]
-changes: []
+changes:
+  - date: 2026-10-23
+    what: >-
+      T-OP card_fr / card_en: the question now asks for the "scénario principal (hors
+      ablations)" / "main scenario (ablations excluded)". The answer
+      key is unchanged (argmin of all/person_delay_mean over operator.labels S0-S3).
+    why: >-
+      Integration review: the Operator table also lists the ablation S4 (greyed), whose
+      mean delay per person is lower than S3's by about 0.1 s, so the unrestricted
+      question had two defensible answers while the key counts only S0-S3. Fixed before
+      any participant was tested (no session recorded); the /mock heading and the
+      Streamlit Operator now say the same restriction.

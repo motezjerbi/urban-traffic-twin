@@ -119,6 +119,7 @@ time (such as `t=1e12`) is `bad_t` too.
   - `scenario` is an evaluation label of the family (`S0`, `S1`, `S2`, `S2_noP`) or a scenario name.
   - Mean, std and n over the seeds come from `kpis.csv`. The change versus S0, the p-value and the worse flag come from `equity.csv`.
   - Without evaluation outputs, the endpoint falls back to the runs' `kpi_run.csv`: `status: degraded`, `source: runs`, no test and no comparison.
+  - The `all` user (`person_delay_mean` and its occupancy variants) exists only in the evaluation outputs, so without them `/kpi?user=all` is `unavailable` ("aucun KPI pour l'usager 'all'"), not degraded, and both Operator views lose their headline KPI.
   - A label registered in `evaluation.yaml` but absent from `kpis.csv` (S3 and S4 before the Part 8 run) is `unavailable`, "S3 : pas encore évalué". The endpoint never shows demo-seed runs under an evaluation label.
 - **`/scenarios`.**
   - `role` is the label's role in the final comparison table (`evaluation.yaml final_table`): `main` for its columns (S0-S3), `ablation` for its ablations (S2_noP, S4), else `exploratory`; null for a scenario without a label.
@@ -191,6 +192,7 @@ An unreadable Parquet or CSV file is logged and treated as absent.
 | Crossing without `signal.parquet` | Colour from the 5 s state log; remaining time unknown; `degraded` |
 | Ambulance | Always `degraded`: "1 carrefour modélisé sur 3" |
 | KPI without evaluation outputs | Means of the runs' `kpi_run.csv`; `degraded` |
+| KPI of the `all` user (`person_delay_mean`) without evaluation outputs | `unavailable`, "aucun KPI pour l'usager 'all'": the runs' `kpi_run.csv` has no `all` rows; the Operator tables show the notice per row and no headline |
 | A run of another network (the grid baseline) | Crossing, bus, ambulance and ETA: `unavailable` ("autre réseau"); replay and KPI still answer |
 | No runs at all | `/health` and `/scenarios` `degraded`; time-dependent endpoints `unknown_run` |
 | Evaluation label registered but not evaluated (S3, S4 before Part 8) | `/kpi`, `/compare`: `unavailable`, "pas encore évalué"; `/evaluation`: `degraded` with the labels listed; `/series`: `degraded` likewise, `unavailable` when none of the labels asked for is in `series.csv` |
@@ -237,25 +239,30 @@ ENF-02 asks for answers in less than 500 ms on precomputed results.
 - `tests/test_api_latency.py` guards p95 < 500 ms on the synthetic fixtures in CI, and p95 < 50 ms for the Parts 8-9 endpoints.
 
 <!-- latency:begin -->
-Measured 2026-10-16 02:51 (Europe/Paris) by `python -m traffic_twin.api.bench`: code `8fd1026-dirty`, Python 3.12.10, Windows 11 AMD64. 76 runs indexed from `data/results`, `data/demo`; default run `pitie_rules` seed 4000; ETA model `eta1-56926796`.
+Measured 2026-10-23 20:51 (Europe/Paris) by `python -m traffic_twin.api.bench`: code `ca1a7c1`, Python 3.12.10, Windows 11 AMD64. 119 runs indexed from `data/results`, `data/demo`; default run `pitie_rules` seed 4000; ETA model `eta1-56926796`.
 
-200 requests per endpoint after one warm-up request, parameters drawn with seed 4000. Cold start (app, run index, site, first request): 526 ms.
+200 requests per endpoint after one warm-up request, parameters drawn with seed 4000. Cold start (app, run index, site, first request): 772 ms.
 
 | Endpoint | In-process p50 (ms) | p95 | max | HTTP p50 (ms) | p95 | max | Answers |
 |---|---|---|---|---|---|---|---|
-| health | 4.9 | 6.6 | 21.1 | 1.6 | 2.2 | 3.1 | 200 ok: 200 |
-| scenarios | 16.8 | 19.9 | 24.1 | 12.4 | 15.2 | 17.6 | 200 ok: 200 |
-| kpi | 13.3 | 15.6 | 17.7 | 9.3 | 11.3 | 13.3 | 200 ok: 200 |
-| replay (default run) | 15.8 | 18.7 | 66.6 | 12.7 | 14.8 | 16.8 | 200 ok: 200 |
-| replay (positions) | 16.4 | 19.2 | 22.0 | 13.5 | 15.9 | 17.7 | 200 ok: 200 |
-| replay (random run) | 17.4 | 44.4 | 56.0 | 13.7 | 18.7 | 27.0 | 200 ok: 200 |
-| crossing | 7.1 | 20.6 | 33.0 | 3.7 | 8.2 | 65.8 | 200 ok: 191, 200 unavailable: 9 |
-| bus | 9.4 | 42.3 | 98.5 | 6.0 | 21.1 | 36.9 | 200 degraded: 4, 200 ok: 184, 200 unavailable: 12 |
-| ambulance | 16.0 | 21.9 | 50.4 | 12.7 | 16.8 | 20.0 | 200 degraded: 189, 200 unavailable: 11 |
-| eta | 20.8 | 23.8 | 84.2 | 17.3 | 20.6 | 25.1 | 200 ok: 200 |
-| error (404) | 3.7 | 5.4 | 6.5 | 1.3 | 2.0 | 2.9 | 404 unavailable: 200 |
+| health | 5.7 | 7.7 | 14.1 | 1.2 | 1.6 | 2.0 | 200 ok: 200 |
+| scenarios | 20.8 | 25.0 | 89.2 | 14.1 | 17.5 | 19.7 | 200 ok: 200 |
+| kpi | 14.8 | 19.7 | 25.8 | 9.2 | 11.5 | 60.1 | 200 ok: 200 |
+| replay (default run) | 21.7 | 27.0 | 98.8 | 17.6 | 20.4 | 23.4 | 200 ok: 200 |
+| replay (positions) | 21.3 | 26.3 | 37.1 | 17.5 | 19.9 | 22.3 | 200 ok: 200 |
+| replay (random run) | 26.7 | 53.6 | 110.8 | 21.7 | 37.3 | 87.3 | 200 ok: 200 |
+| crossing | 7.0 | 16.1 | 22.2 | 3.6 | 6.9 | 8.3 | 200 ok: 194, 200 unavailable: 6 |
+| bus | 10.1 | 25.5 | 104.7 | 7.7 | 20.6 | 32.1 | 200 degraded: 5, 200 ok: 188, 200 unavailable: 7 |
+| ambulance | 15.4 | 28.5 | 87.3 | 18.5 | 30.3 | 37.5 | 200 degraded: 193, 200 unavailable: 7 |
+| eta | 16.1 | 19.1 | 67.4 | 18.5 | 21.1 | 24.4 | 200 ok: 200 |
+| evaluation | 9.0 | 11.0 | 13.0 | 10.8 | 12.7 | 89.1 | 200 ok: 200 |
+| compare | 5.9 | 7.8 | 11.5 | 6.5 | 8.9 | 10.8 | 200 ok: 200 |
+| series | 14.2 | 22.8 | 106.7 | 15.4 | 19.2 | 82.3 | 200 ok: 200 |
+| sensitivity | 4.7 | 6.0 | 8.6 | 3.2 | 3.8 | 4.8 | 200 ok: 200 |
+| replay events | 6.3 | 9.1 | 10.4 | 4.0 | 6.8 | 8.7 | 200 ok: 200 |
+| error (404) | 3.0 | 3.8 | 4.4 | 1.4 | 1.8 | 2.2 | 404 unavailable: 200 |
 
-**ENF-02 (< 500 ms on precomputed results): PASS**, worst p95 44.4 ms.
+**ENF-02 (< 500 ms on precomputed results): PASS**, worst p95 53.6 ms.
 <!-- latency:end -->
 
 ## Tests
