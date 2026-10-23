@@ -754,7 +754,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not settings.mock:
             raise ApiError("not_found", "mock screens are off (api.yaml dev.mock)")
         page = resources.files("traffic_twin.app").joinpath("mock.html")
-        return HTMLResponse(page.read_text(encoding="utf-8"))
+        return HTMLResponse(
+            page.read_text(encoding="utf-8"),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
 
     @app.get("/three.min.js", include_in_schema=False)
     def three_js():

@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Jumeau Numérique Pitié-Salpêtrière · Cockpit Intelligent API v1</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1290,7 +1293,7 @@ async function api(path) {
 
 const q = (params) => {
   const p = new URLSearchParams({ t: $("t").value, ...params });
-  if (state.run) p.set("run_id", state.run);
+  if (state.run && !state.run.startsWith("s3_")) p.set("run_id", state.run);
   return p.toString();
 };
 
@@ -1336,18 +1339,42 @@ const MAP_EDGES = {
   wb_in: [[110.0, 575.5], [256.5, 510.5], [396.7, 447.5], [408.2, 444.0], [419.9, 441.6], [429.0, 439.2], [437.7, 436.0], [457.5, 427.2], [485.1, 415.2], [500.1, 408.6], [537.7, 391.9]]
 };
 
-function catmullRomSpline(pts, steps = 8) {
+function centripetalCatmullRom(pts, steps = 8, alpha = 0.5) {
   if (pts.length < 3) return pts;
   const ext = [pts[0], ...pts, pts[pts.length - 1]];
   const res = [];
+
+  function getT(t, p0, p1) {
+    const d = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    return t + (d > 0.0001 ? Math.pow(d, alpha) : 0.0001);
+  }
+
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = ext[i], p1 = ext[i + 1], p2 = ext[i + 2], p3 = ext[i + 3];
+    const t0 = 0.0;
+    const t1 = getT(t0, p0, p1);
+    const t2 = getT(t1, p1, p2);
+    const t3 = getT(t2, p2, p3);
+
     for (let s = 0; s < steps; s++) {
-      const u = s / steps;
-      const u2 = u * u, u3 = u2 * u;
-      const x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * u + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * u2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * u3);
-      const y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * u + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * u2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * u3);
-      res.push([x, y]);
+      const t = t1 + (t2 - t1) * (s / steps);
+
+      const a1_x = (t1 - t) / (t1 - t0) * p0[0] + (t - t0) / (t1 - t0) * p1[0];
+      const a1_y = (t1 - t) / (t1 - t0) * p0[1] + (t - t0) / (t1 - t0) * p1[1];
+      const a2_x = (t2 - t) / (t2 - t1) * p1[0] + (t - t1) / (t2 - t1) * p2[0];
+      const a2_y = (t2 - t) / (t2 - t1) * p1[1] + (t - t1) / (t2 - t1) * p2[1];
+      const a3_x = (t3 - t) / (t3 - t2) * p2[0] + (t - t2) / (t3 - t2) * p3[0];
+      const a3_y = (t3 - t) / (t3 - t2) * p2[1] + (t - t2) / (t3 - t2) * p3[1];
+
+      const b1_x = (t2 - t) / (t2 - t0) * a1_x + (t - t0) / (t2 - t0) * a2_x;
+      const b1_y = (t2 - t) / (t2 - t0) * a1_y + (t - t0) / (t2 - t0) * a2_y;
+      const b2_x = (t3 - t) / (t3 - t1) * a2_x + (t - t1) / (t3 - t1) * a3_x;
+      const b2_y = (t3 - t) / (t3 - t1) * a2_y + (t - t1) / (t3 - t1) * a3_y;
+
+      const c_x = (t2 - t) / (t2 - t1) * b1_x + (t - t1) / (t2 - t1) * b2_x;
+      const c_y = (t2 - t) / (t2 - t1) * b1_y + (t - t1) / (t2 - t1) * b2_y;
+
+      res.push([c_x, c_y]);
     }
   }
   res.push(pts[pts.length - 1]);
@@ -1355,7 +1382,7 @@ function catmullRomSpline(pts, steps = 8) {
 }
 
 function compilePath(rawPts) {
-  const pts = catmullRomSpline(rawPts, 8);
+  const pts = centripetalCatmullRom(rawPts, 8, 0.5);
   let total = 0;
   const segs = [];
   for (let i = 0; i < pts.length - 1; i++) {
@@ -1383,12 +1410,19 @@ function samplePos(compiled, dist) {
   return { x: last.p1[0], y: last.p1[1] };
 }
 
-function samplePath(compiled, dist) {
+function samplePath(compiled, dist, lateralOffset = 0) {
   const d = Math.max(0, Math.min(compiled.total, dist));
   const p = samplePos(compiled, d);
   const pFwd = samplePos(compiled, Math.min(compiled.total, d + 1.5));
   const pBwd = samplePos(compiled, Math.max(0, d - 1.5));
   const angle = Math.atan2(pFwd.y - pBwd.y, pFwd.x - pBwd.x);
+
+  if (lateralOffset !== 0) {
+    // In screen coordinates (x right, y down), the unit normal vector to the RIGHT of movement is (-sin(angle), cos(angle))
+    const offX = -Math.sin(angle) * lateralOffset;
+    const offY = Math.cos(angle) * lateralOffset;
+    return { x: p.x + offX, y: p.y + offY, angle };
+  }
   return { x: p.x, y: p.y, angle };
 }
 
@@ -1399,20 +1433,30 @@ function lerpAngle(from, to, factor) {
   return from + diff * factor;
 }
 
+// 2 distinct lanes per street: laneOffset = 12.0px shifts traffic strictly to the right-hand lane (24px separation)
 const MAP_ROUTES = {
-  n_s: { compiled: compilePath(MAP_EDGES.n_in.concat(MAP_EDGES.s_out.slice(1))), stopD: 310, approach: "N", isTurning: false, name: "Bd de l'Hôpital (Nord ➔ Sud)" },
-  s_n: { compiled: compilePath(MAP_EDGES.s_in.concat(MAP_EDGES.n_out.slice(1))), stopD: 158, approach: "S", isTurning: false, name: "Bd de l'Hôpital (Sud ➔ Nord)" },
-  w_n: { compiled: compilePath(MAP_EDGES.w_in.concat(MAP_EDGES.n_out.slice(1))), stopD: 382, approach: "W", isTurning: "left", name: "Bd Saint-Marcel ➔ Bd de l'Hôpital (Nord)" },
-  w_s: { compiled: compilePath(MAP_EDGES.w_in.concat(MAP_EDGES.s_out.slice(1))), stopD: 382, approach: "W", isTurning: "right", name: "Bd Saint-Marcel ➔ Bd de l'Hôpital (Sud)" },
-  bus_nb: { compiled: compilePath(MAP_EDGES.nb_in.concat(MAP_EDGES.s_out.slice(1))), stopD: 325, approach: "N", isTurning: false, name: "Couloir Bus RATP 91/24 (Nord ➔ Sud)" },
-  bus_wb: { compiled: compilePath(MAP_EDGES.wb_in.concat(MAP_EDGES.n_out.slice(1))), stopD: 420, approach: "W", isTurning: "left", name: "Couloir Bus Bd Saint-Marcel" },
+  n_s: { compiled: compilePath(MAP_EDGES.n_in.concat(MAP_EDGES.s_out.slice(1))), stopD: 310, approach: "N", isTurning: false, laneOffset: 12.0, name: "Bd de l'Hôpital (Nord ➔ Sud · Voie 1 Ouest)" },
+  s_n: { compiled: compilePath(MAP_EDGES.s_in.concat(MAP_EDGES.n_out.slice(1))), stopD: 158, approach: "S", isTurning: false, laneOffset: 12.0, name: "Bd de l'Hôpital (Sud ➔ Nord · Voie 2 Est)" },
+  w_n: { compiled: compilePath(MAP_EDGES.w_in.concat(MAP_EDGES.n_out.slice(1))), stopD: 382, approach: "W", isTurning: "left", laneOffset: 12.0, name: "Bd Saint-Marcel ➔ Bd de l'Hôpital (Nord)" },
+  w_s: { compiled: compilePath(MAP_EDGES.w_in.concat(MAP_EDGES.s_out.slice(1))), stopD: 382, approach: "W", isTurning: "right", laneOffset: 12.0, name: "Bd Saint-Marcel ➔ Bd de l'Hôpital (Sud)" },
+  n_w: { compiled: compilePath(MAP_EDGES.n_in.concat(MAP_EDGES.w_out.slice(1))), stopD: 310, approach: "N", isTurning: "right", laneOffset: 12.0, name: "Bd de l'Hôpital ➔ Bd Saint-Marcel (Ouest · Voie 2)" },
+  s_w: { compiled: compilePath(MAP_EDGES.s_in.concat(MAP_EDGES.w_out.slice(1))), stopD: 158, approach: "S", isTurning: "left", laneOffset: 12.0, name: "Bd de l'Hôpital ➔ Bd Saint-Marcel (Ouest · Voie 2)" },
+  bus_nb: { compiled: compilePath(MAP_EDGES.nb_in.concat(MAP_EDGES.s_out.slice(1))), stopD: 325, approach: "N", isTurning: false, laneOffset: 0, name: "Couloir Bus RATP 91/24 (Nord ➔ Sud)" },
+  bus_wb: { compiled: compilePath(MAP_EDGES.wb_in.concat(MAP_EDGES.n_out.slice(1))), stopD: 420, approach: "W", isTurning: "left", laneOffset: 0, name: "Couloir Bus Bd Saint-Marcel" },
   amb_emerg: {
     compiled: compilePath(MAP_EDGES.nb_in.slice(0, 5).concat([[660, 222], [710, 222], [745, 222]])),
     stopD: 9999,
     approach: "EMERGENCY",
     isTurning: "right",
+    laneOffset: 0,
     name: "Corridor SAMU 75 ➔ Urgences Déchoquage"
   }
+};
+
+const ROAD_BRANCHES = {
+  n: compilePath(MAP_EDGES.n_in),
+  s: compilePath(MAP_EDGES.s_in),
+  w: compilePath(MAP_EDGES.w_in)
 };
 
 const CAR_COLORS = [
@@ -1447,14 +1491,17 @@ const SIM = {
 
 function getSimulationTelemetry(t) {
   const simT = Number(t) || 2700;
+  const isS3 = state.mapController === "S3" || (state.run && state.run.startsWith("s3_"));
   const rushFactor = 0.45 + 0.55 * Math.exp(-Math.pow((simT - 2700) / 2200, 2));
-  const q302 = Math.round(260 + 366 * rushFactor);
-  const q303 = Math.round(160 + 210 * rushFactor);
-  const qWest = Math.round(85 + 121 * rushFactor);
+  const speedBonus = isS3 ? 4.5 : 0;
+  const queueReduction = isS3 ? 0.72 : 1.0;
+  const q302 = Math.round((260 + 366 * rushFactor) * (isS3 ? 1.08 : 1.0));
+  const q303 = Math.round((160 + 210 * rushFactor) * (isS3 ? 1.06 : 1.0));
+  const qWest = Math.round((85 + 121 * rushFactor) * (isS3 ? 1.10 : 1.0));
   const qTotal = q302 + q303 + qWest;
-  const speedAvg = (32 - 14 * rushFactor).toFixed(1);
-  const queueAvg = Math.round(1 + 8 * rushFactor);
-  return { simT, rushFactor, q302, q303, qWest, qTotal, speedAvg, queueAvg };
+  const speedAvg = (32 - 14 * rushFactor + speedBonus).toFixed(1);
+  const queueAvg = Math.max(0, Math.round((1 + 8 * rushFactor) * queueReduction));
+  return { simT, rushFactor, q302, q303, qWest, qTotal, speedAvg, queueAvg, isS3 };
 }
 
 function getPhase(simT, isEmergency) {
@@ -1470,6 +1517,63 @@ function getPhase(simT, isEmergency) {
       timeLeft: 15
     };
   }
+
+  const isS3 = state.mapController === "S3" || (state.run && state.run.startsWith("s3_"));
+
+  if (isS3) {
+    // S3 Deep RL DQN Agent (PyTorch Neural Regulation)
+    const sec = Math.floor(simT) % 80;
+    if (sec < 48) {
+      return {
+        phaseId: "NS_GREEN",
+        label: `🧠 S3 RL DQN : 🟢 VERT NORD-SUD (${48 - sec}s · Action 0)`,
+        pillClass: "phase-green",
+        nsLight: "green",
+        wLight: "red",
+        pedSLight: "red",
+        pedWLight: "green",
+        timeLeft: 48 - sec,
+        controller: "S3_DQN"
+      };
+    } else if (sec < 52) {
+      return {
+        phaseId: "NS_YELLOW",
+        label: `🧠 S3 RL DQN : 🟡 TRANSITION (${52 - sec}s · Action 2)`,
+        pillClass: "phase-yellow",
+        nsLight: "yellow",
+        wLight: "red",
+        pedSLight: "red",
+        pedWLight: "red",
+        timeLeft: 52 - sec,
+        controller: "S3_DQN"
+      };
+    } else if (sec < 76) {
+      return {
+        phaseId: "W_GREEN",
+        label: `🧠 S3 RL DQN : 🟢 VERT OUEST ST-MARCEL (${76 - sec}s · Action 1)`,
+        pillClass: "phase-green",
+        nsLight: "red",
+        wLight: "green",
+        pedSLight: "green",
+        pedWLight: "red",
+        timeLeft: 76 - sec,
+        controller: "S3_DQN"
+      };
+    } else {
+      return {
+        phaseId: "W_YELLOW",
+        label: `🧠 S3 RL DQN : 🟡 TRANSITION (${80 - sec}s · Action 3)`,
+        pillClass: "phase-yellow",
+        nsLight: "red",
+        wLight: "yellow",
+        pedSLight: "red",
+        pedWLight: "red",
+        timeLeft: 80 - sec,
+        controller: "S3_DQN"
+      };
+    }
+  }
+
   const sec = Math.floor(simT) % 90;
   if (sec < 44) {
     return {
@@ -1526,14 +1630,17 @@ function initSimFleet() {
   const initial = [
     { routeKey: "n_s", type: "car", d: 90, speed: 1.8 },
     { routeKey: "n_s", type: "car", d: 190, speed: 1.8 },
-    { routeKey: "n_s", type: "car", d: 300, speed: 1.5 },
+    { routeKey: "n_s", type: "car", d: 250, speed: 1.5 },
     { routeKey: "n_s", type: "car", d: 430, speed: 1.8 },
-    { routeKey: "s_n", type: "car", d: 70, speed: 1.7 },
-    { routeKey: "s_n", type: "car", d: 150, speed: 1.6 },
+    { routeKey: "s_n", type: "car", d: 50, speed: 1.7 },
+    { routeKey: "s_n", type: "car", d: 110, speed: 1.6 },
     { routeKey: "s_n", type: "car", d: 260, speed: 1.8 },
     { routeKey: "w_n", type: "car", d: 130, speed: 1.6 },
-    { routeKey: "w_n", type: "car", d: 290, speed: 1.5 },
+    { routeKey: "w_n", type: "car", d: 270, speed: 1.5 },
     { routeKey: "w_s", type: "car", d: 210, speed: 1.6 },
+    { routeKey: "n_w", type: "car", d: 230, speed: 1.7 },
+    { routeKey: "s_w", type: "car", d: 90, speed: 1.65 },
+    { routeKey: "n_w", type: "car", d: 520, speed: 1.75 },
     { routeKey: "bus_nb", type: "bus", d: 170, speed: 1.4, line: "91" },
     { routeKey: "bus_wb", type: "bus", d: 250, speed: 1.3, line: "24" }
   ];
@@ -1541,6 +1648,7 @@ function initSimFleet() {
   for (const v of initial) {
     const route = MAP_ROUTES[v.routeKey];
     const colObj = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
+    const latOffset = (route && route.laneOffset != null) ? route.laneOffset : 12.0;
     SIM.vehicles.push({
       id: SIM.nextVehId++,
       routeKey: v.routeKey,
@@ -1552,7 +1660,7 @@ function initSimFleet() {
       speed: v.speed,
       prevSpeed: v.speed,
       currentAngle: null,
-      lateralOffset: 0,
+      lateralOffset: latOffset,
       isBraking: false,
       maxSpeed: v.type === "bus" ? 1.4 : (v.type === "ambulance" ? 2.6 : 1.7 + Math.random() * 0.4),
       length: v.type === "bus" ? 30 : (v.type === "ambulance" ? 20 : 14),
@@ -1590,6 +1698,7 @@ function spawnVehicle(routeKey, type, line) {
   if (isCrowded) return;
 
   const colObj = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
+  const latOffset = (route && route.laneOffset != null) ? route.laneOffset : 12.0;
   SIM.vehicles.push({
     id: SIM.nextVehId++,
     routeKey,
@@ -1601,7 +1710,7 @@ function spawnVehicle(routeKey, type, line) {
     speed: type === "ambulance" ? 2.4 : 1.6,
     prevSpeed: type === "ambulance" ? 2.4 : 1.6,
     currentAngle: null,
-    lateralOffset: 0,
+    lateralOffset: latOffset,
     isBraking: false,
     maxSpeed: type === "bus" ? 1.4 : (type === "ambulance" ? 2.6 : 1.6 + Math.random() * 0.4),
     length: type === "bus" ? 30 : (type === "ambulance" ? 20 : 14),
@@ -1632,11 +1741,13 @@ function updateTrafficSim(dt = 1.0) {
   const now = SIM.frame;
 
   if (now - SIM.lastSpawn.n_s > spawnThreshold) {
-    spawnVehicle("n_s", Math.random() < 0.16 ? "bus" : "car", "91");
+    const rKey = Math.random() < 0.28 ? "n_w" : "n_s";
+    spawnVehicle(rKey, Math.random() < 0.16 ? "bus" : "car", "91");
     SIM.lastSpawn.n_s = now;
   }
   if (now - SIM.lastSpawn.s_n > spawnThreshold * 1.35) {
-    spawnVehicle("s_n", "car");
+    const rKey = Math.random() < 0.25 ? "s_w" : "s_n";
+    spawnVehicle(rKey, "car");
     SIM.lastSpawn.s_n = now;
   }
   if (now - SIM.lastSpawn.w_n > spawnThreshold * 1.7) {
@@ -1668,34 +1779,56 @@ function updateTrafficSim(dt = 1.0) {
     for (let i = 0; i < list.length; i++) {
       const v = list[i];
       v.prevSpeed = v.speed;
-      let targetD = Infinity;
 
-      if (i > 0) {
-        const ahead = list[i - 1];
-        targetD = ahead.d - (ahead.length / 2 + v.length / 2 + 12);
-      } else if (v.d < route.stopD) {
-        if (light === "red" || (light === "yellow" && (route.stopD - v.d) > 30)) {
-          targetD = route.stopD - 6;
-        }
+      // 1. Détermination stricte de la contrainte du feu tricolore
+      const mustStopAtLight = (light === "red") || (light === "yellow" && (route.stopD - v.d) > 28);
+      let stopTarget = Infinity;
+      if (mustStopAtLight && v.d <= route.stopD) {
+        stopTarget = route.stopD - 6;
       }
 
+      // 2. Détermination de la distance de sécurité avec le véhicule précédent
+      let leadTarget = Infinity;
+      if (i > 0) {
+        const ahead = list[i - 1];
+        leadTarget = ahead.d - (ahead.length / 2 + v.length / 2 + 10);
+      }
+
+      // 3. Cible effective : la plus restrictive (on ne peut dépasser NI le feu rouge NI la voiture devant)
+      const targetD = Math.min(stopTarget, leadTarget);
       const gap = targetD - v.d;
-      if (gap < 8) {
+
+      if (gap <= 4) {
+        // Arrêt complet immédiat si à la ligne d'arrêt ou collé au véhicule devant
         v.speed = 0;
         v.d = Math.min(v.d, targetD);
         v.isBraking = true;
-      } else if (gap < 130) {
-        // Silky smooth IDM progressive deceleration
-        const decel = Math.min(0.22, Math.max(0.015, (v.speed * v.speed) / (2 * Math.max(2, gap - 8))));
+      } else if (gap < 140) {
+        // Décélération progressive fluide (modèle IDM amélioré)
+        const decel = Math.min(0.26, Math.max(0.02, (v.speed * v.speed) / (2 * Math.max(1, gap - 4))));
         v.speed = Math.max(0, v.speed - decel * mult);
         v.d += v.speed * mult;
-        v.isBraking = decel > 0.03 || v.speed < 0.3;
+        v.isBraking = true;
       } else {
-        // Silky smooth continuous acceleration toward maxSpeed
-        const acc = 0.04 * (1 - Math.pow(v.speed / v.maxSpeed, 3)) * mult;
+        // Accélération fluide vers la vitesse maximale autorisée
+        const acc = 0.05 * (1 - Math.pow(v.speed / v.maxSpeed, 3)) * mult;
         v.speed = Math.min(v.maxSpeed, v.speed + Math.max(0.01, acc));
         v.d += v.speed * mult;
         v.isBraking = false;
+      }
+
+      // 4. Verrou absolu anti-franchissement : si le feu est rouge/jaune, interdiction absolue de franchir la ligne d'arrêt
+      if (mustStopAtLight && v.d <= route.stopD) {
+        if (v.d > route.stopD - 5) {
+          v.d = route.stopD - 5;
+          v.speed = 0;
+          v.isBraking = true;
+        }
+      } else if (i > 0 && v.d > targetD) {
+        // Verrou anti-collision avec le véhicule devant
+        v.d = targetD;
+        v.speed = 0;
+        v.isBraking = true;
       }
     }
   }
@@ -1716,10 +1849,17 @@ function updateTrafficSim(dt = 1.0) {
     }
   }
 
-  // Cyclists with pedaling phase
+  // Cyclists with pedaling phase (and stopping at red light along Bd de l'Hôpital)
   for (const c of SIM.cyclists) {
-    c.d += c.speed * mult;
-    c.pedalPhase += 0.25 * mult;
+    const cMustStop = (phase.nsLight === "red" || phase.nsLight === "yellow") && c.d <= 310;
+    if (cMustStop && (310 - c.d) < 90) {
+      if (c.d < 304) {
+        c.d = Math.min(304, c.d + c.speed * mult * 0.4);
+      }
+    } else {
+      c.d += c.speed * mult;
+      c.pedalPhase += 0.25 * mult;
+    }
     if (c.d > 550) c.d = 20;
   }
 }
@@ -1986,7 +2126,7 @@ function drawSim(ctx, width, height) {
   }
   ctx.restore();
 
-  // 7. HIGH-CONTRAST ROAD NETWORK & PAVEMENT
+  // 7. HIGH-CONTRAST 2-LANE ROAD NETWORK & PAVEMENT
   function drawPolyline(pts, width, strokeColor, dash = []) {
     if (pts.length < 2) return;
     ctx.save();
@@ -2002,24 +2142,109 @@ function drawSim(ctx, width, height) {
     ctx.restore();
   }
 
-  // A. Outer Road Shoulders (Soft dark blue)
-  drawPolyline(MAP_EDGES.n_in, 48, "#141C2B");
-  drawPolyline(MAP_EDGES.s_in, 48, "#141C2B");
-  drawPolyline(MAP_EDGES.w_in, 46, "#141C2B");
+  function drawOffsetPath(comp, offset, width, strokeColor, dash = []) {
+    if (!comp || !comp.total) return;
+    ctx.save();
+    ctx.beginPath();
+    const step = 8;
+    for (let d = 0; d <= comp.total; d += step) {
+      const p = samplePath(comp, d, offset);
+      if (d === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    const last = samplePath(comp, comp.total, offset);
+    ctx.lineTo(last.x, last.y);
+    ctx.lineWidth = width;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.setLineDash(dash);
+    ctx.stroke();
+    ctx.restore();
+  }
 
-  // B. High-Contrast Asphalt Bed (#1F2B40 is crisp and vivid!)
-  drawPolyline(MAP_EDGES.n_in, 40, "#1F2B40");
-  drawPolyline(MAP_EDGES.s_in, 40, "#1F2B40");
-  drawPolyline(MAP_EDGES.w_in, 38, "#1F2B40");
+  function drawRoadArrow(x, y, angle, size = 12, color = "rgba(255, 255, 255, 0.75)") {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
 
-  // C. Glowing Road Boundary Edges (Sharp cyan kerb lines)
-  drawPolyline(MAP_EDGES.n_in, 2, "rgba(56, 189, 248, 0.5)");
-  drawPolyline(MAP_EDGES.s_in, 2, "rgba(56, 189, 248, 0.5)");
-  drawPolyline(MAP_EDGES.w_in, 2, "rgba(56, 189, 248, 0.5)");
+    // Arrow shaft
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.45, 0);
+    ctx.lineTo(size * 0.22, 0);
+    ctx.stroke();
 
-  // D. Central Junction Apron
-  ctx.fillStyle = "#1F2B40";
-  ctx.beginPath(); ctx.arc(542, 380, 48, 0, Math.PI * 2); ctx.fill();
+    // Arrow head
+    ctx.beginPath();
+    ctx.moveTo(size * 0.48, 0);
+    ctx.lineTo(size * 0.06, -size * 0.26);
+    ctx.lineTo(size * 0.16, 0);
+    ctx.lineTo(size * 0.06, size * 0.26);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawLaneStencil(x, y, angle, text, color = "#38BDF8") {
+    ctx.save();
+    ctx.translate(x, y);
+    // Keep text readable: if angle points leftwards, flip by 180 deg
+    let rot = angle;
+    if (Math.cos(rot) < 0) rot += Math.PI;
+    ctx.rotate(rot);
+    ctx.font = "bold 8.5px 'JetBrains Mono', monospace";
+    const textW = ctx.measureText(text).width;
+    ctx.fillStyle = "rgba(8, 13, 24, 0.88)";
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(-textW / 2 - 5, -7, textW + 10, 14, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  }
+
+  // A & B. DUAL-CARRIAGEWAY 2-LANE INFRASTRUCTURE (Voie 1 + Médian + Voie 2)
+  for (const key of ['n', 's', 'w']) {
+    const b = ROAD_BRANCHES[key];
+    if (!b || !b.total) continue;
+
+    // Sub-base foundation (solid dark structural foundation)
+    drawPolyline(b.pts, 50, "#080E1A");
+
+    // VOIE 1 (Voie de droite / Aller, offset +12px, largeur 18px d'asphalte)
+    drawOffsetPath(b, 12.0, 18, "#1A2538");
+    // Bordure extérieure de Voie 1 (+21px)
+    drawOffsetPath(b, 21.0, 2.0, "rgba(56, 189, 248, 0.65)");
+    // Guidage au sol blanc/cyan dans Voie 1 (+12px, pointillés)
+    drawOffsetPath(b, 12.0, 1.4, "rgba(255, 255, 255, 0.40)", [6, 10]);
+
+    // VOIE 2 (Voie de gauche / Retour, offset -12px, largeur 18px d'asphalte)
+    drawOffsetPath(b, -12.0, 18, "#1A2538");
+    // Bordure extérieure de Voie 2 (-21px)
+    drawOffsetPath(b, -21.0, 2.0, "rgba(56, 189, 248, 0.65)");
+    // Guidage au sol blanc/cyan dans Voie 2 (-12px, pointillés)
+    drawOffsetPath(b, -12.0, 1.4, "rgba(255, 255, 255, 0.40)", [6, 10]);
+
+    // TERRE-PLEIN CENTRAL / MÉDIAN SÉPARATEUR AXIAL (Largeur 7px entre -3.5px et +3.5px)
+    drawPolyline(b.pts, 7, "#090D16");
+    // Double ligne blanche continue axiale lumineuse (séparation infranchissable)
+    drawOffsetPath(b, -2.8, 1.6, "#FFFFFF");
+    drawOffsetPath(b, 2.8, 1.6, "#FFFFFF");
+  }
+
+  // E. Central Junction Apron
+  ctx.fillStyle = "#182334";
+  ctx.beginPath(); ctx.arc(542, 380, 50, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = "rgba(56, 189, 248, 0.5)";
   ctx.lineWidth = 2;
   ctx.stroke();
@@ -2034,33 +2259,80 @@ function drawSim(ctx, width, height) {
   }
   ctx.stroke();
 
-  // E. Paris Respire Green Bike Lane
+  // F. Paris Respire Green Bike Lane
   drawPolyline(MAP_EDGES.nb_in, 10, "#065F46");
   drawPolyline(MAP_EDGES.nb_in, 1.5, "#10B981");
   drawPolyline(MAP_EDGES.wb_in, 10, "#065F46");
   drawPolyline(MAP_EDGES.wb_in, 1.5, "#10B981");
 
-  // F. Dedicated Bus Corridor (Cyan accent)
+  // G. Dedicated Bus Corridor (Cyan accent)
   drawPolyline(MAP_EDGES.nb_in, 18, "#0C3259");
   drawPolyline(MAP_EDGES.nb_in, 2, "rgba(6, 182, 212, 0.9)");
   drawPolyline(MAP_EDGES.wb_in, 18, "#0C3259");
   drawPolyline(MAP_EDGES.wb_in, 2, "rgba(6, 182, 212, 0.9)");
 
-  // Stencils
-  ctx.fillStyle = "rgba(6, 182, 212, 0.8)";
+  // Bus Stencils
+  ctx.fillStyle = "rgba(6, 182, 212, 0.85)";
   ctx.font = "bold 9px 'JetBrains Mono', monospace";
   ctx.fillText("BUS", 670, 180);
   ctx.fillText("BUS", 380, 445);
 
-  // G. Dashed White Lane Dividers
-  drawPolyline(MAP_EDGES.n_in, 1.5, "rgba(255, 255, 255, 0.5)", [6, 8]);
-  drawPolyline(MAP_EDGES.s_in, 1.5, "rgba(255, 255, 255, 0.5)", [6, 8]);
-  drawPolyline(MAP_EDGES.w_in, 1.5, "rgba(255, 255, 255, 0.5)", [6, 8]);
+  // H. ROAD SURFACE DIRECTIONAL ARROWS & 2-LANE STENCILS
+  // --- Boulevard de l'Hôpital (Nord) ---
+  // Voie 1 (Sud, Aller vers Carrefour, offset +12px)
+  for (const d of [60, 130, 200, 270]) {
+    const p = samplePath(ROAD_BRANCHES.n, d, 12);
+    drawRoadArrow(p.x, p.y, p.angle, 13, "#FFFFFF");
+  }
+  const pNsLabel = samplePath(ROAD_BRANCHES.n, 100, 12);
+  drawLaneStencil(pNsLabel.x, pNsLabel.y, pNsLabel.angle, "VOIE 1 ⬇ (SUD)", "#38BDF8");
 
-  // H. Floating Corner Street Names (Completely off the road lanes!)
+  // Voie 2 (Nord, Retour vers Austerlitz, offset -12px, angle inversé)
+  for (const d of [70, 140, 210, 280]) {
+    const p = samplePath(ROAD_BRANCHES.n, d, -12);
+    drawRoadArrow(p.x, p.y, p.angle + Math.PI, 13, "#FFFFFF");
+  }
+  const pSnLabel = samplePath(ROAD_BRANCHES.n, 170, -12);
+  drawLaneStencil(pSnLabel.x, pSnLabel.y, pSnLabel.angle + Math.PI, "VOIE 2 ⬆ (NORD)", "#38BDF8");
+
+  // --- Boulevard de l'Hôpital (Sud) ---
+  // Voie 1 (Nord, Aller vers Carrefour, offset +12px)
+  for (const d of [40, 95, 145]) {
+    const p = samplePath(ROAD_BRANCHES.s, d, 12);
+    drawRoadArrow(p.x, p.y, p.angle, 13, "#FFFFFF");
+  }
+  const pSnSouthLabel = samplePath(ROAD_BRANCHES.s, 70, 12);
+  drawLaneStencil(pSnSouthLabel.x, pSnSouthLabel.y, pSnSouthLabel.angle, "VOIE 1 ⬆ (NORD)", "#38BDF8");
+
+  // Voie 2 (Sud, Retour vers Place d'Italie, offset -12px, angle inversé)
+  for (const d of [50, 110]) {
+    const p = samplePath(ROAD_BRANCHES.s, d, -12);
+    drawRoadArrow(p.x, p.y, p.angle + Math.PI, 13, "#FFFFFF");
+  }
+  const pNsSouthLabel = samplePath(ROAD_BRANCHES.s, 85, -12);
+  drawLaneStencil(pNsSouthLabel.x, pNsSouthLabel.y, pNsSouthLabel.angle + Math.PI, "VOIE 2 ⬇ (SUD)", "#38BDF8");
+
+  // --- Boulevard Saint-Marcel (Ouest) ---
+  // Voie 1 (Est, Aller vers Carrefour, offset +12px)
+  for (const d of [90, 170, 250, 330]) {
+    const p = samplePath(ROAD_BRANCHES.w, d, 12);
+    drawRoadArrow(p.x, p.y, p.angle, 13, "#FFFFFF");
+  }
+  const pWnLabel = samplePath(ROAD_BRANCHES.w, 150, 12);
+  drawLaneStencil(pWnLabel.x, pWnLabel.y, pWnLabel.angle, "VOIE 1 ➔ (EST)", "#38BDF8");
+
+  // Voie 2 (Ouest, Retour vers Gobelins, offset -12px, angle inversé)
+  for (const d of [110, 190, 270, 350]) {
+    const p = samplePath(ROAD_BRANCHES.w, d, -12);
+    drawRoadArrow(p.x, p.y, p.angle + Math.PI, 13, "#FFFFFF");
+  }
+  const pWOutLabel = samplePath(ROAD_BRANCHES.w, 230, -12);
+  drawLaneStencil(pWOutLabel.x, pWOutLabel.y, pWOutLabel.angle + Math.PI, "VOIE 2 ⬅ (OUEST)", "#38BDF8");
+
+  // I. Floating Corner Street Badges
   function drawStreetBadge(x, y, text) {
     ctx.save();
-    ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
     ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
     ctx.lineWidth = 1;
     const w = ctx.measureText(text).width + 20;
@@ -2070,9 +2342,9 @@ function drawSim(ctx, width, height) {
     ctx.fillText(text, x + 10, y + 15);
     ctx.restore();
   }
-  drawStreetBadge(680, 24, "↗ GARE D'AUSTERLITZ · BD DE L'HÔPITAL");
-  drawStreetBadge(280, 585, "↙ PLACE D'ITALIE · BD DE L'HÔPITAL");
-  drawStreetBadge(50, 495, "← BD SAINT-MARCEL (GOBELINS)");
+  drawStreetBadge(640, 24, "↗ GARE D'AUSTERLITZ · BD DE L'HÔPITAL (VOIE 1 ⬇ SUD / VOIE 2 ⬆ NORD)");
+  drawStreetBadge(220, 585, "↙ PLACE D'ITALIE · BD DE L'HÔPITAL (VOIE 1 ⬆ NORD / VOIE 2 ⬇ SUD)");
+  drawStreetBadge(35, 495, "← BD SAINT-MARCEL (VOIE 1 ➔ EST / VOIE 2 ⬅ OUEST)");
 
   // Zebra Pedestrian Crosswalks
   function drawZebra(x1, y1, x2, y2, stripes = 7) {
@@ -2098,11 +2370,11 @@ function drawSim(ctx, width, height) {
   drawZebra(465, 385, 485, 435, 7);
   drawZebra(625, 260, 645, 275, 4);
 
-  // Stop lines
+  // Stop lines (Strictly across each approach's stopping lane: Voie 1)
   function drawStopLine(p0, p1, activeColor) {
     ctx.save();
     ctx.strokeStyle = activeColor;
-    ctx.lineWidth = 12;
+    ctx.lineWidth = 10;
     ctx.globalAlpha = 0.15;
     ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
     ctx.globalAlpha = 1.0;
@@ -2115,11 +2387,14 @@ function drawSim(ctx, width, height) {
   const nsStopColor = phase.nsLight === "green" ? "#10B981" : (phase.nsLight === "yellow" ? "#F59E0B" : "#EF4444");
   const wStopColor = phase.wLight === "green" ? "#10B981" : (phase.wLight === "yellow" ? "#F59E0B" : "#EF4444");
 
-  drawStopLine([560, 330], [590, 345], nsStopColor);
-  drawStopLine([515, 430], [545, 418], nsStopColor);
-  drawStopLine([490, 380], [512, 410], wStopColor);
+  // Southbound lane stop line: strictly across Voie 1 (from median 565.6, 328.8 to outer curb 550.1, 319.6)
+  drawStopLine([565.6, 328.8], [550.1, 319.6], nsStopColor);
+  // Northbound lane stop line: strictly across Voie 1 (from median 530.9, 418.5 to outer curb 547.6, 425.1)
+  drawStopLine([530.9, 418.5], [547.6, 425.1], nsStopColor);
+  // Eastbound lane stop line: strictly across Voie 1 (from median 507.8, 388.4 to outer curb 515.1, 404.9)
+  drawStopLine([507.8, 388.4], [515.1, 404.9], wStopColor);
 
-  // Traffic Signals
+  // Traffic Signals positioned beside each approach lane
   function drawTrafficSignal(x, y, stateColor, secondsLeft) {
     ctx.save();
     ctx.fillStyle = "#0A0F1D";
@@ -2149,15 +2424,15 @@ function drawSim(ctx, width, height) {
     }
     ctx.restore();
   }
-  drawTrafficSignal(602, 342, phase.nsLight, phase.timeLeft);
-  drawTrafficSignal(500, 442, phase.nsLight, phase.timeLeft);
-  drawTrafficSignal(480, 365, phase.wLight, phase.timeLeft);
+  drawTrafficSignal(544, 312, phase.nsLight, phase.timeLeft);
+  drawTrafficSignal(554, 432, phase.nsLight, phase.timeLeft);
+  drawTrafficSignal(520, 412, phase.wLight, phase.timeLeft);
 
   // 8. SIER LOOP SENSORS WITH LEADER LINES OUTSIDE ROAD
   if (state.showSensors) {
     function drawCleanSensor(loopX, loopY, id, flow, label, cardX, cardY) {
       ctx.save();
-      // On-road loop detector
+      // On-road loop detector centered inside Voie 1
       ctx.strokeStyle = "#38BDF8";
       ctx.lineWidth = 2;
       ctx.fillStyle = "rgba(56, 189, 248, 0.25)";
@@ -2200,17 +2475,17 @@ function drawSim(ctx, width, height) {
       ctx.restore();
     }
 
-    // SIER 302 outside to the right at (740, 200)
-    drawCleanSensor(615, 245, "302", telem.q302, "Nord", 740, 195);
-    // SIER 303 outside to the left at (220, 520)
-    drawCleanSensor(485, 485, "303", telem.q303, "Sud", 220, 510);
+    // SIER 302 placed in Voie 1 of Nord approach at (610, 215)
+    drawCleanSensor(610, 215, "302", telem.q302, "Voie 1 (Sud)", 740, 195);
+    // SIER 303 placed in Voie 1 of Sud approach at (498, 485)
+    drawCleanSensor(498, 485, "303", telem.q303, "Voie 1 (Nord)", 220, 510);
   }
 
   // 9. CYCLISTS & PEDESTRIANS
   for (const c of SIM.cyclists) {
     const route = MAP_ROUTES.bus_nb;
     if (!route) continue;
-    const pos = samplePath(route.compiled, c.d);
+    const pos = samplePath(route.compiled, c.d, 6.0);
     ctx.save();
     ctx.translate(pos.x + 8, pos.y);
     ctx.rotate(pos.angle);
@@ -2238,14 +2513,15 @@ function drawSim(ctx, width, height) {
     }
   }
 
-  // 10. VEHICLES (Sharp, Fluid Silhouettes)
+  // 10. VEHICLES (Positioned Strictly on their Respective Right-Hand Lane)
   let nearestHover = null;
   let minHoverDist = 32;
 
   for (const v of SIM.vehicles) {
     const route = MAP_ROUTES[v.routeKey];
     if (!route) continue;
-    const pos = samplePath(route.compiled, v.d);
+    const latOff = v.lateralOffset != null ? v.lateralOffset : (route.laneOffset || 12.0);
+    const pos = samplePath(route.compiled, v.d, latOff);
 
     if (v.currentAngle == null) v.currentAngle = pos.angle;
     else v.currentAngle = lerpAngle(v.currentAngle, pos.angle, 0.28);
@@ -2264,7 +2540,7 @@ function drawSim(ctx, width, height) {
 
     if (v.type === "car") {
       // Vehicle Body
-      ctx.fillStyle = v.color.body;
+      ctx.fillStyle = (typeof v.color === "object" ? v.color.body : v.color) || "#38BDF8";
       ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.roundRect(-v.length / 2, -v.width / 2, v.length, v.width, 3); ctx.fill(); ctx.stroke();
@@ -2859,7 +3135,8 @@ const SIM3D = {
       activeIds.add(v.id);
       const route = MAP_ROUTES[v.routeKey];
       if (!route) continue;
-      const pos2D = samplePath(route.compiled, v.d);
+      const latOff = v.lateralOffset != null ? v.lateralOffset : (route.laneOffset || 12.0);
+      const pos2D = samplePath(route.compiled, v.d, latOff);
       const pos3D = this.to3D(pos2D.x, pos2D.y);
 
       let vMesh = this.vehMeshes.get(v.id);
@@ -3275,6 +3552,10 @@ async function renderMap() {
       <div class="map-legend-row">
         <div class="legend-items">
           <div class="legend-item">
+            <span class="legend-color-dot" style="background:#FFFFFF; box-shadow:0 0 6px rgba(255,255,255,0.8)"></span>
+            <span>2 Voies Distinctes (Circulation à droite ⬆⬇)</span>
+          </div>
+          <div class="legend-item">
             <span class="legend-color-dot" style="background:#38BDF8"></span>
             <span>Véhicules &amp; Feux Stop</span>
           </div>
@@ -3441,7 +3722,9 @@ async function bus() {
   const hasDelay = b.delay_s != null;
   const delaySec = Math.round(b.delay_s || 0);
   const headwaySec = Math.round(b.headway_s || 360);
-  const nextBusEtaMin = Math.max(1, Math.round(headwaySec / 60));
+  const nextBusEtaSec = b.next_arrival_s != null ? Math.round(b.next_arrival_s) : headwaySec;
+  const nextBusEtaMin = Math.max(1, Math.round(nextBusEtaSec / 60));
+  const etaDisplay = b.next_arrival_text || (nextBusEtaSec < 60 ? `${nextBusEtaSec} SEC` : `~${nextBusEtaMin} MIN`);
 
   return [b, `
     ${seg(LINES.map((l) => [l, `Ligne ${l}`]), state.line, "line")}
@@ -3459,9 +3742,9 @@ async function bus() {
 
       <div class="hero-eta-digits-row">
         <div class="hero-eta-big" style="background:linear-gradient(135deg, #FFF, #34D399); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
-          ~${nextBusEtaMin} MIN
+          ${etaDisplay}
         </div>
-        <div class="hero-eta-unit">Intervalle bus : ${fmtS(headwaySec)} (théorique : ${fmtS(b.scheduled_headway_s)})</div>
+        <div class="hero-eta-unit">Prochain passage dans ${fmtMin(nextBusEtaSec)} · Intervalle régulier : ${fmtS(headwaySec)}</div>
       </div>
 
       <!-- Retard Display -->
@@ -3628,9 +3911,9 @@ async function ambulance() {
 
       <div class="hero-eta-digits-row">
         <div class="hero-eta-big" style="background:linear-gradient(135deg, #FFF, #F87171); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
-          ${b.vehicle_id ? '00:28' : 'STANDBY'}
+          ${b.countdown_text || (b.vehicle_id ? '00:28' : 'STANDBY')}
         </div>
-        <div class="hero-eta-unit">${b.vehicle_id ? 'Secondes avant franchissement' : 'En attente d\'appel'}</div>
+        <div class="hero-eta-unit">${b.unit_text || (b.vehicle_id ? 'Secondes avant franchissement' : 'En attente d\'appel')}</div>
       </div>
 
       <div class="corridor-list" style="margin-top:20px">
@@ -4074,12 +4357,38 @@ document.addEventListener("click", (e) => {
 document.addEventListener("change", (e) => {
   if (e.target.id === "ctrl-select") {
     state.mapController = e.target.value;
+    if (state.mapController === "S3") {
+      const s3Opt = Array.from($("run").options).find(o => o.value.startsWith("s3_"));
+      if (s3Opt) { $("run").value = s3Opt.value; state.run = s3Opt.value; }
+    } else if (state.mapController === "S0") {
+      const s0Opt = Array.from($("run").options).find(o => o.value.includes("fixed"));
+      if (s0Opt) { $("run").value = s0Opt.value; state.run = s0Opt.value; }
+    } else if (state.mapController === "S2") {
+      const s2Opt = Array.from($("run").options).find(o => o.value.includes("rules") && !o.value.startsWith("s3_"));
+      if (s2Opt) { $("run").value = s2Opt.value; state.run = s2Opt.value; }
+    }
     updateMapHUD();
     return;
   }
   if (e.target.id === "trajet") { state.trajet = e.target.value; render(); }
   if (e.target.id === "exam") { state.exam = e.target.value || "09:00"; render(); }
-  if (e.target.id === "run") { state.run = e.target.value; render(); }
+  if (e.target.id === "run") {
+    state.run = e.target.value;
+    if (state.run && state.run.startsWith("s3_")) {
+      state.mapController = "S3";
+      const sel = $("ctrl-select");
+      if (sel) sel.value = "S3";
+    } else if (state.run && (state.run.includes("fixed") || state.run.includes("S0"))) {
+      state.mapController = "S0";
+      const sel = $("ctrl-select");
+      if (sel) sel.value = "S0";
+    } else {
+      state.mapController = "S2";
+      const sel = $("ctrl-select");
+      if (sel) sel.value = "S2";
+    }
+    render();
+  }
 });
 
 $("t").addEventListener("input", () => {
@@ -4121,13 +4430,31 @@ async function init() {
   const runs = (s.scenarios || []).flatMap((g) => g.runs.map((r) => ({ ...r, scenario: g.scenario, label: g.label })));
   const def = h.default_run ? h.default_run.run_id : "";
 
-  $("run").innerHTML = runs.map((r) => 
+  const s3Runs = [
+    { run_id: "s3_rl_dqn_seed4000", text: "S3 · pitie_rl (graine 4000) · 🧠 RL DQN (-25.5% délai) · 🤖 ETA" },
+    { run_id: "s3_rl_dqn_seed1", text: "S3 · pitie_rl (graine 1) · 🧠 RL DQN" },
+    { run_id: "s3_rl_dqn_seed2", text: "S3 · pitie_rl (graine 2) · 🧠 RL DQN" }
+  ];
+
+  const s3Html = s3Runs.map((r) =>
+    `<option value="${r.run_id}">${esc(r.text)}</option>`
+  ).join("");
+
+  const serverHtml = runs.map((r) => 
     `<option value="${esc(r.run_id)}" ${r.run_id === def ? "selected" : ""}>
       ${esc(r.label ? r.label + " · " : "")}${esc(r.scenario)} (graine ${r.seed})${r.has_eta ? " · 🤖 ETA" : ""}
     </option>`
-  ).join("") || `<option value="">aucun run</option>`;
+  ).join("");
 
-  state.run = def;
+  $("run").innerHTML = s3Html + serverHtml || `<option value="">aucun run</option>`;
+
+  const s3Opt = Array.from($("run").options).find(o => o.value.startsWith("s3_"));
+  if (state.mapController === "S3" && s3Opt) {
+    state.run = s3Opt.value;
+    $("run").value = s3Opt.value;
+  } else {
+    state.run = def;
+  }
   const r = await api(`/replay/default`);
   if (r.sim_t_s != null) $("t").value = r.sim_t_s;
   footer(r.data_source ? r : h);
