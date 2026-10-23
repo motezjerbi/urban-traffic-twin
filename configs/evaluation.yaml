@@ -6,20 +6,30 @@ headline_from: configs/validation.yaml   # compare.headline (7 KPIs), thresholds
 families:
   main:
     scenarios: {S0: configs/pitie_fixed.yaml, S1: configs/pitie_actuated.yaml,
-                S2: configs/pitie_rules.yaml, S2_noP: configs/pitie_rules_nopreempt.yaml}
+                S2: configs/pitie_rules.yaml, S2_noP: configs/pitie_rules_nopreempt.yaml,
+                S3: configs/pitie_rl_s3.yaml, S4: configs/pitie_rl_s3_nopreempt.yaml}
     baseline: S0
     pairs: [{a: S0, b: S1, role: part3}, {a: S0, b: S2, role: confirmatory},
-            {a: S1, b: S2, role: confirmatory}, {a: S2_noP, b: S2, role: exploratory}]
+            {a: S1, b: S2, role: confirmatory}, {a: S2_noP, b: S2, role: exploratory},
+            {a: S0, b: S3, role: confirmatory}, {a: S1, b: S3, role: confirmatory},
+            {a: S2, b: S3, role: confirmatory}, {a: S4, b: S3, role: exploratory},
+            {a: S2_noP, b: S4, role: exploratory}]
   ambulance_probe:
     scenarios: {S0: configs/pitie_amb_fixed.yaml, S2: configs/pitie_amb_rules.yaml,
-                S2_noP: configs/pitie_amb_rules_nopreempt.yaml}
+                S2_noP: configs/pitie_amb_rules_nopreempt.yaml,
+                S3: configs/pitie_amb_rl_s3.yaml, S4: configs/pitie_amb_rl_s3_nopreempt.yaml}
     baseline: S0
-    pairs: [{a: S0, b: S2, role: secondary}, {a: S2_noP, b: S2, role: secondary}]
+    pairs: [{a: S0, b: S2, role: secondary}, {a: S2_noP, b: S2, role: secondary},
+            {a: S0, b: S3, role: secondary}, {a: S4, b: S3, role: secondary},
+            {a: S2, b: S3, role: secondary}]
 a05:
   primary: {family: main, a: S0, b: S2, user: ambulance, kpi: travel_time_total, alternative: less, alpha: 0.05}
   secondary:
     - {family: ambulance_probe, a: S2_noP, b: S2, user: ambulance, kpi: travel_time_total, alternative: less}
     - {family: ambulance_probe, a: S0, b: S2, user: ambulance, kpi: travel_time_total, alternative: less}
+    - {family: main, a: S0, b: S3, user: ambulance, kpi: travel_time_total, alternative: less}
+    - {family: ambulance_probe, a: S0, b: S3, user: ambulance, kpi: travel_time_total, alternative: less}
+    - {family: ambulance_probe, a: S4, b: S3, user: ambulance, kpi: travel_time_total, alternative: less}
   also_report: [travel_time, stops, stop_duration_mean]
 a04:
   families: [main, ambulance_probe]
@@ -37,11 +47,56 @@ equity:
   global: {user: all, kpi: person_delay_mean}
 occupancy: {car: 1.3, bus: 25.0, pedestrian: 1.0, ambulance: 1.0}   # ASSUMED (spec 10.3)
 occupancy_sensitivity: {bus: [20.0, 30.0]}
+a06:   # Part 8 (D94): S3 against the baselines on seeds 1-10, presented whatever the direction
+  family: main
+  candidate: S3
+  user: all
+  kpi: person_delay_mean
+  test: wilcoxon_exact_paired      # d = candidate - reference per seed; Hodges-Lehmann estimate, 95 % CI
+  alternative: two-sided
+  alpha: 0.05
+  comparisons: [S1, S2, S0]
+  primary: S1
+  holm: comparisons                # Holm across the three comparisons
+  n_required: 10
+  status: procedural               # PASS = every comparison valid and shown; INVALID otherwise; never FAIL
+  outcome: {better: "S3 better", worse: "S3 worse", none: "no significant difference"}
+  model: {sha256_from: configs/pitie_rl_s3.yaml,
+          inputs_text_sha8: {configs/rl7/v1.yaml: 10ac6ce8, configs/rl7/t1.yaml: bc124a88,
+                             configs/rl7.yaml: 96113433, configs/rl.yaml: c0b7dd7b}}
+  replication_10_6:                # Part 7 D79 C1-C3 on seeds 1-10: reported, not gating (D95)
+    reference: S1
+    c1: {kpi: all/person_delay_mean, alternative: two-sided, alpha: 0.05}
+    c2: {equity_rel: 0.05, kpis: [car/time_loss_mean, bus/delay_mean, pedestrian/ped_curb_wait_mean]}
+    c3: {curb_max_s: 90, preemption_all_served: true, timeouts_le: S2}
+    c4: data/rl7/devtest/verdict.json   # cited from Part 7
+    main_solution: S2                    # fixed by the Part 7 interim FALLBACK; A-06 does not reopen it
+  equity_vs: [S1, S2]              # extra S3-vs-reference equity tables (5 %, D96)
+final_table:                       # D98: the spec S8 final comparison table
+  family: main
+  columns: [S0, S1, S2, S3]
+  ablations: [S2_noP, S4]
+  rows: [car/time_loss_mean, car/wait_mean, car/wait_p95, car/throughput_vph,
+         bus/delay_mean, bus/headway_std, bus/dwell_mean,
+         pedestrian/ped_curb_wait_mean, pedestrian/ped_curb_wait_p95, pedestrian/ped_curb_wait_max,
+         pedestrian/crossing_complete_rate,
+         ambulance/travel_time_total, ambulance/stops, ambulance/stop_duration_mean,
+         all/person_delay_mean]
+  probe_rows: [ambulance/travel_time_total, ambulance/stops]
+  extra: [a04, interventions_per_run, preemption_served, equity_flags_vs_S0, person_delay_occupancy_sensitivity]
+part8:
+  seeds: {proto_burned: [3200, 3209], dev: [3210, 3229]}   # from rl7.reserve 3200-3999 (D101)
+  series: {step_s: 60, metric: halting_veh, approaches: [N, S, W, all], quantiles: [0.1, 0.9]}
 outputs: {dir: data/results/evaluation, figures: docs/figures/pitie/eval, docs: docs/evaluation.md}
 # Everything above was last written 2026-10-12 01:36 +02:00, before the first seed 1-10 run
 # (pitie_fixed seed 1, started 2026-10-12 00:49 UTC = 02:49 +02:00), except `kpi_version`,
-# the two a04 pedestrian lines and the equity pedestrian primary / subgroup, set by the
-# curb-wait entries below; the entries below came later.
+# the two a04 pedestrian lines and the equity pedestrian primary / subgroup (curb-wait
+# entries below), and the Part 8 keys (families S3/S4 and their pairs, the last three
+# a05.secondary tests, a06, final_table, part8), written 2026-10-23 before any S3 or S4 run on
+# seeds 1-10 (the three 2026-10-23 entries below; the registration commit is recorded by evaluate).
+# Disclosure (a gate fix of 2026-10-23, D92): after this text was written and before the
+# registration commit, S3 was run once on seeds 1-10 by a direct module call outside the run
+# lock; see the `why` of the first 2026-10-23 entry. No key above was changed after that look.
 changes:
   - date: 2026-10-12
     what: >-
@@ -106,3 +161,68 @@ changes:
       pedestrian creeps at the curb, so the single wait undercounts the wait at a red
       crossing; the curb wait (KPI version 3) is the pedestrian wait that the shield bounds
       and A-04 judges.
+  - date: 2026-10-23
+    what: >-
+      Part 8 scenarios (D93): S3 (`configs/pitie_rl_s3.yaml`, the selected Part 7 policy,
+      unchanged) and S4 (`configs/pitie_rl_s3_nopreempt.yaml`, the S3 policy with emergency
+      preemption off) join the main family, and their ambulance-probe versions
+      (`configs/pitie_amb_rl_s3.yaml`, `configs/pitie_amb_rl_s3_nopreempt.yaml`) join the
+      ambulance_probe family. New pairs (a = reference, b = candidate): main S0-S3, S1-S3,
+      S2-S3 confirmatory, S4-S3 and S2_noP-S4 exploratory; probe S0-S3, S4-S3, S2-S3
+      secondary; each pair keeps its own 7-KPI Holm table (D28). Three A-05 secondary tests
+      (one-sided `less`): main S0 vs S3, probe S0 vs S3, probe S4 vs S3. The A-05 primary
+      (main S0 vs S2) is unchanged.
+    why: >-
+      Spec S8 (final evaluation on 10 seeds), 13.1 (scenario list) and A-06 (RL vs the
+      baselines). S4 is the 13.1 "without preemption" option for the RL controller; it is
+      out of distribution (the policy never decided with an ambulance present), so its
+      results describe degradation, not a design, and it is never part of A-06. Written
+      before any S3 or S4 run on seeds 1-10; no S3 or S4 result on seeds 1-10 had been
+      seen when it was written. Disclosure (a gate fix of 2026-10-23, recorded in this
+      uncommitted text per D92): later that day, before the registration commit, a gate
+      check called `python -m traffic_twin.evaluation.compare --run-missing` directly
+      (compare.py, validation/report.py and sim/run_scenario.py have no run lock of their
+      own; only `evaluate` and the `tasks.py` tasks check it). It ran S3 on seeds 1-10 from
+      the uncommitted tree (started 2026-10-23 17:12-17:13 UTC) and showed three rows of
+      the main S0-S3 pair table: pedestrian ped_wait_mean and ped_wait_single_max (S3
+      worse, Holm p 0.0137 each) and ambulance time_loss_mean (S3 better, -37.6 %, Holm p
+      0.0547). The A-06 KPI all/person_delay_mean, the S1-S3 and S2-S3 pairs, the 10.6
+      check, S4 and the probe family were not shown; the A-05 secondary test main S0 vs
+      S3 uses ambulance travel_time_total, a KPI related to the one shown. This file (last
+      written 2026-10-23 14:48 UTC) was not changed after that look except for this
+      disclosure. The runs and the comparison were moved out of the repository and are
+      never used; `tasks.py part8` re-makes them once from the registration commit.
+  - date: 2026-10-23
+    what: >-
+      A-06 (D94, block `a06`): family main, candidate S3, `all/person_delay_mean`, exact
+      two-sided paired Wilcoxon on d = S3 - reference per seed with the Hodges-Lehmann
+      estimate and 95 % CI, against S1 (primary), S2 and S0, Holm across the three. The
+      status is procedural: PASS when each comparison has the 10 paired seeds, every S3
+      run is current (config_hash with the pinned model_sha256, and the pinned text
+      sha256 of the rl.config chain), the family shares one demand_hash and A-03 passes;
+      INVALID otherwise; never FAIL because of the direction of a result. Outcome per
+      comparison: "S3 better" (Holm p < 0.05, HL < 0), "S3 worse" (Holm p < 0.05, HL > 0),
+      else "no significant difference"; raw p, Holm p, means, SDs and the HL CI are always
+      shown. The spec 10.6 check of Part 7 (D79 C1-C3) is repeated on seeds 1-10 against
+      S1 and reported, not gating (`a06.replication_10_6`; C4 is cited from Part 7). The
+      main solution stays S2 whatever the result. "Binding" (D68, README, Part 7 page)
+      now means: A-06 is the confirmatory test of record for RL against the baselines,
+      presented whatever its direction; it does not reopen the choice of the main
+      solution. The final comparison table layout is fixed in `final_table` (D98).
+    why: >-
+      User decision of 2026-10-23 (S3 tested exactly as registered, no retraining; S2 stays
+      the main solution per the spec 15 week-7 rule and the Part 7 interim FALLBACK). The
+      rule was drafted after seeing the Part 7 dev-test and the scratch prototype on seeds
+      3200-3209 (S3 vs S2 p 0.049 there); this is harmless because the status is
+      procedural and the outcome rule is fixed in advance, so neither can be tuned to a
+      result. Written before any S3 or S4 run on seeds 1-10 (the later accidental S3 run
+      is disclosed in the first 2026-10-23 entry; it did not show the A-06 KPI).
+  - date: 2026-10-23
+    what: >-
+      Part 8 seed records (D101, block `part8.seeds`, outside the top-level `seeds` block
+      so the Part 3-4 seed sets are unchanged): 3200-3209 burned by the Part 8 prototype,
+      3210-3229 the Part 8 development range, both carved from rl7.reserve (3200-3999).
+    why: >-
+      The Part 8 prototype ran S0-S4 on the scratch seeds 3200-3209 (no seed 1-10 run), so
+      they are recorded as used; implementers need a separate development range that no
+      other part uses.

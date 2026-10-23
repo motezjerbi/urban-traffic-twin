@@ -21,6 +21,13 @@ greens are known; `replay` for adaptive controllers, whose replayed countdown is
 knowledge a live system would not have); bus `delay_basis: junction_time_loss` (the
 simulation has no timetable); 2 of 3 corridor junctions `unknown`; `obstructed: null`
 (not logged in v1).
+
+Parts 8-9 (D103, D105; contract 4.3): `/evaluation`, `/compare`, `/series` and
+`/sensitivity` serve the pre-registered evaluation outputs read by `api.results` (a
+missing file is `unavailable`, a label registered but not in the outputs "pas encore
+évalué", outputs of an older config `degraded`); `/replay` gains the run's time bounds
+and the signal heads at t, and `/replay/{run_id}/events` the controller and preemption
+events of a time window.
 """
 
 from __future__ import annotations
@@ -50,7 +57,24 @@ from traffic_twin.api.clock import (
     replay_instant,
     wall_now,
 )
-from traffic_twin.api.db import LocalStore, RunInfo, Store
+from traffic_twin.api.db import STATE_FILE, LocalStore, RunInfo, Store
+from traffic_twin.api.results import (
+    PAIRS_DIR,
+    SERIES_FILE,
+    SUMMARY_FILE,
+    Results,
+    SignalMap,
+    approach_heads,
+    evaluation_seeds,
+    family_pairs,
+    label_roles,
+    link_states,
+    pair_name,
+    program_link_states,
+    records,
+    series_spec,
+    signal_map,
+)
 from traffic_twin.api.schemas import (
     AmbulanceRouteResponse,
     ApiError,
@@ -60,16 +84,21 @@ from traffic_twin.api.schemas import (
     ErrorInfo,
     EtaAdvice,
     EtaResponse,
+    EvaluationResponse,
     HealthResponse,
     Intersection,
+    KpiPairResponse,
     KpiRow,
+    KpiSeriesResponse,
     KpiTableResponse,
     Position,
+    ReplayEventsResponse,
     ReplayStateResponse,
     RunRef,
     ScenarioGroup,
     ScenarioListResponse,
     ScenarioRun,
+    SensitivityResponse,
 )
 from traffic_twin.api.settings import Settings, load_settings
 from traffic_twin.api.site import EtaSpec, Site, load_eta_spec, load_site, phase_map
@@ -83,7 +112,17 @@ PATH_TYPES = (
     ("/health", "health"), ("/scenarios", "scenario_list"), ("/kpi", "kpi_table"),
     ("/replay", "replay_state"), ("/crossing", "crossing_status"), ("/bus", "bus_status"),
     ("/ambulance", "ambulance_route"), ("/eta", "eta"),
+    ("/evaluation", "evaluation"), ("/compare", "kpi_pair"), ("/series", "kpi_series"),
+    ("/sensitivity", "sensitivity"),
 )  # fmt: skip
+EVENTS_SUFFIX = "/events"  # /replay/{run_id}/events answers type replay_events
+PART8_PENDING = "pas encore évalué"  # a label registered but absent from the outputs (D103)
+FAKE_NOTICE = "données FAKE (fixtures de test), pas un résultat de simulation"
+NO_EVAL_CONFIG = "configuration d'évaluation absente"
+STALE_EVAL = "résultats d'une configuration antérieure (à réévaluer)"
+EVENT_COLUMNS = ("t", "source", "rule", "stage_from", "stage_to", "detail")
+QUIET_CONTROLLERS = ("fixed", "actuated")  # controllers that log no events.parquet
+WALK = {"green": "walk", "clearance": "flash", "red": "dont_walk"}  # crossing heads
 SPEED_RANGE_MPS = (0.3, 3.0)  # numeric walking speeds accepted by /crossing
 APPROX = "estimation approximative"  # spec 11.4 wording of the degraded ETA
 CORRIDOR_NOTICE = "1 carrefour modélisé sur {n} : les autres sont inconnus"
@@ -105,6 +144,8 @@ def _f(x: Any, ndigits: int | None = 1) -> float | None:
 
 
 def message_type(path: str) -> str:
+    if path.startswith("/replay/") and path.rstrip("/").endswith(EVENTS_SUFFIX):
+        return "replay_events"
     return next((kind for prefix, kind in PATH_TYPES if path.startswith(prefix)), "error")
 
 
@@ -128,6 +169,8 @@ class Context:
         self._store: Store | None = None
         self._site: Site | None = None
         self._eta: EtaSpec | None = None
+        self._results: Results | None = None
+        self._signal_map: SignalMap | None = None
 
     @property
     def store(self) -> Store:
@@ -153,6 +196,25 @@ class Context:
                 if self._eta is None:
                     self._eta = load_eta_spec(self.settings.path(self.settings.eta_config))
         return self._eta
+
+    @property
+    def results(self) -> Results:
+        """Readers of the Part 8 evaluation outputs and the replay extras."""
+        if self._results is None:
+            with self._lock:
+                if self._results is None:
+                    self._results = Results(self.settings)
+        return self._results
+
+    @property
+    def signal_map(self) -> SignalMap:
+        """The site's approach links and yellow times (replay `signals`)."""
+        if self._signal_map is None:
+            site = self.site
+            with self._lock:
+                if self._signal_map is None:
+                    self._signal_map = signal_map(site)
+        return self._signal_map
 
     def site_or_none(self) -> Site | None:
         try:
@@ -187,13 +249,17 @@ class Context:
             "notice": notice,
         }
 
-    def run_and_t(self, run_id: str | None, t: str | None) -> tuple[RunInfo, float]:
+    def run_of(self, run_id: str | None) -> RunInfo:
+        """The run a request names (`default` or none: the default run)."""
         if run_id and run_id != "default":
-            run = self.store.run(run_id)
-        else:
-            run = self.store.default_run()
-            if run is None:
-                raise ApiError("unknown_run", "no simulation run is indexed")
+            return self.store.run(run_id)
+        run = self.store.default_run()
+        if run is None:
+            raise ApiError("unknown_run", "no simulation run is indexed")
+        return run
+
+    def run_and_t(self, run_id: str | None, t: str | None) -> tuple[RunInfo, float]:
+        run = self.run_of(run_id)
         s = self.settings
         tq = parse_t(
             t,
@@ -369,13 +435,17 @@ def kpi_table(ctx: Context, scenario: str, user: str | None, family: str) -> Kpi
     runs = [r for r in store.runs().values() if r.scenario == name]
     if label is None and not runs:
         raise ApiError("bad_request", f"unknown scenario {scenario!r} in family {family!r}")
+    base = {"scenario": name, "label": label, "family": family}
     df, mtime = store.kpis(family, name)
+    if df is not None and df.empty and label is not None:  # registered, not evaluated yet
+        env = ctx.envelope("kpi_table", timestamp=now, status="unavailable")
+        env["notice"] = f"{label} : {PART8_PENDING}"
+        return KpiTableResponse(**env, **base)
     source, notice, status = "evaluation", None, "ok"
     if df is None or df.empty:
         df, mtime = store.run_kpis(name), None
         source, status = "runs", "degraded"
         notice = "évaluation absente : moyennes des runs, sans test ni comparaison à S0"
-    base = {"scenario": name, "label": label, "family": family}
     if df is None or df.empty:
         env = ctx.envelope("kpi_table", timestamp=now, status="unavailable")
         env["notice"] = f"aucun résultat pour {scenario}"
@@ -525,6 +595,326 @@ def eta_answer(
     )
 
 
+# -- Parts 8-9: evaluation outputs (D103) --------------------------------------------------
+def file_time(path: Path, now: datetime) -> tuple[datetime, float | None]:
+    """(timestamp, wall-clock age) of an aggregate file: its mtime, else now."""
+    m = Results.mtime(path)
+    if m is None:
+        return now, None
+    ts = datetime.fromtimestamp(m, PARIS)
+    return ts, _f((now - ts).total_seconds())
+
+
+def family_labels(ctx: Context, family: str) -> dict[str, str] | None:
+    """label -> config of a registered family; None without any evaluation config (the
+    answer is then `unavailable`); 404 bad_request for an unknown family."""
+    labels = ctx.store.labels()
+    if not labels:
+        return None
+    if family not in labels:
+        raise ApiError("bad_request", f"unknown family {family!r}: {', '.join(labels)}")
+    return labels[family]
+
+
+def join_notices(*notices: str | None) -> str | None:
+    kept = [n for n in notices if n]
+    return " ; ".join(kept) if kept else None
+
+
+def fake_notice(ctx: Context) -> str | None:
+    """FAKE_NOTICE when the evaluation outputs are the fixtures' (summary `fake: true`)."""
+    return FAKE_NOTICE if (ctx.results.summary() or {}).get("fake") else None
+
+
+def label_controllers(ctx: Context, family: str, fam: dict[str, str]) -> dict[str, str | None]:
+    """label -> controller: the evaluated provenance, else an indexed run of the label's
+    scenario, else the evaluation's kpis.csv; None when unknown."""
+    prov = (ctx.results.provenance() or {}).get("families") or {}
+    members = (prov.get(family) or {}).get("scenarios") or {}
+    by_scenario = {r.scenario: r.controller for r in ctx.store.runs().values()}
+    out: dict[str, str | None] = {}
+    for label, cfg in fam.items():
+        rec = members.get(label) if isinstance(members, dict) else None
+        ctrl = rec.get("controller") if isinstance(rec, dict) else None
+        ctrl = ctrl or by_scenario.get(Path(cfg).stem)
+        if ctrl is None:
+            df, _ = ctx.store.kpis(family, label)
+            if df is not None and not df.empty and "controller" in df.columns:
+                ctrl = str(df["controller"].iloc[0])
+        out[label] = ctrl
+    return out
+
+
+def evaluation_answer(ctx: Context, family: str) -> EvaluationResponse:
+    now, res = wall_now(), ctx.results
+    fam = family_labels(ctx, family)
+    if fam is None:
+        env = ctx.envelope("evaluation", timestamp=now, status="unavailable", notice=NO_EVAL_CONFIG)
+        return EvaluationResponse(**env, family=family)
+    ecfg = res.evaluation_config()
+    roles = label_roles(ecfg)
+    summary = res.summary()
+    evaluated = set(((summary or {}).get("families") or {}).get(family) or [])
+    ctrls = label_controllers(ctx, family, fam)
+    labels = [
+        {
+            "label": lb,
+            "scenario": Path(cfg).stem,
+            "controller": ctrls.get(lb),
+            "role": roles.get(lb),
+            "evaluated": lb in evaluated,
+        }
+        for lb, cfg in fam.items()
+    ]
+    if summary is None:
+        notice = f"évaluation absente : {PART8_PENDING}"
+        env = ctx.envelope("evaluation", timestamp=now, status="unavailable", notice=notice)
+        return EvaluationResponse(**env, family=family, labels=labels)
+    a06 = res.a06() or summary.get("a06")
+    a06_cfg = ecfg.get("a06") or {}
+    replication = (a06 or {}).get("replication_10_6") or summary.get("replication_10_6")
+    ft = ecfg.get("final_table") or {}
+    final = records(res.final_table()) if family == ft.get("family", "main") else []
+    missing = [lb for lb in fam if lb not in evaluated]
+    notices = [f"{', '.join(missing)} : {PART8_PENDING}" if missing else None]
+    if a06 is None and family == a06_cfg.get("family") and a06_cfg.get("candidate") in evaluated:
+        notices.append(f"A-06 : {PART8_PENDING}")
+    stale = res.stale_labels(family, {lb: fam[lb] for lb in fam if lb in evaluated})
+    if stale:
+        notices.append(f"{STALE_EVAL} : {', '.join(stale)}")
+    ts, age = file_time(res.eval_path(SUMMARY_FILE), now)
+    env = ctx.envelope(
+        "evaluation",
+        timestamp=ts,
+        age=age,
+        status="degraded" if any(notices) else "ok",
+        notice=join_notices(*notices, fake_notice(ctx)),
+    )
+    a05 = res.a05() or summary.get("a05") or {}
+    hidden = [
+        h
+        for h in summary.get("hidden_degradation") or []
+        if isinstance(h, dict) and h.get("family") == family
+    ]
+    pre = summary.get("preregistered")
+    return EvaluationResponse(
+        **env,
+        family=family,
+        preregistered=None if pre is None else str(pre),
+        registration=summary.get("registration") or (a06 or {}).get("registration"),
+        seeds=[int(x) for x in summary.get("seeds") or []],
+        labels=labels,
+        a03=summary.get("a03") or {},
+        a04=summary.get("a04") or {},
+        a05=a05,
+        a06=a06,
+        replication_10_6=replication,
+        hidden_degradation=hidden,
+        final_table=final,
+    )
+
+
+def compare_answer(ctx: Context, a: str, b: str, family: str) -> KpiPairResponse:
+    now, res = wall_now(), ctx.results
+    base = {"a": a, "b": b, "family": family}
+    fam = family_labels(ctx, family)
+    if fam is None:
+        env = ctx.envelope("kpi_pair", timestamp=now, status="unavailable", notice=NO_EVAL_CONFIG)
+        return KpiPairResponse(**env, **base)
+    for lab in (a, b):
+        if lab not in fam:
+            raise ApiError("bad_request", f"unknown label {lab!r} in {family!r}: {', '.join(fam)}")
+    pairs = family_pairs(res.evaluation_config(), family)
+    pair = next((p for p in pairs if (p["a"], p["b"]) == (a, b)), None)
+    if pair is None:
+        names = ", ".join(f"{p['a']}-{p['b']}" for p in pairs)
+        raise ApiError("bad_request", f"no registered pair {a}-{b} in {family!r}: {names}")
+    path = res.eval_path(family, PAIRS_DIR, pair_name(a, b))
+    df = res.csv(path)
+    if df is None:
+        notice = f"{a}-{b} : {PART8_PENDING}"
+        env = ctx.envelope("kpi_pair", timestamp=now, status="unavailable", notice=notice)
+        return KpiPairResponse(**env, **base, role=pair["role"])
+    stale = res.stale_labels(family, {lab: fam[lab] for lab in (a, b)})
+    notice = f"{STALE_EVAL} : {', '.join(stale)}" if stale else None
+    ts, age = file_time(path, now)
+    env = ctx.envelope(
+        "kpi_pair",
+        timestamp=ts,
+        age=age,
+        status="degraded" if stale else "ok",
+        notice=join_notices(notice, fake_notice(ctx)),
+    )
+    return KpiPairResponse(**env, **base, role=pair["role"], rows=records(df))
+
+
+def series_answer(
+    ctx: Context, family: str, metric: str, approach: str, wanted: str | None
+) -> KpiSeriesResponse:
+    now, res = wall_now(), ctx.results
+    base = {"metric": metric, "approach": approach}
+    fam = family_labels(ctx, family)
+    if fam is None:
+        env = ctx.envelope("kpi_series", timestamp=now, status="unavailable", notice=NO_EVAL_CONFIG)
+        return KpiSeriesResponse(**env, **base)
+    spec = series_spec(res.evaluation_config())
+    metrics = [str(spec["metric"])] if spec.get("metric") else []
+    approaches = [str(x) for x in spec.get("approaches") or []]
+    if metrics and metric not in metrics:
+        raise ApiError("bad_request", f"unknown metric {metric!r}: {', '.join(metrics)}")
+    if approaches and approach not in approaches:
+        raise ApiError("bad_request", f"unknown approach {approach!r}: {', '.join(approaches)}")
+    want = [x.strip() for x in (wanted or "").split(",") if x.strip()] or list(fam)
+    unknown = [lb for lb in want if lb not in fam]
+    if unknown:
+        raise ApiError("bad_request", f"unknown label(s) {', '.join(unknown)} in {family!r}")
+    step = spec.get("step_s")
+    df = res.series()
+    if df is None:
+        notice = f"courbes : {PART8_PENDING}"
+        env = ctx.envelope("kpi_series", timestamp=now, status="unavailable", notice=notice)
+        return KpiSeriesResponse(**env, **base, step_s=None if step is None else int(step))
+    if not metrics and metric not in set(df["metric"].astype(str)):
+        raise ApiError("bad_request", f"unknown metric {metric!r}")
+    sub = df[
+        (df["family"].astype(str) == family)
+        & (df["metric"].astype(str) == metric)
+        & (df["approach"].astype(str) == approach)
+    ]
+    have = set(sub["label"].astype(str))
+    present = [lb for lb in want if lb in have]
+    missing = [lb for lb in want if lb not in have]
+    pending = f"{', '.join(missing)} : {PART8_PENDING}" if missing else None
+    ts, age = file_time(res.eval_path(SERIES_FILE), now)
+    if not present:
+        env = ctx.envelope(
+            "kpi_series", timestamp=ts, age=age, status="unavailable", notice=pending
+        )
+        return KpiSeriesResponse(**env, **base, step_s=None if step is None else int(step))
+    order = {lb: k for k, lb in enumerate(present)}
+    sub = sub.assign(_k=sub["label"].astype(str).map(order)).dropna(subset=["_k"])
+    sub = sub.sort_values(["_k", "t_s"], kind="stable")
+    if step is None:
+        gaps = pd.Series(sorted(sub["t_s"].unique()), dtype=float).diff().dropna()
+        step = float(gaps.median()) if len(gaps) else None
+    pts = pd.DataFrame(
+        {
+            "label": sub["label"].astype(str),
+            "t_s": sub["t_s"],
+            "mean": sub["mean"],
+            "p10": sub["p10"] if "p10" in sub else None,
+            "p90": sub["p90"] if "p90" in sub else None,
+            "n": sub["n_seeds"] if "n_seeds" in sub else None,
+        }
+    )
+    stale = res.stale_labels(family, {lb: fam[lb] for lb in present})
+    notices = [pending, f"{STALE_EVAL} : {', '.join(stale)}" if stale else None]
+    env = ctx.envelope(
+        "kpi_series",
+        timestamp=ts,
+        age=age,
+        status="degraded" if any(notices) else "ok",
+        notice=join_notices(*notices, fake_notice(ctx)),
+    )
+    return KpiSeriesResponse(
+        **env, **base, step_s=None if step is None else int(step), points=records(pts)
+    )
+
+
+def sensitivity_answer(ctx: Context) -> SensitivityResponse:
+    now, res = wall_now(), ctx.results
+    path = res.sensitivity_path()
+    try:
+        source = path.relative_to(ctx.settings.repo_root).as_posix()
+    except ValueError:
+        source = path.as_posix()
+    df = res.sensitivity()
+    if df is None:
+        notice = "table de sensibilité des poids absente (étude RL, Partie 7)"
+        env = ctx.envelope("sensitivity", timestamp=now, status="unavailable", notice=notice)
+        return SensitivityResponse(**env, source=source)
+    ts, age = file_time(path, now)
+    env = ctx.envelope("sensitivity", timestamp=ts, age=age)
+    return SensitivityResponse(**env, rows=records(df), source=source)
+
+
+# -- Part 9: replay extras (D105) ----------------------------------------------------------
+def replay_signals(ctx: Context, run: RunInfo, t: float, phase: int | None) -> dict | None:
+    """Signal heads at t: one per approach (green / yellow / red) and one per pedestrian
+    crossing (walk / flash / dont_walk), from signal.parquet at 1 s resolution, else from
+    the logged phase and the program (5 s); None for a run of another network or without
+    either log."""
+    if ctx.other_site(run):
+        return None
+    site, smap = ctx.site, ctx.signal_map
+    sig = ctx.store.signal(run.run_id)
+    crossings: dict[str, str] = {}
+    if sig is not None and not sig.empty and {"link", "begin_s", "end_s"} <= set(sig.columns):
+        states = link_states(sig, t, smap)
+        for cid, c in site.crossings.items():
+            crossings[cid] = WALK[crossing_signal(site, sig, c.link, t)[0]]
+    else:
+        states = program_link_states(site, phase)
+        if states is None:
+            return None
+        stage, _, clearing = site.stage_of(phase)
+        for cid, c in site.crossings.items():
+            if states.get(c.link) == "green":
+                crossings[cid] = "walk"
+            elif clearing and stage is not None and site.link_green_in_stage(c.link, stage):
+                crossings[cid] = "flash"
+            else:
+                crossings[cid] = "dont_walk"
+    return {**approach_heads(states, smap), "crossings": crossings}
+
+
+def replay_bounds(ctx: Context, run: RunInfo) -> dict[str, float | None]:
+    """t_min_s, t_max_s and step_s of the run's state log ({} without one)."""
+    b = ctx.results.state_bounds(run.dir / STATE_FILE)
+    if b is None:
+        return {}
+    return {"t_min_s": _f(b[0]), "t_max_s": _f(b[1]), "step_s": _f(b[2])}
+
+
+def replay_events_answer(
+    ctx: Context, run_id: str, t_from: str | None, t_to: str | None, limit: int
+) -> ReplayEventsResponse:
+    run, s = ctx.run_of(run_id), ctx.settings
+
+    def at(raw: str | None, default: float) -> float:
+        if raw is None or not raw.strip():
+            return default
+        return parse_t(
+            raw, begin_s=run.begin_s, duration_s=run.duration_s, default_t=s.default_t,
+            mode=s.clock_mode,
+        )  # fmt: skip
+
+    t0, t1 = at(t_from, 0.0), at(t_to, max(run.duration_s, 0.0))
+    if t1 < t0:
+        raise ApiError("bad_t", f"to ({t1:g} s) is before from ({t0:g} s)")
+    kw = {"timestamp": ctx.instant(run, t1), "run": run, "t": t0}
+    ev = ctx.store.events(run.run_id)
+    if ev is None:
+        if run.controller in QUIET_CONTROLLERS:
+            note = f"aucun événement : le contrôleur {run.controller} n'en journalise pas"
+            return ReplayEventsResponse(**ctx.envelope("replay_events", **kw, notice=note))
+        note = "journal des événements absent pour ce run"
+        env = ctx.envelope("replay_events", **kw, status="unavailable", notice=note)
+        return ReplayEventsResponse(**env)
+    if not {"t", "source", "rule"} <= set(ev.columns):
+        note = "journal des événements illisible"
+        env = ctx.envelope("replay_events", **kw, status="unavailable", notice=note)
+        return ReplayEventsResponse(**env)
+    sel = ev[(ev["t"] >= t0) & (ev["t"] <= t1)].sort_values("t", kind="stable")
+    n = len(sel)
+    sel = sel.head(limit)
+    rows = records(sel[[c for c in EVENT_COLUMNS if c in sel.columns]])
+    events = [{c: r.get(c) for c in EVENT_COLUMNS} for r in rows]
+    notice = f"{limit} premiers événements sur {n}" if n > limit else None
+    env = ctx.envelope("replay_events", **kw, notice=notice)
+    return ReplayEventsResponse(**env, events=events)
+
+
 # -- app -----------------------------------------------------------------------------------
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
@@ -587,6 +977,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/scenarios", response_model=ScenarioListResponse)
     def scenarios():
         store, now = ctx.store, wall_now()
+        ecfg = ctx.results.evaluation_config()
+        roles, eval_seeds = label_roles(ecfg), evaluation_seeds(ecfg)
+        lo, hi = settings.demo_seeds or (None, None)
+
+        def seed_role(seed: int) -> str:
+            if lo is not None and lo <= seed <= hi:
+                return "demo"
+            return "evaluation" if seed in eval_seeds else "other"
+
         names: dict[str, tuple[str, str]] = {}  # scenario -> (family, label), first family wins
         for fam, labels in store.labels().items():
             for label, cfg in labels.items():
@@ -598,7 +997,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             g = groups.setdefault(
                 r.scenario,
                 ScenarioGroup(
-                    scenario=r.scenario, label=label, family=fam, controller=r.controller
+                    scenario=r.scenario,
+                    label=label,
+                    family=fam,
+                    controller=r.controller,
+                    role=roles.get(label) if label else None,
                 ),
             )
             try:
@@ -607,7 +1010,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 d = r.dir.as_posix()
             g.runs.append(
                 ScenarioRun(
-                    run_id=r.run_id, seed=r.seed, current=r.current, has_eta=r.has_eta, dir=d
+                    run_id=r.run_id,
+                    seed=r.seed,
+                    current=r.current,
+                    has_eta=r.has_eta,
+                    dir=d,
+                    seed_role=seed_role(r.seed),
                 )
             )
         started = [r.started_at for r in runs if r.started_at is not None]
@@ -636,12 +1044,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def replay(run_id: str, t: str | None = None, positions: bool = False):
         run, tq = ctx.run_and_t(run_id, t)
         tick, rows = ctx.store.state_at(run.run_id, tq)
+        bounds = replay_bounds(ctx, run)
         if tick is None:
             env = ctx.envelope(
                 "replay_state", timestamp=ctx.instant(run, tq), run=run, t=tq, status="unavailable"
             )
             env["notice"] = "état de la simulation non disponible à cet instant"
-            return ReplayStateResponse(**env)
+            return ReplayStateResponse(**env, **bounds)
         inter = rows[rows["entity"] == "intersection"]
         phase = None if inter.empty else _f(inter["phase"].iloc[0], None)
         phase = None if phase is None else int(phase)
@@ -664,6 +1073,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             queue_total=None if inter.empty else _f(inter["queue"].iloc[0]),
             queues=queue_by_approach(ctx, run, tq),
             counts=counts,
+            signals=replay_signals(ctx, run, tq, phase),
+            **bounds,
         )
         if positions:
             resp.positions = [
@@ -747,6 +1158,41 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         student: bool = Query(False, description="add the student route's rest of trip"),
     ):
         return eta_answer(ctx, trajet, t, run_id, deadline, student)
+
+    # -- Parts 8-9 (D103, D105): evaluation outputs and replay events ------------------
+    @app.get("/evaluation", response_model=EvaluationResponse)
+    def evaluation(family: str = Query("main")):
+        return evaluation_answer(ctx, family)
+
+    @app.get("/compare", response_model=KpiPairResponse)
+    def compare_pair(
+        a: str = Query(..., description="reference label (S1)"),
+        b: str = Query(..., description="candidate label (S3)"),
+        family: str = Query("main"),
+    ):
+        return compare_answer(ctx, a, b, family)
+
+    @app.get("/series", response_model=KpiSeriesResponse)
+    def series(
+        family: str = Query("main"),
+        metric: str = Query("halting_veh"),
+        approach: str = Query("all", description="N, S, W or all"),
+        labels: str | None = Query(None, description="comma-separated labels (S0,S2,S3)"),
+    ):
+        return series_answer(ctx, family, metric, approach, labels)
+
+    @app.get("/sensitivity", response_model=SensitivityResponse)
+    def sensitivity():
+        return sensitivity_answer(ctx)
+
+    @app.get("/replay/{run_id}/events", response_model=ReplayEventsResponse)
+    def replay_events(
+        run_id: str,
+        t_from: str | None = Query(None, alias="from", description="s or HH:MM[:SS]"),
+        t_to: str | None = Query(None, alias="to", description="s or HH:MM[:SS]"),
+        limit: int = Query(1000, ge=1, le=10000),
+    ):
+        return replay_events_answer(ctx, run_id, t_from, t_to, limit)
 
     # -- /mock (dev) ---------------------------------------------------------------------
     @app.get("/mock", include_in_schema=False, response_class=HTMLResponse)

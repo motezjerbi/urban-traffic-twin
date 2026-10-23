@@ -2,3 +2,7 @@
 # must not touch them; the config pins the model zip's sha256).
 models/** -text
 *.zip binary
+# Parts 9-10: the demo pack, the deck and the PDFs are stored byte for byte
+docs/demo/*.zip binary
+*.pptx binary
+*.pdf binary

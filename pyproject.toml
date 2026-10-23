@@ -28,6 +28,10 @@ dev = ["pytest>=8", "ruff==0.17.0"]
 ml = ["xgboost==3.4.1"]
 api = ["fastapi==0.143.2", "uvicorn==0.54.0", "pydantic==2.14.1", "httpx==0.28.1", "duckdb==1.5.6"]
 rl = ["gymnasium==1.4.0", "stable-baselines3==2.9.0", "torch==2.14.1"]
+# Parts 9-10 (D118), pinned to the installed versions: the Streamlit Operator and its
+# Plotly charts; the report PDF and the slide deck.
+app = ["streamlit==1.66.1", "plotly==7.1.0"]
+report = ["python-pptx==1.0.2", "reportlab==5.1.0", "markdown==3.11.2"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -41,6 +45,7 @@ pythonpath = ["src"]
 addopts = ["-ra", "--strict-markers"]
 markers = [
     "sumo: runs the real SUMO binaries (skipped automatically when SUMO is not installed; deselect with -m 'not sumo')",
+    "browser: drives a headless Chrome or Edge (TT_BROWSER overrides; skipped when none is found; deselect with -m 'not browser')",
 ]
 filterwarnings = [
     # Starlette's TestClient warns that it is built on httpx (D66); the API tests use it

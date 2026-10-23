@@ -1,8 +1,10 @@
 """Pre-registered seed map of Parts 5-7 (D38, D70): every range in configs/eta.yaml,
 configs/rl.yaml, configs/api.yaml and the own `seeds` block of configs/rl7.yaml is
 disjoint from the others and from the Part 3-4 seeds of configs/evaluation.yaml
-(evaluation 1-10, calibration 101-103, development 201-207), which is not edited; RL
-training starts at or after `rl_training_from`.
+(evaluation 1-10, calibration 101-103, development 201-207), whose `seeds` block is not
+edited; RL training starts at or after `rl_training_from`. Part 8 (D101) records its
+seeds in evaluation.yaml `part8.seeds` (3200-3209 burned by the prototype, 3210-3229
+development), both inside rl7.reserve.
 
 Part 7 (D70) reads the raw rl7.yaml `seeds` block (only the keys it registers itself;
 `burned` and `dev_test` are inherited from rl.yaml through `extends`): its new training
@@ -149,3 +151,49 @@ def test_rl7_run_configs_are_the_registered_ones():
     assert {p.stem for p in RL7_CONFIG_DIR.glob("*.yaml")} == names
     for name in names:
         assert load_config(RL7_CONFIG_DIR / f"{name}.yaml")["variant"] == name
+
+
+# -- Part 8 (D101) -----------------------------------------------------------------------
+PART34_SEEDS = {
+    "evaluation": list(range(1, 11)), "calibration": [101, 102, 103],
+    "development": list(range(201, 208)), "rl_training_from": 1000,
+}  # fmt: skip
+PART8_SEEDS = {"proto_burned": (3200, 3209), "dev": (3210, 3229)}  # D101, as registered
+DEMO_SEED = 4000  # app, user-test and demo work (D101)
+
+
+def part8_seeds() -> dict[str, range]:
+    raw = load_config(EVALUATION_CONFIG)["part8"]["seeds"]
+    return {k: range(lo, hi + 1) for k, (lo, hi) in raw.items()}
+
+
+def test_part8_seeds_are_the_registered_ones():
+    raw = load_config(EVALUATION_CONFIG)["part8"]["seeds"]
+    assert {k: tuple(v) for k, v in raw.items()} == PART8_SEEDS
+
+
+def test_part8_seeds_come_from_rl7_reserve_and_are_disjoint():
+    lo, hi = RL7_SEEDS["reserve"]
+    reserve = set(range(lo, hi + 1))
+    p8 = part8_seeds()
+    for name, r in p8.items():
+        assert set(r) <= reserve, f"part8.{name} is outside rl7.reserve"
+    assert not set(p8["proto_burned"]) & set(p8["dev"])
+    used = set().union(*part34_seeds().values())
+    for name, r in p8.items():
+        assert not used & set(r), f"part8.{name} reuses a Part 3-4 seed"
+    for name, r in ranges().items():
+        if name != "rl7.reserve":
+            assert not set(r) & set().union(*map(set, p8.values())), f"part8 overlaps {name}"
+
+
+def test_part8_leaves_the_part3_4_seed_block_unchanged():
+    """The Part 8 records sit outside the top-level `seeds` block (D101), so the Part
+    3-4 sets `part34_seeds` reads stay exactly as pre-registered."""
+    assert load_config(EVALUATION_CONFIG)["seeds"] == PART34_SEEDS
+    assert set(part34_seeds()) == {"evaluation", "calibration", "development"}
+
+
+def test_demo_seed_is_in_the_demo_range():
+    lo, hi = load_config(API_CONFIG)["seeds"]["demo"]
+    assert lo <= DEMO_SEED <= hi

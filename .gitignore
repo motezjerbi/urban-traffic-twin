@@ -14,6 +14,15 @@ data/demo/*
 data/rl_runs/*
 data/rl7/*
 data/fake/*
+# Parts 8-10 (D117): app exports, demo rehearsals, report QA renders; user-test results
+# live under docs/usertests/ (data/usertests is not used: ignored so a stray file never
+# makes a run -dirty)
+data/exports/*
+data/usertests/*
+data/demo_check/*
+data/report/*
+last_dom.html
+.streamlit/secrets.toml
 !data/**/.gitkeep
 sumo/demand/*.rou.xml
 *.log

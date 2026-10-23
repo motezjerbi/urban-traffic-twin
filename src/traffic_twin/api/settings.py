@@ -24,6 +24,10 @@ from typing import Any
 from traffic_twin.config import ConfigError, load_config
 from traffic_twin.paths import API_CONFIG, FIELD_FILE
 
+# Part 7 operator weight-sensitivity table (spec 12; committed, so /sensitivity works on a
+# fresh clone): the default when api.yaml has no `sensitivity` key
+SENSITIVITY_CSV = Path("docs") / "figures" / "rl7" / "sensitivity.csv"
+
 ENV_CONFIG = "TT_API_CONFIG"
 ENV_RESULTS_DIRS = "TT_RESULTS_DIRS"
 CLOCK_MODES = ("fixed", "loop")  # fixed: `clock.default_t`; loop: wall clock folded onto the run
@@ -76,6 +80,7 @@ class Settings:
     demo_seeds: tuple[int, int] | None = None
     field_file: Path = FIELD_FILE  # field inventory: `provisional` until timings are measured
     index_ttl_s: float = 30.0  # the run index is rebuilt at most this often
+    sensitivity: Path = SENSITIVITY_CSV  # /sensitivity table (Part 7, D103)
     source: Path | None = None  # the settings file
 
     def path(self, p: str | Path) -> Path:
@@ -162,6 +167,7 @@ def settings_from_dict(
         ambulance_blocked_halting=halting,
         mock=bool((raw.get("dev") or {}).get("mock", False)),
         demo_seeds=tuple(demo) if demo else None,
+        sensitivity=_paths(raw.get("sensitivity") or SENSITIVITY_CSV, "sensitivity")[0],
         source=source,
     )
 

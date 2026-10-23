@@ -5,6 +5,7 @@ The fixture runs replay the net's own 123 s program from t = 0 (HOP green 0-36, 
 clearance 36-45, S_LEFT 45-51, STM 61-81, ...), so the expected signal answers below
 follow from configs/pitie_fixed.yaml and its net file."""
 
+import shutil
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -278,8 +279,7 @@ def test_kpi_from_the_evaluation_csv(client):
 
 
 def test_kpi_falls_back_to_the_runs(api_results):
-    for f in (api_results / "evaluation" / "main").iterdir():
-        f.unlink()
+    shutil.rmtree(api_results / "evaluation")  # no evaluation outputs at all
     b = make_client(api_results).get("/kpi?scenario=S1").json()
     assert b["status"] == "degraded" and b["source"] == "runs" and b["notice"]
     rows = {(r["user"], r["kpi"]): r for r in b["rows"]}

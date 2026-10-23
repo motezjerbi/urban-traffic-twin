@@ -9,7 +9,9 @@ ENF-02: "the API endpoints answer in less than 500 ms on precomputed results". T
 percentiles leave out one warm-up request per endpoint; the cold start (building the
 app, the run index and the site description, then the first request) is reported apart.
 Request parameters are drawn with a fixed seed (no simulation is run). The bench only
-reads the results.
+reads the results. Parts 8-9 (D103): `/evaluation`, `/compare` (the registered main
+pairs), `/series`, `/sensitivity` and `/replay/{run_id}/events` are measured too; before
+the Part 8 run some answer `unavailable` ("pas encore évalué"), which the table shows.
 """
 
 from __future__ import annotations
@@ -41,6 +43,13 @@ CROSSINGS = ("NB", "S", "WB", "W")
 SPEEDS = ("normal", "slow", "reduced")
 BUSES = ("91", "24", "57", "91_E")
 TRAJETS = ("N_S", "N_W", "S_N", "S_W", "W_N", "W_S")
+LABELS = ("S0", "S1", "S2", "S2_noP", "S3", "S4")  # evaluation.yaml family main
+# family main pairs of evaluation.yaml (a = reference, b = candidate)
+PAIRS = (
+    ("S0", "S1"), ("S0", "S2"), ("S1", "S2"), ("S2_noP", "S2"), ("S0", "S3"), ("S1", "S3"),
+    ("S2", "S3"), ("S4", "S3"), ("S2_noP", "S4"),
+)  # fmt: skip
+APPROACHES = ("N", "S", "W", "all")
 
 
 def endpoints(runs: list[dict], rng: random.Random) -> dict[str, Callable[[], str]]:
@@ -50,10 +59,18 @@ def endpoints(runs: list[dict], rng: random.Random) -> dict[str, Callable[[], st
     def t() -> str:
         return f"{rng.uniform(0, 7195):.0f}"
 
+    def pair() -> str:
+        a, b = rng.choice(PAIRS)
+        return f"/compare?a={a}&b={b}"
+
+    def window() -> str:
+        t0 = rng.uniform(0, 6595)
+        return f"/replay/{rng.choice(ids)}/events?from={t0:.0f}&to={t0 + 600:.0f}"
+
     return {
         "health": lambda: "/health",
         "scenarios": lambda: "/scenarios",
-        "kpi": lambda: f"/kpi?scenario={rng.choice(['S0', 'S1', 'S2', 'S2_noP'])}",
+        "kpi": lambda: f"/kpi?scenario={rng.choice(LABELS)}",
         "replay (default run)": lambda: f"/replay/default?t={t()}",
         "replay (positions)": lambda: f"/replay/default?t={t()}&positions=true",
         "replay (random run)": lambda: f"/replay/{rng.choice(ids)}?t={t()}",
@@ -64,6 +81,11 @@ def endpoints(runs: list[dict], rng: random.Random) -> dict[str, Callable[[], st
         "bus": lambda: f"/bus/{rng.choice(BUSES)}/status?t={t()}&run_id={rng.choice(ids)}",
         "ambulance": lambda: f"/ambulance/next-intersections?t={t()}&run_id={rng.choice(ids)}",
         "eta": lambda: f"/eta?trajet={rng.choice(TRAJETS)}&t={t()}&deadline=09:00",
+        "evaluation": lambda: "/evaluation?family=main",
+        "compare": pair,
+        "series": lambda: f"/series?family=main&approach={rng.choice(APPROACHES)}",
+        "sensitivity": lambda: "/sensitivity",
+        "replay events": window,
         "error (404)": lambda: "/crossing/ZZ",
     }
 

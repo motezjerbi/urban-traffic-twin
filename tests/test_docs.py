@@ -284,26 +284,45 @@ def test_readme_parts_5_6_links_resolve(heading):
         assert (ROOT / target).exists(), f"{heading}: broken link {target}"
 
 
+# Parts 8-10 (D91-D120): README sections, generated pages and human records
+PART8 = "## Final evaluation of S0 to S4 (Part 8)"
+PART9 = "## App, replay and user tests (Part 9)"
+PART10 = "## Report, slides and demo (Part 10)"
+PARTS_8_10 = (PART8, PART9, PART10)
+PART10_DEMO = {"demo", "demo-check", "demo-rehearsal", "demo-clean", "demo-pack", "bootstrap",
+               "demo-readiness"}  # fmt: skip
+# Which tasks of tasks.py each section's table lists (besides its chain)
 TASK_TABLES = {
-    PART5: ("### Part 5 tasks", "part5", "PART5_STEPS", ("eta-", "demo-", "api")),
-    PART6: ("### Part 6 tasks", "part6", "PART6_STEPS", ("rl-", "reproduce56")),
-    PART7: ("### Part 7 tasks", "part7", "PART7_STEPS", ("rl7-", "reproduce7")),
-}
+    PART5: ("### Part 5 tasks", "part5", "PART5_STEPS",
+            lambda n: n.startswith("eta-") or n in {"demo-runs", "api", "api-bench"}),
+    PART6: ("### Part 6 tasks", "part6", "PART6_STEPS",
+            lambda n: n.startswith("rl-") or n == "reproduce56"),
+    PART7: ("### Part 7 tasks", "part7", "PART7_STEPS",
+            lambda n: n.startswith("rl7-") or n == "reproduce7"),
+    PART8: ("### Part 8 tasks", "part8", "PART8_STEPS",
+            lambda n: n in {"part8-guard", "rebaseline-verify"}),
+    PART9: ("### Part 9 tasks", "part9", "PART9_STEPS",
+            lambda n: n.startswith("usertest-") or n in {"demo-runs8", "operator", "test-browser"}),
+    PART10: ("### Part 10 tasks", "part10", "PART10_STEPS",
+             lambda n: n in PART10_DEMO or n.startswith("report") or n in {"slides", "app-shots"}),
+}  # fmt: skip
 
 
-@pytest.mark.parametrize("heading", [PART5, PART6, PART7])
+@pytest.mark.parametrize("heading", [PART5, PART6, PART7, *PARTS_8_10])
 def test_readme_parts_5_6_task_tables_equal_tasks_py(heading):
-    """Each Part 5 / Part 6 task of tasks.py has one row, and the chain's row lists its
-    steps in order."""
+    """Each task of tasks.py of Parts 5 to 10 has one row in its part's table, and the
+    chain's row lists its steps in order."""
     tasks = load_tasks()
-    table, chain, steps_attr, prefixes = TASK_TABLES[heading]
+    table, chain, steps_attr, belongs = TASK_TABLES[heading]
     rows = re.findall(r"^\| `([^`]+)` \| (.*) \|$", section(README, table), re.M)
     names = [cmd.split()[0] for cmd, _ in rows]
     assert len(names) == len(set(names)), f"{table}: duplicate rows"
-    expected = {name for name in tasks.TASKS if name.startswith(prefixes)} | {chain}
+    expected = {name for name in tasks.TASKS if belongs(name)} | {chain}
     assert set(names) == expected, f"{table}: rows {sorted(names)} vs tasks.py {sorted(expected)}"
     steps = getattr(tasks, steps_attr)
-    assert set(steps) <= expected
+    # Parts 5-7 chain their own tasks; part8 and part9 also reuse earlier ones (rebaseline,
+    # plots-eval, provenance, api-bench), which have their rows in their own tables
+    assert set(steps) <= (expected if heading in (PART5, PART6, PART7) else set(tasks.TASKS))
     (chain_row,) = [what for cmd, what in rows if cmd == chain]
     assert f"`{' '.join(steps)}`" in chain_row
 
@@ -628,3 +647,286 @@ def test_part7_decisions_are_documented():
     assert ids == [f"D{i}" for i in range(68, 91)]
     assert "tasks.py reproduce7" in flat(architecture)
     assert "](docs/architecture.md#part-7-decisions)" in section(README, PART7)
+
+
+# -- Parts 8-10 ------------------------------------------------------------------------------
+PART8_PAGE_HEADING = "Final comparison table (Part 8)"  # first D99 section of evaluation.md
+USERTESTS_RESULTS = ROOT / "docs" / "usertests" / "results.yaml"  # filled by hand (D111)
+USERTESTS_KIT = ROOT / "docs" / "usertests" / "usertest_kit.pdf"  # built in the integration
+REHEARSAL_LOG = ROOT / "docs" / "demo" / "rehearsal_log.yaml"  # human rehearsals (D116)
+REHEARSAL_JSON = ROOT / "docs" / "demo" / "rehearsal.json"  # `demo-rehearsal --record`
+# Pages each Parts 8-10 section links once it reports results, and what they must report
+PARTS_8_10_PAGES = {
+    PART8: {"docs/evaluation.md": ("A-06", "10.6", PART8_PAGE_HEADING)},
+    PART9: {"docs/usertests.md": ("A-10",), "docs/usertest_protocol.md": ()},
+    PART10: {
+        "docs/report/report.md": ("A-01", "A-10"),
+        "docs/report/report.pdf": (),
+        "docs/slides/urban_traffic_twin.pptx": (),
+        "docs/demo/runbook.md": (),
+    },
+}
+NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+
+
+def part8_page_exists() -> bool:
+    """docs/evaluation.md is the Part 8 page (the integration regenerated it)."""
+    return EVALUATION_DOC.is_file() and PART8_PAGE_HEADING in EVALUATION_DOC.read_text(
+        encoding="utf-8"
+    )
+
+
+# Generated output whose presence means the part has reported results: the README section
+# must then be updated (written only by the integration, never by Phase 1 tests)
+RESULTS_EXIST = {
+    PART8: part8_page_exists,
+    PART9: USERTESTS_KIT.is_file,
+    PART10: REHEARSAL_JSON.is_file,
+}
+
+
+def usertest_sessions() -> int:
+    """Sessions recorded in docs/usertests/results.yaml (an upper bound on the complete
+    ones); 0 without the file."""
+    import yaml
+
+    if not USERTESTS_RESULTS.is_file():
+        return 0
+    doc = yaml.safe_load(USERTESTS_RESULTS.read_text(encoding="utf-8")) or {}
+    return len(doc.get("sessions") or [])
+
+
+def human_rehearsals() -> int:
+    """Logged presenter rehearsals without a manual code edit (`manual_code_edits: 0`,
+    D116), at any depth of docs/demo/rehearsal_log.yaml; 0 without the file."""
+    import yaml
+
+    if not REHEARSAL_LOG.is_file():
+        return 0
+
+    def count(node) -> int:
+        if isinstance(node, dict):
+            own = int(node.get("manual_code_edits", None) == 0)
+            return own + sum(count(v) for v in node.values())
+        if isinstance(node, list):
+            return sum(count(v) for v in node)
+        return 0
+
+    return count(yaml.safe_load(REHEARSAL_LOG.read_text(encoding="utf-8")))
+
+
+@pytest.mark.parametrize("heading", PARTS_8_10)
+def test_readme_parts_8_10_carry_the_caveats(heading):
+    """Every Part 8-10 result rests on simulated runs on the ASSUMED program (spec 13.4,
+    ENF-05, D119): each section says so until the field visit."""
+    text = flat(section(README, heading))
+    for needed in ("provisional", "ASSUMED", "field visit", "simulated"):
+        assert needed in text, f"{heading}: no '{needed}' caveat"
+
+
+@pytest.mark.parametrize("heading", PARTS_8_10)
+def test_readme_parts_8_10_links_resolve(heading):
+    for target in re.findall(r"\]\(((?:docs|configs|src|data)/[^)#\s]+)", section(README, heading)):
+        assert (ROOT / target).exists(), f"{heading}: broken link {target}"
+
+
+@pytest.mark.parametrize("heading", PARTS_8_10)
+def test_readme_parts_8_10_results_come_with_their_pages(heading):
+    """While a section says its results are pending, the output that would report them does
+    not exist (the Part 8 page, the user-test kit, the recorded rehearsal). Once it reports
+    results, it links its pages, which exist and report their acceptance items."""
+    body = flat(section(README, heading))
+    if results_pending(heading):
+        assert not RESULTS_EXIST[heading](), (
+            f"{heading}: its results exist; replace the 'Results pending' note with them"
+        )
+        return
+    assert RESULTS_PENDING not in body
+    for rel, needed in PARTS_8_10_PAGES[heading].items():
+        assert f"]({rel})" in body, f"{heading}: does not link {rel}"
+        page = ROOT / rel
+        assert page.is_file(), f"{heading}: links {rel}, which does not exist"
+        if needed:
+            text = page.read_text(encoding="utf-8")
+            for item in needed:
+                assert item in text, f"{rel}: no {item}"
+
+
+def test_readme_part8_numbers_match_the_evaluation_config():
+    """The A-06 rule, the 10.6 check, the final-table layout, the series, the frozen S3
+    inputs and the Part 8 seeds stated in the README are those of configs/evaluation.yaml
+    (D94-D101), never hand-copied; so is the count of its dated changes."""
+    ecfg = config("configs/evaluation.yaml")
+    a06, final, part8 = ecfg["a06"], ecfg["final_table"], ecfg["part8"]
+    text = flat(section(README, PART8))
+    assert f"(`{a06['user']}/{a06['kpi']}`," in text and a06["family"] == "main"
+    assert a06["test"] == "wilcoxon_exact_paired" and a06["alternative"] == "two-sided"
+    assert "Exact two-sided paired Wilcoxon test" in text
+    first, second, third = stated(r"S3 against (S\d) \(primary\), (S\d) and (S\d), Holm", text)
+    assert [first, second, third] == a06["comparisons"] and first == a06["primary"]
+    assert a06["candidate"] == "S3" and a06["holm"] == "comparisons"
+    (n_holm,) = stated(r"Holm across the (\d+) comparisons", text)
+    assert int(n_holm) == len(a06["comparisons"])
+    (alpha,) = stated(r"alpha (0\.\d+), n = \d+ paired seeds", text)
+    assert num(alpha) == a06["alpha"]
+    (n_required,) = stated(r"n = (\d+) paired seeds required", text)
+    assert int(n_required) == a06["n_required"] == len(ecfg["seeds"]["evaluation"])
+    assert a06["status"] == "procedural" and "never FAIL because of the" in text
+    for label in a06["outcome"].values():
+        assert f'"{label}"' in text, label
+
+    rep = a06["replication_10_6"]
+    assert rep["reference"] == "S1" and rep["main_solution"] == "S2"
+    (equity,) = stated(r"within the (\d+) % equity limit", text)
+    assert num(equity) / 100 == rep["c2"]["equity_rel"]
+    assert rep["c2"]["kpis"] == [
+        "car/time_loss_mean", "bus/delay_mean", "pedestrian/ped_curb_wait_mean",
+    ]  # fmt: skip
+    assert "C2 car time loss, bus delay and pedestrian mean curb wait" in text
+    (curb,) = stated(r"every curb wait at or under (\d+) s, every preemption served", text)
+    assert int(curb) == rep["c3"]["curb_max_s"] and rep["c3"]["preemption_all_served"]
+    assert "stays S2" in text
+
+    cols = stated(r"Columns (S\d), (S\d), (S\d) and (S\d), with the ablations", text)
+    assert list(cols) == final["columns"]
+    ablations = stated(r"with the ablations (\S+) and (\S+) marked", text)
+    assert list(ablations) == final["ablations"]
+    (n_rows,) = stated(r"; (\d+) KPI rows from cars", text)
+    assert int(n_rows) == len(final["rows"])
+
+    series = part8["series"]
+    (step,) = stated(r"per approach in (\d+) s bins", text)
+    assert int(step) == series["step_s"] and series["metric"] == "halting_veh"
+    q = stated(r"with the (\d+) % and (\d+) % quantiles", text)
+    assert [num(x) / 100 for x in q] == series["quantiles"]
+
+    for path, sha8 in a06["model"]["inputs_text_sha8"].items():
+        assert f"`{path}` `{sha8}`" in text, path  # YAML reads 96113433 as an int: str()
+
+    seeds = part8["seeds"]
+    lo, hi = stated(r"prototype burned seeds (\d+)-(\d+)", text)
+    assert [int(lo), int(hi)] == seeds["proto_burned"]
+    lo, hi = stated(r"development seeds are (\d+)-(\d+)", text)
+    assert [int(lo), int(hi)] == seeds["dev"]
+
+    changes = ecfg["changes"] or []
+    (n,) = stated(r"\((\d+) dated changes since its", text)
+    assert int(n) == len(changes)
+    word, date = stated(r"in (\w+) dated changes of (\d{4}-\d{2}-\d{2})", text)
+    assert NUMBER_WORDS[word] == sum(str(c["date"]) == date for c in changes)
+    assert str(ecfg["preregistered"]) in text
+
+
+def test_readme_part8_scenarios_are_the_registered_ones():
+    """The S3 / S4 configs the README names are the ones the two families register."""
+    fams = config("configs/evaluation.yaml")["families"]
+    text = flat(section(README, PART8))
+    for fam in ("main", "ambulance_probe"):
+        for label in ("S3", "S4"):
+            path = fams[fam]["scenarios"][label]
+            assert f"`{path}`" in text, path
+            assert (ROOT / path).is_file(), path
+
+
+def test_readme_a10_is_pending_below_3_sessions():
+    """D112: A-10 is PENDING while fewer than 3 sessions are recorded, DONE with 3 to 5,
+    never PASS; the README never says otherwise."""
+    assert not re.search(r"A-10[^.\n]{0,20}\bPASS", README), "A-10 is never a PASS (D112)"
+    if usertest_sessions() >= 3:
+        pytest.skip("3 or more user-test sessions are recorded")
+    part9 = flat(section(README, PART9))
+    assert "A-10 is **PENDING**" in part9
+    assert not re.search(r"A-10 (?:is )?(?:\*\*)?DONE", README), "A-10 DONE below 3 sessions"
+    status = roadmap_rows()["9"][1]
+    assert not status.startswith("done") or "user tests pending" in status, status
+
+
+def test_readme_rehearsed_demo_is_pending_without_a_presenter_rehearsal():
+    """D116: the rehearsed demo needs a logged presenter rehearsal with no manual code edit;
+    until then the Part 10 section says it is PENDING."""
+    if human_rehearsals() >= 1:
+        pytest.skip("a presenter rehearsal is logged")
+    part10 = flat(section(README, PART10))
+    assert "docs/demo/rehearsal_log.yaml" in part10 and "it is **PENDING**" in part10
+    status = roadmap_rows()["10"][1]
+    assert not status.startswith("done") or "rehearsal pending" in status, status
+
+
+def test_roadmap_rows_8_10_follow_their_sections(pitie_scenario):
+    """Rows 8, 9 and 10 say done only once their sections report results, with the
+    field-visit caveat while the signal timing and queues are not measured."""
+    rows = roadmap_rows()
+    assert {"8", "9", "10"} <= set(rows), f"roadmap rows {sorted(rows)}"
+    assert "Final evaluation" in rows["8"][0]
+    assert "replay" in rows["9"][0] and "user tests" in rows["9"][0]
+    assert "Report" in rows["10"][0] and "demo" in rows["10"][0]
+    measured = field_measures_signal_and_queues(pitie_scenario)
+    for part, heading in (("8", PART8), ("9", PART9), ("10", PART10)):
+        status = rows[part][1]
+        if results_pending(heading):
+            assert not status.startswith("done"), f"roadmap row {part} done, results pending"
+        else:
+            assert status.startswith("done"), f"roadmap row {part}: {status!r}"
+            assert measured or "field visit pending" in status, f"roadmap row {part}: {status!r}"
+
+
+def test_parts_8_10_decisions_are_documented():
+    """docs/architecture.md lists every Parts 8-10 decision D91-D120; the README Part 8
+    section points at that table."""
+    architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+    table = section(architecture, "## Parts 8-10 decisions")
+    ids = re.findall(r"^\| (D\d+) \|", table, re.M)
+    assert ids == [f"D{i}" for i in range(91, 121)]
+    assert "](docs/architecture.md#parts-8-10-decisions)" in section(README, PART8)
+    assert "tasks.py part8" in flat(architecture)
+
+
+UNLOCKED_MODULES = (  # frozen modules that launch runs without the D92 run lock
+    "traffic_twin.evaluation.compare",
+    "traffic_twin.validation.report",
+    "traffic_twin.sim.run_scenario",
+)
+
+
+def test_run_lock_gap_and_early_look_are_disclosed():
+    """D92 gate finding (2026-10-23): the frozen modules called directly launch runs without
+    the run lock, and one such call ran S3 on seeds 1-10 before the registration commit.
+    The README Part 8 section and the architecture page name the unlocked modules, and the
+    disclosure stays in configs/evaluation.yaml (its first 2026-10-23 change) and the
+    README, so the registered record never claims an untouched pre-registration."""
+    architecture = flat((ROOT / "docs" / "architecture.md").read_text(encoding="utf-8"))
+    text = flat(section(README, PART8))
+    assert "The lock is not complete:" in text
+    for module in UNLOCKED_MODULES:
+        assert f"`{module}" in text, module
+        assert f"`{module.removeprefix('traffic_twin.')}" in architecture, module
+    assert "Disclosure: one early S3 look." in text
+    ecfg = config("configs/evaluation.yaml")
+    first_part8 = next(c for c in ecfg["changes"] if str(c["date"]) == "2026-10-23")
+    why = " ".join(str(first_part8["why"]).split())
+    assert "Disclosure (a gate fix of 2026-10-23" in why
+    assert "all/person_delay_mean" in why and "were not shown" in why
+
+
+def test_binding_pointers_name_the_redefinition():
+    """D95: every README paragraph outside Part 8 that calls A-06 "binding" points at its
+    redefinition (the dated change of 2026-10-23, in the Part 8 pre-registration)."""
+    part8 = section(README, PART8)
+    outside = README.replace(part8, "")
+    paragraphs = [p for p in re.split(r"\n\s*\n|\n(?=- )", outside) if "binding" in p.lower()]
+    assert paragraphs, "no 'binding' paragraph left: drop this test"
+    for paragraph in paragraphs:
+        assert "](#pre-registration-d91-d101)" in paragraph, flat(paragraph)[:160]
+
+
+def github_slug(heading: str) -> str:
+    """GitHub's anchor of a Markdown heading (no duplicate suffixes needed here)."""
+    text = heading.lstrip("#").strip().lower()
+    return re.sub(r"[^\w\- ]", "", text).replace(" ", "-")
+
+
+def test_readme_anchors_resolve():
+    """Every in-page link of the README (`](#anchor)`) names one of its headings."""
+    slugs = {github_slug(line) for line in README.splitlines() if re.match(r"#{1,6} ", line)}
+    for anchor in sorted(set(re.findall(r"\]\(#([^)]+)\)", README))):
+        assert anchor in slugs, f"README: broken anchor #{anchor}"

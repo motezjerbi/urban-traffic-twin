@@ -1,0 +1,17 @@
+# Human rehearsals of the demo (Part 10, D116). Filled in BY HAND by the presenter after
+# each full rehearsal with the runbook (docs/demo/runbook.md); never by a script or an agent.
+# The deliverable "rehearsed demo" shows PENDING until at least one entry has
+# `manual_code_edits: 0` (the A-09 automated proof is docs/demo/rehearsal.json).
+#
+# One entry per rehearsal:
+#   - date: 2026-11-02            # ISO date of the rehearsal
+#     presenter: initials         # who drove the demo (initials are enough)
+#     commit: abc1234             # `git rev-parse --short HEAD` of the code shown
+#     setup: two screens          # or: one laptop, projector, ...
+#     duration_min: 12            # wall time of the scripted walkthrough
+#     steps_ok: [home, pedestrian, student, bus, ambulance, replay, operator, streamlit]
+#     fallback_used: false        # true when the slides / screenshots fallback was needed
+#     incidents: []               # short notes: what went wrong and how it was handled
+#     manual_code_edits: 0        # code or config edited by hand to make the demo work
+schema: 1
+entries: []

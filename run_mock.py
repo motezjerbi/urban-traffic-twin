@@ -7,6 +7,16 @@ Gère l'interface mock.html et produit des réponses API réactives et cohérent
 - Réagit aux passages piétons (S, W, WB, NB) et vitesses (normale, lente, réduite)
 - Simule le déplacement de l'ambulance SAMU et l'onde verte V2I en temps réel
 - Calcule l'ETA étudiant, l'intervalle CQR et la marge selon le trajet et l'heure d'examen
+
+QUARANTAINE (Parties 9-10, D107, Q36) : toutes les valeurs servies ici sont INVENTÉES.
+Ce serveur n'est qu'un outil de mise au point de l'interface ; il ne fait partie ni de la
+démonstration (`python tasks.py demo` sert la vraie API) ni des tests utilisateurs.
+- port 8001, jamais le port 8000 de la vraie API ;
+- enveloppes honnêtes : `data_source` "simulation", `provisional` true, `calibrated_on`
+  2026-10-08 (le dernier jour de capteurs réellement utilisé par la calibration) ;
+- un bandeau « FAUSSES DONNÉES (run_mock.py) » est injecté dans la page servie.
+Pour des données synthétiques conformes au schéma, préférer
+`python -m traffic_twin.api.fixtures --out data/fake`.
 """
 
 from __future__ import annotations
@@ -23,7 +33,7 @@ MOCK_HTML = APP_DIR / "mock.html"
 THREE_JS = APP_DIR / "three.min.js"
 
 HOST = "127.0.0.1"
-PORT = 8000
+PORT = 8001  # quarantaine (D107) : jamais le port 8000 de la vraie API
 
 # Géométrie des passages piétons (longueur en mètres et fenêtres de vert sur cycle 90s)
 CROSSING_SPECS = {
@@ -56,6 +66,27 @@ CROSSING_SPECS = {
         "clearance_end": 36,
     },
 }
+
+# Quarantaine (D107) : enveloppes honnêtes et bandeau de fausses données
+DATA_SOURCE = "simulation"
+CALIBRATED_ON = "2026-10-08"
+FAKE_BANNER = "FAUSSES DONNÉES (run_mock.py)"
+FAKE_BANNER_HTML = (
+    '<div id="fake-data-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;'
+    "background:#B00020;color:#fff;font:700 15px/1.4 system-ui,sans-serif;text-align:center;"
+    'padding:6px 12px">' + FAKE_BANNER + " : valeurs inventées, hors démonstration</div>"
+)
+
+
+def with_fake_banner(html: str) -> str:
+    """The page with FAKE_BANNER_HTML right after its <body> tag (prepended if none)."""
+    lower = html.lower()
+    start = lower.find("<body")
+    end = lower.find(">", start) if start >= 0 else -1
+    if end < 0:
+        return FAKE_BANNER_HTML + html
+    return html[: end + 1] + FAKE_BANNER_HTML + html[end + 1 :]
+
 
 SPEED_VALUES = {"normal": 1.2, "slow": 1.0, "reduced": 0.8}
 
@@ -232,6 +263,8 @@ class MockAPIHandler(BaseHTTPRequestHandler):
         pass  # Mode silencieux pour garder la console claire
 
     def send_json(self, data: dict, status: int = 200) -> None:
+        if "error" not in data:
+            data.setdefault("data_source", DATA_SOURCE)
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -247,6 +280,8 @@ class MockAPIHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         content = path.read_bytes()
+        if path == MOCK_HTML:
+            content = with_fake_banner(content.decode("utf-8")).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(content)))
@@ -282,9 +317,9 @@ class MockAPIHandler(BaseHTTPRequestHandler):
             self.send_json(
                 {
                     "status": "ok",
-                    "data_source": "simulation Pitié-Salpêtrière (S0/S1/S2/S3)",
-                    "calibrated_on": "2026-10-14",
-                    "provisional": False,
+                    "data_source": DATA_SOURCE,
+                    "calibrated_on": CALIBRATED_ON,
+                    "provisional": True,
                     "timestamp": current_iso,
                     "sim_t_s": sim_t,
                     "data_age_s": 0.5,
@@ -333,9 +368,9 @@ class MockAPIHandler(BaseHTTPRequestHandler):
             self.send_json(
                 {
                     "status": "ok",
-                    "data_source": "simulation Pitié-Salpêtrière (relecture)",
-                    "calibrated_on": "2026-10-14",
-                    "provisional": False,
+                    "data_source": DATA_SOURCE,
+                    "calibrated_on": CALIBRATED_ON,
+                    "provisional": True,
                     "timestamp": current_iso,
                     "sim_t_s": sim_t,
                     "data_age_s": 1.0,
@@ -388,8 +423,8 @@ class MockAPIHandler(BaseHTTPRequestHandler):
                     "next_green_in_s": next_green,
                     "length_m": length_m,
                     "walk_time_s": walk_time_s,
-                    "calibrated_on": "2026-10-14",
-                    "provisional": False,
+                    "calibrated_on": CALIBRATED_ON,
+                    "provisional": True,
                     "timestamp": current_iso,
                     "sim_t_s": sim_t,
                     "data_age_s": 0.8,
@@ -437,8 +472,8 @@ class MockAPIHandler(BaseHTTPRequestHandler):
                     "next_arrival_text": next_arrival_text,
                     "priority_active": True,
                     "message": f"Télématique RATP · Priorité feux V2I active pour la ligne {line}.",
-                    "calibrated_on": "2026-10-14",
-                    "provisional": False,
+                    "calibrated_on": CALIBRATED_ON,
+                    "provisional": True,
                     "timestamp": current_iso,
                     "sim_t_s": sim_t,
                     "data_age_s": 1.2,
@@ -620,8 +655,8 @@ class MockAPIHandler(BaseHTTPRequestHandler):
                     "countdown_text": countdown_text,
                     "unit_text": unit_text,
                     "intersections": intersections,
-                    "calibrated_on": "2026-10-14",
-                    "provisional": False,
+                    "calibrated_on": CALIBRATED_ON,
+                    "provisional": True,
                     "timestamp": current_iso,
                     "sim_t_s": sim_t,
                     "data_age_s": 0.5,
@@ -699,8 +734,8 @@ class MockAPIHandler(BaseHTTPRequestHandler):
                     "rest_of_trip_s": rest_of_trip_s,
                     "model_version": "XGBoost CQR v1 (Quantiles p10/p50/p90)",
                     "advice": advice,
-                    "calibrated_on": "2026-10-14",
-                    "provisional": False,
+                    "calibrated_on": CALIBRATED_ON,
+                    "provisional": True,
                     "timestamp": current_iso,
                     "sim_t_s": sim_t,
                     "data_age_s": 0.9,
@@ -719,8 +754,8 @@ class MockAPIHandler(BaseHTTPRequestHandler):
                     "status": "ok",
                     "scenario": scenario,
                     "rows": data["rows"],
-                    "calibrated_on": "2026-10-14",
-                    "provisional": False,
+                    "calibrated_on": CALIBRATED_ON,
+                    "provisional": True,
                     "timestamp": current_iso,
                     "sim_t_s": sim_t,
                     "data_age_s": 2.0,
@@ -734,6 +769,7 @@ class MockAPIHandler(BaseHTTPRequestHandler):
 def main():
     print("============================================================")
     print("🚀 Serveur Cockpit Mock Dynamique (Pitié-Salpêtrière)")
+    print(f"⚠️  {FAKE_BANNER} : valeurs inventées, hors démonstration (python tasks.py demo)")
     print(f"📍 URL de l'interface : http://{HOST}:{PORT}/mock")
     print("⚡ Simulation interactive : Bus, Piétons, SAMU & Étudiant")
     print("============================================================")

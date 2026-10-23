@@ -1,0 +1,4 @@
+# S4 (Part 8, D93): S3's policy with emergency preemption off (spec 13.1 option); out of distribution.
+extends: pitie_rl_s3.yaml
+scenario: pitie_rl_s3_nopreempt
+preemption: {enabled: false}

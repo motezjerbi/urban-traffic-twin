@@ -20,6 +20,11 @@ writes `<out>/pitie_<controller>_seed<seed>/` run folders (with FAKE ETA predict
   t = 370 s, once link 2 is green again: AMBULANCE_PHASES.
 - Seeds are labels only (demo range 4000-4009, D38): no simulation is run.
 - Every FAKE file carries `fake` in its model version (`fake-0`, `fake-ref-0`).
+- Part 8 (D98, D103): the FAKE evaluation also has the S2_noP, S3 and S4 labels (KPIs
+  scaled from the S0 run, no run folder), the main pairs, `final_table.csv`,
+  `series.csv`, `a05.json`, `a06.json` and `summary.json`, each marked FAKE (`fake: true`
+  or a `fake` column, plus `evaluation/FAKE.txt`); `part8=False` leaves them out (the
+  Part 4 layout, for "S3 registered but not evaluated").
 """
 
 from __future__ import annotations
@@ -301,9 +306,12 @@ def make_run(
     return d
 
 
-def _evaluation(root: Path, run_dirs: list[Path]) -> None:
+def _evaluation(
+    root: Path, run_dirs: list[Path], part8: bool = True, duration_s: float = 1800.0
+) -> None:
     """`<root>/evaluation/main/{kpis,equity}.csv` from the synthetic runs of the three
-    evaluation controllers (same columns as evaluation.evaluate writes)."""
+    evaluation controllers (same columns as evaluation.evaluate writes), plus the FAKE
+    Part 8 outputs with `part8`."""
     frames = []
     for d in run_dirs:
         meta = json.loads((d / RUN_FILE).read_text(encoding="utf-8"))
@@ -317,6 +325,8 @@ def _evaluation(root: Path, run_dirs: list[Path]) -> None:
     kpis = pd.concat(frames, ignore_index=True)[
         ["family", "label", "scenario", "controller", "seed", "user_type", "kpi", "value"]
     ]
+    if part8 and "S0" in set(kpis["label"]):
+        kpis = _part8_kpis(kpis)
     out = root / "evaluation" / "main"
     out.mkdir(parents=True, exist_ok=True)
     kpis.to_csv(out / "kpis.csv", index=False)
@@ -336,14 +346,208 @@ def _evaluation(root: Path, run_dirs: list[Path]) -> None:
                 "primary": False, "subgroup": False,
             })  # fmt: skip
     pd.DataFrame(rows).to_csv(out / "equity.csv", index=False)
+    if part8 and "S0" in set(kpis["label"]):
+        _part8(root / "evaluation", kpis, duration_s)
+
+
+# -- Part 8 FAKE evaluation outputs (D98, D103) ---------------------------------------------
+# Labels of the main family without a fixture run (their KPIs are made up from the S0 run's)
+PART8_LABELS = {
+    "S2_noP": ("pitie_rules_nopreempt", "rules", 0.82),
+    "S3": ("pitie_rl_s3", "rl", 0.75),
+    "S4": ("pitie_rl_s3_nopreempt", "rl", 0.77),
+}
+MAIN_ORDER = ("S0", "S1", "S2", "S2_noP", "S3", "S4")
+ABLATIONS = ("S2_noP", "S4")
+# main pairs of configs/evaluation.yaml (a = reference, b = candidate) and their roles
+MAIN_PAIRS = (
+    ("S0", "S1", "part3"), ("S0", "S2", "confirmatory"), ("S1", "S2", "confirmatory"),
+    ("S2_noP", "S2", "exploratory"), ("S0", "S3", "confirmatory"),
+    ("S1", "S3", "confirmatory"), ("S2", "S3", "confirmatory"),
+    ("S4", "S3", "exploratory"), ("S2_noP", "S4", "exploratory"),
+)  # fmt: skip
+SERIES_STEP_S = 60
+SERIES_APPROACHES = {"N": 4.0, "S": 3.0, "W": 2.0}  # FAKE mean halting vehicles
+UNITS = {"car": "s", "bus": "s", "pedestrian": "s", "ambulance": "s", "all": "s"}
+FAKE = "FAKE"
+
+
+def _json(path: Path, obj) -> None:
+    path.write_text(json.dumps(obj, indent=2, default=str) + "\n", encoding="utf-8")
+
+
+def _part8_kpis(kpis: pd.DataFrame) -> pd.DataFrame:
+    """FAKE KPI rows of S2_noP, S3 and S4 (the S0 rows scaled), appended after the real
+    fixture rows so the S0-S2 answers do not change."""
+    s0 = kpis[kpis["label"] == "S0"]
+    frames = [kpis]
+    for label, (scenario, controller, gain) in PART8_LABELS.items():
+        if label in set(kpis["label"]):
+            continue
+        frames.append(
+            s0.assign(
+                label=label,
+                scenario=scenario,
+                controller=controller,
+                value=(s0["value"] * gain).round(3),
+            )
+        )
+    return pd.concat(frames, ignore_index=True)
+
+
+def _pair_rows(kpis: pd.DataFrame, a: str, b: str, role: str) -> pd.DataFrame:
+    means = kpis.groupby(["label", "user_type", "kpi"])["value"].mean()
+    rows = []
+    for (lab, user, kpi), mb in means.items():
+        if lab != b or (a, user, kpi) not in means:
+            continue
+        ma = means[(a, user, kpi)]
+        rel = 100.0 * (mb - ma) / ma if ma else None
+        rows.append({
+            "user_type": user, "kpi": kpi, "headline": True, "better_if": "lower",
+            "n_pairs": 1, f"{a.lower()}_mean": ma, f"{a.lower()}_std": None,
+            f"{b.lower()}_mean": mb, f"{b.lower()}_std": None, "diff_mean": mb - ma,
+            "hl_diff": mb - ma, "hl_ci_low": None, "hl_ci_high": None,
+            "rel_change_pct": rel, "p_value": None, "p_holm": None, "significant_holm": False,
+            "effect": "better" if mb < ma else "worse" if mb > ma else "none",
+            "equity_flag": bool(rel is not None and rel > 5.0), "family": "main",
+            "role": role, "fake": True,
+        })  # fmt: skip
+    return pd.DataFrame(rows)
+
+
+def _final_table(kpis: pd.DataFrame) -> pd.DataFrame:
+    means = kpis.groupby(["label", "user_type", "kpi"])["value"].agg(["mean", "count"])
+    scen = dict(zip(kpis["label"], kpis["scenario"], strict=False))
+    rows = []
+    for (label, user, kpi), r in means.iterrows():
+        base = means["mean"].get(("S0", user, kpi))
+        rel = 100.0 * (r["mean"] - base) / base if base else None
+        rows.append({
+            "section": "kpi", "user": user, "kpi": kpi, "label": label,
+            "scenario": scen.get(label), "ablation": label in ABLATIONS, "n": int(r["count"]),
+            "mean": round(float(r["mean"]), 3), "sd": None,
+            "rel_vs_s0_pct": None if label == "S0" or rel is None else round(rel, 2),
+            "unit": UNITS.get(user, ""), "better_if": "lower", "fake": True,
+        })  # fmt: skip
+    for label in MAIN_ORDER:
+        rows.append({
+            "section": "safety", "user": "all", "kpi": "a04_pass", "label": label,
+            "scenario": scen.get(label), "ablation": label in ABLATIONS, "n": 1, "mean": 1.0,
+            "sd": None, "rel_vs_s0_pct": None, "unit": "", "better_if": "higher",
+            "fake": True,
+        })  # fmt: skip
+    order = {lb: k for k, lb in enumerate(MAIN_ORDER)}
+    df = pd.DataFrame(rows)
+    df = df.assign(_k=df["label"].map(order)).sort_values(["section", "user", "kpi", "_k"])
+    return df.drop(columns="_k").reset_index(drop=True)
+
+
+def _series(kpis: pd.DataFrame, duration_s: float) -> pd.DataFrame:
+    scen = dict(zip(kpis["label"], kpis["scenario"], strict=False))
+    gains = {"S0": 1.0, "S1": 0.9, "S2": 0.8, **{k: v[2] for k, v in PART8_LABELS.items()}}
+    rows = []
+    for label in MAIN_ORDER:
+        for k, t in enumerate(range(0, int(duration_s), SERIES_STEP_S)):
+            wave = 1.0 + 0.3 * math.sin(t / 900.0)
+            per = {a: round(h * gains[label] * wave, 3) for a, h in SERIES_APPROACHES.items()}
+            per["all"] = round(sum(per.values()), 3)
+            for approach, mean in per.items():
+                rows.append({
+                    "family": "main", "scenario": scen.get(label), "label": label,
+                    "metric": "halting_veh", "approach": approach, "t_s": t, "mean": mean,
+                    "p10": round(0.6 * mean, 3), "p90": round(1.4 * mean + k % 2, 3),
+                    "n_seeds": 1, "fake": True,
+                })  # fmt: skip
+    return pd.DataFrame(rows)
+
+
+def _a06(kpis: pd.DataFrame) -> dict:
+    means = kpis[(kpis["user_type"] == "all") & (kpis["kpi"] == "person_delay_mean")]
+    m = means.groupby("label")["value"].mean()
+    comps = []
+    for ref, p, p_holm in (("S1", 0.01, 0.03), ("S2", 0.2, 0.4), ("S0", 0.01, 0.03)):
+        hl = round(float(m["S3"] - m[ref]), 2)
+        better = p_holm < 0.05 and hl < 0
+        outcome = "S3 better" if better else "no significant difference"
+        comps.append({
+            "reference": ref, "n": 10, "mean_ref": round(float(m[ref]), 2), "sd_ref": 1.0,
+            "mean_s3": round(float(m["S3"]), 2), "sd_s3": 1.0, "hl": hl,
+            "ci_low": round(hl - 2.0, 2), "ci_high": round(hl + 2.0, 2), "p": p,
+            "p_holm": p_holm, "outcome": outcome,
+            "sentence": f"{FAKE}: S3 vs {ref}, {outcome} (fixture, not a result)",
+        })  # fmt: skip
+    return {
+        "fake": True, "status": "PASS", "problems": [], "family": "main", "candidate": "S3",
+        "kpi": "all/person_delay_mean", "n_required": 10, "primary": "S1",
+        "holm": "comparisons", "comparisons": comps,
+        "model": {"model_sha256": FAKE, "inputs_ok": True, "config_hash": FAKE},
+        "registration": {"commit": "fixture", "committed_at": STARTED_AT,
+                         "first_s3_started_at": STARTED_AT, "order": "before"},
+        "replication_10_6": {
+            "c1": {"hl": comps[0]["hl"], "p": 0.01, "pass": True},
+            "c2": {"rows": [], "pass": False}, "c3": {"violations": [], "pass": True},
+            "c4": {"cited": "fail", "source": "data/rl7/devtest/verdict.json"},
+            "confirms_fallback": True, "main_solution": "S2",
+            "text": f"{FAKE}: seeds 1-10 confirm the interim FALLBACK (fixture)",
+        },
+        "equity_vs": {"S1": [], "S2": []},
+    }  # fmt: skip
+
+
+def _part8(out: Path, kpis: pd.DataFrame, duration_s: float) -> None:
+    """The Part 8 outputs (`summary.json`, `a05.json`, `a06.json`, `final_table.csv`,
+    `series.csv`, the main pairs) of the FAKE evaluation under `out` (the evaluation
+    dir). Every file says FAKE (`fake: true` or a `fake` column)."""
+    main = out / "main"
+    (main / "pairs").mkdir(parents=True, exist_ok=True)
+    for a, b, role in MAIN_PAIRS:
+        _pair_rows(kpis, a, b, role).to_csv(main / "pairs" / f"{a}__vs__{b}.csv", index=False)
+    _final_table(kpis).to_csv(out / "final_table.csv", index=False)
+    _series(kpis, duration_s).to_csv(out / "series.csv", index=False)
+    a06 = _a06(kpis)
+    _json(out / "a06.json", a06)
+    a05 = {
+        "fake": True, "verdict": "PASS",
+        "primary": {"family": "main", "a": "S0", "b": "S2", "kpi": "travel_time_total",
+                    "n": 1, "expected_n": 1, "status": "PASS", "valid": True,
+                    "problems": []},
+        "secondary": [],
+    }  # fmt: skip
+    _json(out / "a05.json", a05)
+    labels = [lb for lb in MAIN_ORDER if lb in set(kpis["label"])]
+    summary = {
+        "fake": True, "preregistered": "2026-10-12", "seeds": [FIXTURE_SEED],
+        "families": {"main": labels},
+        "a03": {"n": 4, "of": 4, "text": "4/4", "controllers": ["actuated", "fixed", "rl",
+                                                                "rules"]},
+        "a04": {"verdict": "PASS", "pass": True, "runs": len(labels), "failures": []},
+        "a05": {"verdict": a05["verdict"], "primary": a05["primary"]},
+        "hidden_degradation": [],
+        "registration": a06["registration"],
+        "a06": {"status": a06["status"], "primary": a06["comparisons"][0]["sentence"]},
+        "replication_10_6": a06["replication_10_6"],
+        "final_available": True,
+    }  # fmt: skip
+    _json(out / "summary.json", summary)
+    (out / "FAKE.txt").write_text(
+        "FAKE evaluation outputs written by traffic_twin.api.fixtures (tests and mock "
+        "screens): not simulation results.\n",
+        encoding="utf-8",
+    )
 
 
 def make_results(
-    root: Path, n_runs: int, *, evaluation: bool = True, duration_s: float = 1800.0
+    root: Path,
+    n_runs: int,
+    *,
+    evaluation: bool = True,
+    duration_s: float = 1800.0,
+    part8: bool = True,
 ) -> Path:
     """A results root with `n_runs` synthetic run folders: controllers fixed, actuated,
     rules in turn (`pitie_<controller>_seed<4000 + k // 3>`), plus the main family's
-    evaluation CSVs. Returns `root`."""
+    evaluation CSVs and, with `part8`, the FAKE Part 8 outputs. Returns `root`."""
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     dirs = []
@@ -359,7 +563,7 @@ def make_results(
             )
         )
     if evaluation:
-        _evaluation(root, dirs)
+        _evaluation(root, dirs, part8=part8, duration_s=duration_s)
     return root
 
 

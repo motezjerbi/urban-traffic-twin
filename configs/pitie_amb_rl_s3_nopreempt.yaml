@@ -1,0 +1,4 @@
+# Ambulance-probe family, S4 (Part 8, D93): pitie_amb_rl_s3 without emergency preemption.
+extends: pitie_amb_rl_s3.yaml
+scenario: pitie_amb_rl_s3_nopreempt
+preemption: {enabled: false}

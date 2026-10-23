@@ -1,11 +1,12 @@
-"""Pre-registered evaluation of the Pitié controllers (Part 4; spec 13.2, 13.3, A-03 to
-A-05), driven by configs/evaluation.yaml.
+"""Pre-registered evaluation of the Pitié controllers (Parts 4 and 8; spec 13.2, 13.3,
+A-03 to A-06), driven by configs/evaluation.yaml.
 
     python -m traffic_twin.evaluation.evaluate --config configs/evaluation.yaml
         [--family main|ambulance_probe|all] [--run-missing] [--results DIR]
         [--docs docs/evaluation.md]
 
-For each family (main: S0, S1, S2, S2_noP; ambulance_probe: S0, S2, S2_noP):
+For each family (main: S0, S1, S2, S2_noP, S3, S4; ambulance_probe: S0, S2, S2_noP, S3,
+S4):
 
 - pairing (`check_family`): every scenario has a run for every seed, made with the
   CURRENT config (run.json `config_hash` / `demand_hash` equal those of the config) and
@@ -26,16 +27,30 @@ For each family (main: S0, S1, S2, S2_noP; ambulance_probe: S0, S2, S2_noP):
   wait `ped_wait_single_max` is reported alongside), 0 guard interventions for `fixed`
   and `actuated`;
 - A-05 (D26): the pre-registered one-sided exact Wilcoxon on the ambulance travel time
-  from its planned departure, plus the secondary probe-family tests. A test whose sample
-  is incomplete (fewer pairs than seeds, or a run whose ambulances did not all arrive) is
-  INVALID, never PASS.
+  from its planned departure, plus the secondary tests. A test whose sample is
+  incomplete (fewer pairs than seeds, or a run whose ambulances did not all arrive) is
+  INVALID, never PASS;
+- Part 8 (`evaluation.final`, D94-D100): A-06 (S3 against S1, S2 and S0 on the person
+  delay, procedural PASS / INVALID, never FAIL on direction), the spec 10.6 check on the
+  evaluation seeds (reported, not gating), the final comparison table, the queue series,
+  the masked KPI digest and the check of the frozen S3 inputs (D100).
 
 Writes `<out>/<family>/{pairs/<a>__vs__<b>.{csv,md}, equity.csv, a04.csv, kpis.csv}` and
-`<out>/{a05.json, summary.json, provenance.json}`; `<out>` is `outputs.dir` of
-evaluation.yaml, or `<results>/evaluation` with `--results`. `--docs` renders the page
-(docs/evaluation.md; never edited by hand). Exit status 1 on a config, pairing or
-staleness error, or when A-04 FAILS (the outputs are written first); an A-05 FAIL or
-INVALID is reported and exits 0.
+`<out>/{a05.json, summary.json, provenance.json, final_table.csv, a06.json, series.csv,
+digest.json}`; `<out>` is `outputs.dir` of evaluation.yaml, or `<results>/evaluation`
+with `--results`. A partial evaluation (`--family`) does not rewrite a D98 file that
+reports on a family it did not evaluate (`part8_skipped`). `--docs` renders the page
+(docs/evaluation.md, the D99 sections; never edited by hand). Exit status 1 on a config,
+pairing or staleness error, or when A-04 FAILS (the outputs are written first); an A-05
+FAIL or INVALID and an A-06 INVALID are reported and exit 0.
+
+Run lock (Part 8, D92): before launching any missing or stale run, `--run-missing`
+exits 2 ("run lock: ...") and launches nothing when a planned run is on a
+pre-registered evaluation seed (seeds 1-10 of the canonical configs/evaluation.yaml,
+whatever `--config` says, plus the config's own `seeds.evaluation`), into ANY results
+folder, while the tree is dirty, the config has no `a06` block, or no commit adds
+`a06:` yet. Seeds 1-10 are run only by the registered `tasks.py part8` step on the
+clean registration commit.
 """
 
 from __future__ import annotations
@@ -47,6 +62,8 @@ import json
 import logging
 import math
 import os
+import subprocess
+import sys
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -69,17 +86,40 @@ from traffic_twin.evaluation.compare import (
     unit,
     worse_than,
 )
+from traffic_twin.evaluation.final import (
+    FINAL_EXTRAS,
+    OUTCOME_KEYS,
+    a06_report,
+    check_model_inputs,
+    digest,
+    final_table,
+    model_inputs,
+    quantile_names,
+    registration_record,
+    rl_scenario_problems,
+    series,
+    split_key,
+)
 from traffic_twin.evaluation.runs import (
     Runs,
     expected_hashes,
+    is_complete,
     kpi_version,
     load_runs,
+    read_meta,
     run_missing,
+    run_path,
     short,
     stale_reason,
 )
 from traffic_twin.evaluation.stats import hodges_lehmann, wilcoxon
-from traffic_twin.paths import EVALUATION_CONFIG
+from traffic_twin.paths import (
+    EVAL_A06,
+    EVAL_DIGEST,
+    EVAL_FINAL_TABLE,
+    EVAL_SERIES,
+    EVALUATION_CONFIG,
+)
 
 log = logging.getLogger(__name__)
 
@@ -110,20 +150,26 @@ SUMMARY_A05_KEYS = (
 )  # fmt: skip
 SENSITIVITY_PREFIX = "occ_"  # person_delay_mean__occ_bus_20
 PREEMPTION_COUNTS = ("requests", "served", "timeouts", "active_s", "hold_s", "jumps", "ped_yield")
+# The Part 8 page (D99, exact text; reports include a section by the text after the number)
 SECTIONS = (
-    "1. Runs, code versions, seeds and demand",
-    "2. Pre-registration",
-    "3. ASSUMED inputs added in Part 4",
-    "4. KPI definitions",
-    "5. KPIs per user and scenario",
-    "6. Pairs vs the baseline (Holm)",
-    "7. Other confirmatory pairs",
-    "8. Secondary and exploratory pairs (ablation, probe attribution)",
-    "9. Equity and hidden degradation (13.3)",
-    "10. Acceptance: A-03, A-04, A-05",
-    "11. Guard and controller activity",
-    "12. Limitations",
+    "1. Final comparison table (Part 8)",
+    "2. A-06: S3 against the baselines (Part 8)",
+    "3. Spec 10.6 check on seeds 1-10 (Part 8)",
+    "4. Runs, code versions, seeds and demand",
+    "5. Pre-registration",
+    "6. ASSUMED inputs added in Parts 4 and 8",
+    "7. KPI definitions",
+    "8. KPIs per user and scenario",
+    "9. Pairs vs the baseline (Holm)",
+    "10. Other confirmatory pairs",
+    "11. Secondary and exploratory pairs (ablation, probe attribution, S4)",
+    "12. Equity and hidden degradation (13.3)",
+    "13. Acceptance: A-03 to A-06",
+    "14. Guard and controller activity",
+    "15. Limitations",
 )
+PART8_TITLE = "# Evaluation: S0 to S4 on the Pitié-Salpêtrière junction (Parts 4 and 8)"
+RUN_LOCK_EXIT = 2  # exit status of `--run-missing` when the run lock refuses (D92)
 # Base KPI -> (SUMO source, formula). Rendered in section 4 for the KPIs the runs report.
 TRACI = "TraCI per step"
 CURB = (
@@ -190,6 +236,120 @@ class EvaluationError(ValueError):
     KPI version, demand or KPI set differ), or the evaluation config is invalid."""
 
 
+class RunLockError(EvaluationError):
+    """`run_lock` refused to launch runs on the pre-registered evaluation seeds (D92)."""
+
+
+# -- run lock (Part 8, D92) ------------------------------------------------------------
+def git_head() -> tuple[str, bool]:
+    """(short HEAD hash, tree differs from HEAD), with `sim.results.code_version`
+    semantics: ignored files (data/results, ...) and files under docs/ do not count. A
+    missing git or repository counts as dirty ("unknown")."""
+    git = ["git", "--no-optional-locks"]
+    try:
+        head = subprocess.run(
+            [*git, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+        status = subprocess.run(
+            [*git, "status", "--porcelain", "--untracked-files=normal", "--", ".",
+             ":(exclude)docs"],
+            capture_output=True, text=True, check=True,
+        ).stdout  # fmt: skip
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown", True
+    return head, bool(status.strip())
+
+
+def registration_commit(path: str | Path = EVALUATION_CONFIG) -> dict | None:
+    """{commit, committed_at} of the FIRST commit that added `a06:` to the evaluation
+    config (D92: `git log --reverse --format="%h %cI" -S "a06:" -- <path>`, first line);
+    None when no commit adds it yet, or git or the repository is not available."""
+    path = Path(path)
+    try:
+        out = subprocess.run(
+            ["git", "--no-optional-locks", "log", "--reverse", "--format=%h %cI", "-S",
+             "a06:", "--", path.name],
+            cwd=path.resolve().parent, capture_output=True, text=True, check=True,
+        ).stdout  # fmt: skip
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    lines = [line.split() for line in out.splitlines() if line.strip()]
+    if not lines or len(lines[0]) != 2:
+        return None
+    commit, committed_at = lines[0]
+    return {"commit": commit, "committed_at": committed_at}
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+# D33: the evaluation seeds registered on 2026-10-12; the lock falls back to them when the
+# canonical configs/evaluation.yaml cannot be read (fail closed)
+PREREGISTERED_SEEDS = tuple(range(1, 11))
+
+
+def locked_seeds(ecfg: dict) -> set[int]:
+    """The seeds `run_lock` protects: `seeds.evaluation` of the canonical
+    configs/evaluation.yaml of this checkout, read independently of `--config`
+    (PREREGISTERED_SEEDS when it cannot be read), united with those of `ecfg`. A config
+    copy that registers other seeds therefore never unlocks seeds 1-10."""
+    try:
+        canonical = load_config(REPO_ROOT / EVALUATION_CONFIG)
+        seeds = {int(s) for s in (canonical.get("seeds") or {}).get("evaluation") or []}
+    except (ConfigError, OSError, AttributeError, TypeError, ValueError):
+        seeds = set()
+    seeds = seeds or set(PREREGISTERED_SEEDS)
+    return seeds | {int(s) for s in (ecfg.get("seeds") or {}).get("evaluation") or []}
+
+
+def run_lock(ecfg: dict, planned: list[tuple[str, int]], results: Path) -> None:
+    """Refuse (RunLockError, "run lock: ...") to launch any of `planned` (scenario, seed)
+    runs when one of them is on a pre-registered evaluation seed (`locked_seeds`: the
+    canonical seeds 1-10 and the `seeds.evaluation` of `ecfg`) and the registration is
+    not committed: the tree is dirty (`git_head`), or the config has no `a06` block, or
+    no commit adds `a06:` to configs/evaluation.yaml yet (`registration_commit`). Seeds
+    1-10 are then run only by the registered Part 8 step (`tasks.py part8`, D97) on the
+    clean registration commit. Applies to every controller and to EVERY results folder
+    (`results` only names it in the message): runs into a tmp folder would still show
+    A-06 outcomes before the registration. Tests that need such runs monkeypatch
+    `git_head` and `registration_commit`; dev and demo runs use other seeds (3210-3229,
+    4000)."""
+    eval_seeds = locked_seeds(ecfg)
+    hits = sorted({(str(sc), int(sd)) for sc, sd in planned if int(sd) in eval_seeds})
+    if not hits:
+        return
+    reasons = []
+    head, dirty = git_head()
+    if dirty:
+        reasons.append(f"the tree differs from HEAD {head} (uncommitted or untracked files)")
+    if "a06" not in ecfg:
+        reasons.append("the evaluation config has no a06 block")
+    if registration_commit(REPO_ROOT / EVALUATION_CONFIG) is None:
+        reasons.append("no commit adds a06: to configs/evaluation.yaml yet")
+    if not reasons:
+        return
+    shown = ", ".join(f"{sc} seed {sd}" for sc, sd in hits[:4])
+    more = f" and {len(hits) - 4} more" if len(hits) > 4 else ""
+    raise RunLockError(
+        f"run lock: refusing {len(hits)} run(s) on the pre-registered evaluation seeds into "
+        f"{Path(results).as_posix()} ({shown}{more}): {'; '.join(reasons)}. Seeds 1-10 are "
+        "run only by the registered Part 8 step (`tasks.py part8`, D92/D97) on the clean "
+        "registration commit; nothing was launched"
+    )
+
+
+def planned_runs(fam: Family, seeds: list[int], min_kpi_version: int | None) -> list:
+    """(results dir, scenario, seed) of every run `run_missing` would launch for `fam`:
+    absent seeds and stale runs (same test as `runs.run_missing`, nothing is run)."""
+    out = []
+    for m in fam.members.values():
+        expected = expected_hashes(m.cfg)
+        for seed in seeds:
+            d = run_path(m.results, m.scenario, seed)
+            if is_complete(d) and stale_reason(read_meta(d), expected, min_kpi_version) is None:
+                continue
+            out.append((Path(m.results), m.scenario, int(seed)))
+    return out
+
+
 # -- config ----------------------------------------------------------------------------
 def load_evaluation(path: str | Path = EVALUATION_CONFIG) -> dict:
     """configs/evaluation.yaml with its keys and cross references checked: every pair,
@@ -226,6 +386,7 @@ def load_evaluation(path: str | Path = EVALUATION_CONFIG) -> dict:
     for name in ecfg["a04"]["families"]:
         if name not in families:
             bad.append(f"a04.families: unknown family {name!r}")
+    bad += part8_problems(ecfg)
     changes = ecfg.get("changes") or []
     if not isinstance(changes, list):
         bad.append("changes must be a list of {date, what, why}")
@@ -238,6 +399,138 @@ def load_evaluation(path: str | Path = EVALUATION_CONFIG) -> dict:
         raise ConfigError(f"{path}: {'; '.join(bad)}")
     ecfg["changes"] = changes
     return ecfg
+
+
+A06_KEYS = (
+    "family", "candidate", "user", "kpi", "alternative", "alpha", "comparisons", "primary",
+    "n_required",
+)  # fmt: skip
+A06_HOLM = ("comparisons",)  # the only Holm family A-06 knows (D94)
+
+
+def _user_kpi(key, where: str, bad: list[str]) -> tuple[str, str] | None:
+    """A 'user/kpi' key whose base KPI is a known one (KPI_DEFINITIONS), else a problem."""
+    try:
+        user, kpi = split_key(key)
+    except ConfigError as e:
+        bad.append(f"{where}: {e}")
+        return None
+    if base_kpi(kpi) not in KPI_DEFINITIONS:
+        bad.append(f"{where}: unknown KPI {kpi!r}")
+    return user, kpi
+
+
+def _candidate_controller(path) -> str | None:
+    """The controller of a scenario config (None when it cannot be loaded)."""
+    from traffic_twin.evaluation.final import repo_file
+
+    try:
+        return str(load_scenario(repo_file(path)).get("controller"))
+    except (ConfigError, FileNotFoundError, OSError):
+        return None
+
+
+def part8_problems(ecfg: dict) -> list[str]:
+    """The Part 8 blocks (D94, D98, D101) cross-checked against the families: `a06`
+    (comparisons and the replication / equity references are labels of its family,
+    primary in comparisons, the candidate an `rl` scenario, known alternative, Holm
+    family and outcome words, the model pins), `final_table` (columns and ablations are
+    labels, rows known KPIs, known extras) and `part8` (seed ranges, series). A block
+    that is absent is not checked (a Part 4 config)."""
+    bad: list[str] = []
+    families = ecfg.get("families") or {}
+    a06 = ecfg.get("a06")
+    if a06 is not None:
+        if not isinstance(a06, dict):
+            return ["a06 must be a mapping"]
+        missing = [k for k in A06_KEYS if a06.get(k) in (None, "", [])]
+        if missing:
+            bad.append(f"a06 needs {', '.join(missing)}")
+        fam = families.get(a06.get("family"))
+        scen = (fam or {}).get("scenarios") or {}
+        if fam is None:
+            bad.append(f"a06.family {a06.get('family')!r} is not a family")
+        cand = a06.get("candidate")
+        comps = list(a06.get("comparisons") or [])
+        if scen and cand not in scen:
+            bad.append(f"a06.candidate {cand!r} is not a scenario of family {a06.get('family')}")
+        elif scen and _candidate_controller(scen[cand]) != "rl":
+            bad.append(f"a06.candidate {cand} ({scen[cand]}) must be an rl scenario")
+        for x in comps:
+            if scen and x not in scen:
+                bad.append(f"a06.comparisons: {x!r} is not a scenario of family {a06['family']}")
+        if cand in comps or len(set(comps)) != len(comps):
+            bad.append("a06.comparisons must be distinct references other than the candidate")
+        if a06.get("primary") not in comps:
+            bad.append(f"a06.primary {a06.get('primary')!r} must be one of a06.comparisons")
+        if a06.get("alternative", "two-sided") not in ALTERNATIVES:
+            bad.append(f"a06.alternative must be one of {ALTERNATIVES}")
+        if a06.get("holm", "comparisons") not in A06_HOLM:
+            bad.append(f"a06.holm must be one of {A06_HOLM}")
+        if a06.get("status", "procedural") != "procedural":
+            bad.append("a06.status must be procedural (D94: never FAIL on direction)")
+        try:
+            if int(a06.get("n_required", 0)) < 1:
+                bad.append("a06.n_required must be >= 1")
+        except (TypeError, ValueError):
+            bad.append("a06.n_required must be an integer")
+        words = a06.get("outcome") or {}
+        if not isinstance(words, dict) or any(not words.get(k) for k in OUTCOME_KEYS):
+            bad.append(f"a06.outcome needs {', '.join(OUTCOME_KEYS)}")
+        if a06.get("user") and a06.get("kpi"):
+            _user_kpi(f"{a06['user']}/{a06['kpi']}", "a06", bad)
+        model = a06.get("model") or {}
+        if not model.get("sha256_from") or not isinstance(model.get("inputs_text_sha8"), dict):
+            bad.append("a06.model needs sha256_from and an inputs_text_sha8 mapping")
+        rep = a06.get("replication_10_6")
+        if rep is not None:
+            refs = [("reference", rep.get("reference"))]
+            refs.append(("c3.timeouts_le", (rep.get("c3") or {}).get("timeouts_le")))
+            for where, x in refs:
+                if x is not None and scen and x not in scen:
+                    bad.append(f"a06.replication_10_6.{where} {x!r} is not a scenario")
+            _user_kpi((rep.get("c1") or {}).get("kpi"), "a06.replication_10_6.c1", bad)
+            for k in (rep.get("c2") or {}).get("kpis") or []:
+                _user_kpi(k, "a06.replication_10_6.c2", bad)
+        for x in a06.get("equity_vs") or []:
+            if scen and x not in scen:
+                bad.append(f"a06.equity_vs: {x!r} is not a scenario of family {a06['family']}")
+    ft = ecfg.get("final_table")
+    if ft is not None:
+        fam = families.get((ft or {}).get("family"))
+        scen = (fam or {}).get("scenarios") or {}
+        if fam is None:
+            bad.append(f"final_table.family {(ft or {}).get('family')!r} is not a family")
+        for key in ("columns", "ablations"):
+            for x in ft.get(key) or []:
+                if scen and x not in scen:
+                    bad.append(f"final_table.{key}: {x!r} is not a scenario of the family")
+        if not ft.get("columns"):
+            bad.append("final_table needs columns")
+        for key in ("rows", "probe_rows"):
+            for x in ft.get(key) or []:
+                _user_kpi(x, f"final_table.{key}", bad)
+        unknown = sorted(set(ft.get("extra") or []) - set(FINAL_EXTRAS))
+        if unknown:
+            bad.append(f"final_table.extra: unknown {unknown} (known: {FINAL_EXTRAS})")
+    p8 = ecfg.get("part8")
+    if p8 is not None:
+        for name, rng in ((p8 or {}).get("seeds") or {}).items():
+            ok = isinstance(rng, list) and len(rng) == 2 and all(isinstance(x, int) for x in rng)
+            if not ok or rng[0] > rng[1]:
+                bad.append(f"part8.seeds.{name} must be [first, last]")
+        sc = (p8 or {}).get("series")
+        if sc is not None:
+            if not float(sc.get("step_s") or 0) > 0:
+                bad.append("part8.series.step_s must be > 0")
+            qs = sc.get("quantiles") or []
+            if len(qs) != 2 or not all(0 < float(q) < 1 for q in qs) or qs[0] >= qs[1]:
+                bad.append("part8.series.quantiles must be two values in (0, 1), low first")
+            elif quantile_names(qs) != ["p10", "p90"]:
+                bad.append("part8.series.quantiles must be [0.1, 0.9] (series.csv p10, p90)")
+            if not sc.get("metric") or not sc.get("approaches"):
+                bad.append("part8.series needs metric and approaches")
+    return bad
 
 
 def headline_settings(ecfg: dict) -> tuple[list[tuple[str, str]], float, float]:
@@ -864,10 +1157,17 @@ def _num(v) -> float:
         return 0.0
 
 
+RL_COUNTS = ("decisions", "advances")  # control/rl.py report()
+STARVATION = "starvation"  # guard rule counted per run as well (D96: per controller)
+RL_SPLIT = ("cut", "replaced", "cut_foreseeable")  # D77 iv_split of the RL report
+
+
 def activity(family: Family, inter_keys: tuple[str, ...]) -> pd.DataFrame:
-    """Per scenario, summed over its runs: guard interventions, preemption counts, the
-    rule controller's report (pedestrian protection, box gap-outs, TSP) and the events
-    by source and rule."""
+    """Per scenario, summed over its runs: guard interventions (and
+    `guard_runs.starvation`, the runs in which the starvation rule fired), preemption
+    counts, the rule controller's report (pedestrian protection, box gap-outs, TSP), the
+    RL controller's report (`rl.decisions`, `rl.advances`, `rl.iv_split.*`, D77) and the
+    events by source and rule."""
     rows = []
     for label, m in family.members.items():
         tot: Counter = Counter()
@@ -875,6 +1175,8 @@ def activity(family: Family, inter_keys: tuple[str, ...]) -> pd.DataFrame:
             inter = (meta.get("safety") or {}).get("interventions") or {}
             for k in inter_keys:
                 tot[f"guard.{k}"] += _num(inter.get(k))
+            if STARVATION in inter_keys:
+                tot[f"guard_runs.{STARVATION}"] += int(_num(inter.get(STARVATION)) > 0)
             pre = meta.get("preemption") or {}
             for k in PREEMPTION_COUNTS:
                 tot[f"preemption.{k}"] += _num(pre.get(k))
@@ -890,6 +1192,12 @@ def activity(family: Family, inter_keys: tuple[str, ...]) -> pd.DataFrame:
                 "truncation_s",
             ):
                 tot[f"tsp.{k}"] += _num(tsp.get(k))
+            if any(k in ctl for k in RL_COUNTS):
+                for k in RL_COUNTS:
+                    tot[f"rl.{k}"] += _num(ctl.get(k))
+                split = ctl.get("iv_split") or {}
+                for k in RL_SPLIT:
+                    tot[f"rl.iv_split.{k}"] += _num(split.get(k))
         ev = m.runs.events
         if ev is not None and len(ev):
             for (src, rule), n in ev.groupby(["source", "rule"]).size().items():
@@ -929,6 +1237,8 @@ def provenance(
         "headline_from": str(ecfg["headline_from"]),
         "seeds": [int(s) for s in seeds],
         "changes": [{k: str(v) for k, v in c.items()} for c in ecfg["changes"]],
+        # D100: config_hash does not cover the text of rl.config; the pinned files' sha8
+        "model_inputs": model_inputs(ecfg),
         "families": {},
     }
     for name, fam in families.items():
@@ -1068,10 +1378,30 @@ class Evaluation:
     danger_keys: tuple[str, ...]
     inter_keys: tuple[str, ...]
     person_delay: dict = field(default_factory=dict)
+    # Part 8 (evaluation.final): None / empty when the config has no a06 / final_table
+    a06: dict | None = None
+    final: pd.DataFrame = field(default_factory=pd.DataFrame)
+    series: pd.DataFrame = field(default_factory=pd.DataFrame)
+    digest: dict = field(default_factory=dict)
+    model_problems: list[str] = field(default_factory=list)
+    registration: dict = field(default_factory=dict)
 
     @property
     def a04_pass(self) -> bool:
         return not self.a04_failures and len(self.a04) > 0
+
+    @property
+    def replication(self) -> dict | None:
+        return (self.a06 or {}).get("replication_10_6")
+
+    @property
+    def final_available(self) -> bool:
+        """Every column and ablation label of `final_table` has rows."""
+        ft = self.ecfg.get("final_table") or {}
+        wanted = {*(ft.get("columns") or []), *(ft.get("ablations") or [])}
+        if self.final.empty or not wanted:
+            return False
+        return wanted <= set(self.final.loc[self.final["section"] == "main", "label"])
 
 
 def person_delay_summary(families: dict[str, Family], sets: dict) -> dict:
@@ -1140,6 +1470,47 @@ def summary(ev: Evaluation) -> dict:
         },
         "hidden_degradation": ev.hidden,
         "person_delay": ev.person_delay,
+        "registration": ev.registration or None,
+        "a06": a06_summary(ev.a06),
+        "replication_10_6": replication_summary(ev.replication),
+        "final_available": ev.final_available,
+    }
+
+
+A06_SUMMARY_KEYS = (
+    "reference", "n", "mean_ref", "mean_s3", "hl", "ci_low", "ci_high", "p", "p_holm",
+    "outcome", "sentence",
+)  # fmt: skip
+
+
+def a06_summary(a06: dict | None) -> dict | None:
+    """summary.json['a06']: the status, its problems and the comparisons (a06.json has
+    the full record)."""
+    if not a06:
+        return None
+    return {
+        "status": a06["status"],
+        "problems": a06["problems"],
+        "primary": a06["primary"],
+        "primary_sentence": a06["primary_sentence"],
+        "inputs_ok": a06["model"]["inputs_ok"],
+        "comparisons": [{k: c.get(k) for k in A06_SUMMARY_KEYS} for c in a06["comparisons"]],
+    }
+
+
+def replication_summary(rep: dict | None) -> dict | None:
+    """summary.json['replication_10_6']: pass per check, the citation, the sentence."""
+    if not rep:
+        return None
+    return {
+        "reference": rep["reference"],
+        "c1": rep["c1"]["pass"],
+        "c2": rep["c2"]["pass"],
+        "c3": rep["c3"]["pass"],
+        "c4": rep["c4"]["cited"],
+        "confirms_fallback": rep["confirms_fallback"],
+        "main_solution": rep["main_solution"],
+        "text": rep["text"],
     }
 
 
@@ -1242,7 +1613,8 @@ def _prereg_section(ev: Evaluation, summ: dict) -> list[str]:
         f"- **A-05** (D26): {a05['family']} family, {a05['b']} vs {a05['a']}, "
         f"{a05['user']} `{a05['kpi']}`, exact one-sided Wilcoxon (alternative "
         f"`{a05.get('alternative')}`: {a05['b']} lower), α {a05.get('alpha', 0.05)}; PASS iff "
-        "p < α. Secondary tests on the ambulance-probe family are reported, not judged.",
+        "p < α. The secondary tests (ambulance-probe family; S3 in both families) are "
+        "reported, not judged.",
         f"- **A-04** (D27): every run of {', '.join(a04['families'])}: each danger audit "
         f"count 0, collisions ≤ {a04['collisions_max']}, `{PED_A04}` ≤ "
         f"`{a04['ped_curb_wait_max_s']}`{_bounds_text(ev)} (pre-registered: "
@@ -1344,10 +1716,14 @@ def ambulance_has_bluelight() -> bool:
 
 
 def enabled_in(ev: Evaluation, key: str) -> list[str]:
-    """Labels (`family/label`) whose config sets `<key>.enabled` true, e.g. `rules.tsp`."""
+    """Labels (`family/label`) whose config sets `<key>.enabled` true, e.g. `rules.tsp`.
+    A `rules.*` feature counts only for the rule controller: the RL configs inherit the
+    S2 fragment but leave its `rules:` block unused (configs/pitie_rl.yaml)."""
     out = []
     for name, fam in ev.families.items():
         for label, m in fam.members.items():
+            if key.split(".")[0] == "rules" and m.controller != "rules":
+                continue
             node: object = m.cfg
             for part in key.split("."):
                 node = node.get(part) if isinstance(node, dict) else None
@@ -1728,38 +2104,473 @@ def _exploratory(fam: Family, p: dict) -> bool:
     return p["a"] != fam.baseline and p["role"] != "confirmatory"
 
 
+# -- Part 8 sections (D98, D99) --------------------------------------------------------
+FINAL_SECTIONS = {
+    "safety": "Safety and preemption (A-04 per scenario; preemption totals over the runs)",
+    "activity": "Guard interventions per run",
+    "equity": "Equity vs S0 (13.3): primary / subgroup KPIs flagged, every KPI flagged, "
+    "hidden degradation (1 = yes)",
+    "occupancy": "Person delay at the bus occupancy sensitivity values (ASSUMED occupancies)",
+}
+
+
+def _final_cell(r, base: str, rate: bool) -> str:
+    """'mean ± sd (+x.x %)' of one final_table row (no change for the baseline)."""
+    nd = 4 if rate else _nd(r["mean"])
+    cell = f"{_fmt(r['mean'], nd)}"
+    if r["n"] > 1 and r["sd"] is not None and np.isfinite(r["sd"]):
+        cell += f" ± {_fmt(r['sd'], nd)}"
+    if r["label"] != base and r["rel_vs_s0_pct"] is not None and np.isfinite(r["rel_vs_s0_pct"]):
+        cell += f" ({r['rel_vs_s0_pct']:+.1f} %)"
+    return cell
+
+
+def _final_rows_table(t: pd.DataFrame, labels: list[str], base: str, abl: set, rates) -> list:
+    head = ["User", "KPI", "Unit", "Better if",
+            *[f"{x} (ablation)" if x in abl else x for x in labels]]  # fmt: skip
+    rows = []
+    for (user, kpi), g in t.groupby(["user", "kpi"], sort=False):
+        g = g.set_index("label")
+        cells = [
+            _final_cell(g.loc[x].to_dict() | {"label": x}, base, base_kpi(kpi) in rates)
+            if x in g.index
+            else "not evaluated"
+            for x in labels
+        ]
+        first = g.iloc[0]
+        rows.append([user, f"`{kpi}`", first["unit"] or "–", first["better_if"], *cells])
+    return _table(head, rows)
+
+
+def _extra_table(t: pd.DataFrame, labels: list[str]) -> list:
+    rows = []
+    for (user, kpi), g in t.groupby(["user", "kpi"], sort=False):
+        g = g.set_index("label")
+        cells = []
+        for x in labels:
+            if x not in g.index:
+                cells.append("–")
+                continue
+            v = g.loc[x, "mean"]
+            nd = 0 if v is not None and np.isfinite(v) and float(v).is_integer() else 2
+            cells.append(_fmt(v, nd) if v is not None else "–")
+        rows.append([user, f"`{kpi}`", *cells])
+    return _table(["User", "Counter", *labels], rows)
+
+
+def _final_section(ev: Evaluation, docs: Path) -> list[str]:
+    """Section 1: the pre-registered final comparison table (`final_table`, D98)."""
+    ft = ev.ecfg.get("final_table")
+    if not ft:
+        return ["No final table is pre-registered in the evaluation config."]
+    fam = ev.families.get(ft["family"])
+    if fam is None or ev.final.empty:
+        return [f"Family `{ft['family']}` was not evaluated: no final table."]
+    abl = set(ft.get("ablations") or [])
+    wanted = [*ft["columns"], *(ft.get("ablations") or [])]
+    rates = set((ev.ecfg["equity"].get("rates_pp") or {}).keys())
+    t = ev.final
+    missing = [x for x in wanted if x not in set(t["label"])]
+    lines = [
+        f"Family `{fam.name}`, pre-registered layout (`final_table`, changes 2026-10-23): "
+        f"mean ± sd over the {len(fam.seeds)} evaluation seeds, change vs "
+        f"{fam.baseline} in brackets; columns {', '.join(ft['columns'])}, ablations "
+        f"{', '.join(sorted(abl)) or 'none'} (greyed in the app). The person delay "
+        "(`all/person_delay_mean`) is the A-06 KPI; the tests are in the next section and in "
+        "the pair tables. Machine-readable: `final_table.csv` next to `summary.json` (the API, "
+        "the app and the report read it).",
+        "",
+    ]
+    if missing:
+        lines += [f"Not evaluated: {', '.join(missing)}.", ""]
+    main = t[t["section"] == "main"]
+    lines += _final_rows_table(main, [x for x in wanted if x in set(main["label"])],
+                               fam.baseline, abl, rates)  # fmt: skip
+    probe = t[t["section"] == "probe"]
+    if len(probe):
+        others = [f for n, f in ev.families.items() if n != fam.name]
+        pf = others[0] if others else fam
+        labels = [x for x in wanted if x in set(probe["label"])]
+        lines += [
+            "",
+            f"Ambulance-probe family `{pf.name}` "
+            f"({_ambulances(ambulance_plan(pf.members[pf.baseline].cfg)[0])} per run, the "
+            "robust ambulance evidence):",
+            "",
+            *_final_rows_table(probe, labels, pf.baseline, abl, rates),
+        ]
+    labels = [x for x in wanted if x in set(main["label"])]
+    for section, title in FINAL_SECTIONS.items():
+        g = t[t["section"] == section]
+        if g.empty:
+            continue
+        if section == "occupancy":
+            lines += ["", f"{title}:", "", *_final_rows_table(g, labels, fam.baseline, abl, rates)]
+        else:
+            lines += ["", f"{title}:", "", *_extra_table(g, labels)]
+    return lines
+
+
+def _a06_section(ev: Evaluation, docs: Path, figures: Path) -> list[str]:
+    """Section 2: A-06 (D94), procedural status, the three comparisons, the model."""
+    cfg = ev.ecfg.get("a06")
+    if not cfg or ev.a06 is None:
+        return ["A-06 is not pre-registered in the evaluation config."]
+    a = ev.a06
+    cand = a["candidate"]
+    fam = ev.families.get(a["family"])
+    m = fam.members.get(cand) if fam is not None else None
+    words = cfg.get("outcome") or {}
+    lines = [
+        f"**A-06 {a['status']}** (procedural, D94: PASS when every comparison has its "
+        f"{a['n_required']} paired seeds, the S3 runs are current and the frozen inputs match; "
+        "INVALID otherwise; never FAIL because of the direction of a result).",
+        "",
+    ]
+    if a["problems"]:
+        lines += ["INVALID because:", "", *[f"- {p}" for p in a["problems"]], ""]
+    lines += [
+        f"Pre-registered (`a06`, changes 2026-10-23): family `{a['family']}`, candidate "
+        f"{cand}" + (f" (`{m.scenario}`)" if m else "") + f", `{a['kpi']}`, d = {cand} − "
+        f"reference per seed, exact {a['alternative']} paired Wilcoxon, Hodges-Lehmann "
+        f"estimate and 95 % CI, Holm across the {len(a['comparisons'])} comparisons, "
+        f'α {a["alpha"]:g}. Outcome: "{words.get("better")}" if Holm p < α and HL < 0, '
+        f'"{words.get("worse")}" if Holm p < α and HL > 0, else "{words.get("none")}".',
+        "",
+    ]
+    rows = []
+    for c in a["comparisons"]:
+        nd = _nd(c["mean_ref"], c["mean_s3"])
+        role = "primary" if c["reference"] == a["primary"] else "Holm family"
+        ctl = f" ({c['controller']})" if c.get("controller") else ""
+        rows.append(
+            [
+                f"{cand} vs {c['reference']}{ctl}",
+                role,
+                c["n"],
+                f"{_fmt(c['mean_ref'], nd)} ± {_fmt(c['sd_ref'], nd)}",
+                f"{_fmt(c['mean_s3'], nd)} ± {_fmt(c['sd_s3'], nd)}",
+                f"{_signed(c['hl'], nd)} [{_signed(c['ci_low'], nd)}, "
+                f"{_signed(c['ci_high'], nd)}] s",
+                _p(c["p"]),
+                _p(c["p_holm"]),
+                f"**{c['outcome_text']}**",
+            ]
+        )
+    lines += _table(
+        ["Comparison", "Role", "n", "Reference mean ± sd (s)", f"{cand} mean ± sd (s)",
+         f"{cand} − reference: HL [95 % CI]", "p", "p (Holm)", "Outcome"], rows,
+    )  # fmt: skip
+    lines += ["", f"**Primary result:** {a['primary_sentence'] or 'not tested'}", ""]
+    mod = a["model"]
+    if mod["inputs_ok"]:
+        inputs = f"all {len(mod['inputs'])} pinned rl.config files match (D100)"
+    else:
+        inputs = "**the frozen inputs do not match (D100, see the warnings)**"
+    lines.append(
+        f"- Model: `{mod.get('model_version') or 'n/a'}`, sha256 "
+        f"`{short(mod.get('model_sha256'))}` (pinned by `{cfg['model']['sha256_from']}`: "
+        f"`{short(mod.get('pinned_sha256'))}`), config_hash `{short(mod.get('config_hash'))}`; "
+        f"{inputs}."
+    )
+    for prob in ev.model_problems:
+        lines.append(f"- **Warning (D100):** {prob}.")
+    lines.append(f"- Registration (D92): {_registration_text(a['registration'])}.")
+    rep = (cfg.get("replication_10_6") or {}).get("main_solution")
+    if rep:
+        lines.append(
+            f"- The main solution stays {rep} (Part 7 interim FALLBACK, spec 15 week-7 rule): "
+            "A-06 is the confirmatory test of record for RL against the baselines, presented "
+            "whatever its direction; it does not reopen that choice (changes 2026-10-23)."
+        )
+    lines += ["", f"![A-06: S3 against the baselines]({_rel(figures / 'a06_forest.png', docs)})"]
+    return lines
+
+
+REG_WORDS = {
+    "before": "committed before the first S3 run (second resolution)",
+    "after": "NOT before the first S3 run (second resolution)",
+    "n/a": "order n/a",
+}
+
+
+def _registration_text(r: dict | None) -> str:
+    r = r or {}
+    if not r.get("commit"):
+        commit = "no commit adds `a06:` to the evaluation config yet"
+    else:
+        commit = f"commit `{r['commit']}` at {_utc(str(r['committed_at']))}"
+    first = r.get("first_s3_started_at")
+    started = f"first S3 run started {_utc(str(first))}" if first else "no S3 run"
+    return f"{commit}; {started}; {REG_WORDS.get(r.get('order'), r.get('order'))}"
+
+
+def _yes(x) -> str:
+    return "–" if x is None else "yes" if x else "**no**"
+
+
+def _rep106_section(ev: Evaluation) -> list[str]:
+    """Section 3: Part 7's D79 C1-C3 on the evaluation seeds, C4 cited (D95)."""
+    rep = ev.replication
+    cfg = (ev.ecfg.get("a06") or {}).get("replication_10_6")
+    if not cfg or rep is None:
+        return ["The spec 10.6 check is not pre-registered in the evaluation config."]
+    if rep.get("status") == "not evaluated":
+        return [f"**{rep['text']}**"]
+    c1, c2, c3, c4 = rep["c1"], rep["c2"], rep["c3"], rep["c4"]
+    ref = rep["reference"]
+    nd = _nd(c1.get("mean_ref"), c1.get("mean_s3"))
+    ci = c1.get("hl_ci") or [None, None]
+    c2_text = "; ".join(
+        f"`{r['kpi']}` {_signed(r['rel_pct'], 1)} %" + (" (worse)" if r["worse"] else "")
+        for r in c2["rows"]
+    )
+    rows = [
+        ["C1", f"`{c1['kpi']}`: HL < 0 and exact two-sided p < {c1.get('alpha', 0.05):g} vs {ref}",
+         f"HL {_signed(c1.get('hl'), nd)} s [{_signed(ci[0], nd)}, {_signed(ci[1], nd)}], "
+         f"p {_p(c1.get('p'))}, n {c1['n']}", _yes(c1["pass"])],
+        ["C2", f"no listed KPI more than {c2['limit_pct']:g} % worse than {ref} (means)",
+         c2_text or "–", _yes(c2["pass"])],
+        ["C3", f"every S3 run: danger, collisions, teleports 0; curb wait ≤ "
+         f"{c3['curb_max_s']:g} s; every preemption served or timed out; time-outs ≤ "
+         f"{c3.get('timeouts_le') or 'n/a'}",
+         f"{len(c3['violations'])} violation(s)", _yes(c3["pass"])],
+        ["C4", "training property, cited from Part 7", f"`{c4['source']}`: {c4['cited']}",
+         "cited"],
+    ]  # fmt: skip
+    lines = [
+        "Reported, not gating (D95): Part 7's D79 checks C1-C3 repeated on the evaluation "
+        f"seeds against {ref}; C4 is a training property and is cited from Part 7.",
+        "",
+        *_table(["Check", "Rule", "Result", "Pass"], rows),
+        "",
+        f"**{rep['text']}**",
+    ]
+    if c2["rows"]:
+        lines += [
+            "",
+            *_table(
+                ["C2 KPI", f"{ref} mean", "S3 mean", "Change", "Worse"],
+                [[f"`{r['kpi']}`", _fmt(r["mean_s1"], _nd(r["mean_s1"])),
+                  _fmt(r["mean_s3"], _nd(r["mean_s3"])), f"{_signed(r['rel_pct'], 1)} %",
+                  _yes(r["worse"]) if r["worse"] else "no"] for r in c2["rows"]],
+            ),
+        ]  # fmt: skip
+    if c3["violations"]:
+        lines += ["", "C3 violations:", "", *[f"- {v}" for v in c3["violations"]]]
+    return lines
+
+
+def _signed(x, nd: int = 1) -> str:
+    return "–" if x is None or not np.isfinite(x) else f"{x:+.{nd}f}"
+
+
+def _equity_vs_lines(ev: Evaluation) -> list[str]:
+    """S3 against S1 and S2 on the per-user primaries and the C2 KPIs (D96)."""
+    tables = (ev.a06 or {}).get("equity_vs") or {}
+    if not any(tables.values()):
+        return []
+    cand = (ev.a06 or {}).get("candidate", "S3")
+    pct = ev.ecfg["equity"]["pct"]
+    rows = []
+    for ref, rs in tables.items():
+        for r in rs:
+            nd = _nd(r["mean_ref"], r["mean_s3"])
+            change = (
+                f"{r['pp']:+.2f} pp" if r.get("pp") is not None else f"{_signed(r['rel_pct'])} %"
+            )
+            rows.append(
+                [f"{cand} vs {ref}", r["user"], f"`{r['kpi']}`", _fmt(r["mean_ref"], nd),
+                 _fmt(r["mean_s3"], nd), change, _p(r["p"]),
+                 "**yes**" if r["worse"] else "no"]
+            )  # fmt: skip
+    return [
+        "",
+        f"{cand} against the other controllers (D96): the per-user primary KPIs and the 10.6 C2 "
+        f"KPIs, flagged when more than {pct:g} % worse (two-sided p, unadjusted):",
+        "",
+        *_table(["Pair", "User", "KPI", "Reference mean", f"{cand} mean", "Change", "p",
+                 "Flag"], rows),
+    ]  # fmt: skip
+
+
+def _rl_members(ev: Evaluation) -> list[tuple[str, Member]]:
+    return [
+        (f"{n}/{lb}", m)
+        for n, f in ev.families.items()
+        for lb, m in f.members.items()
+        if m.controller == "rl"
+    ]
+
+
+def _no_preemption(m: Member) -> bool:
+    return not bool((m.cfg.get("preemption") or {}).get("enabled"))
+
+
+def _part8_assumed(ev: Evaluation) -> list[str]:
+    """The ASSUMED items Part 8 adds: the RL policy's training program and S4."""
+    rl = _rl_members(ev)
+    if not rl:
+        return []
+    items = []
+    versions = sorted({str((m.cfg.get("rl") or {}).get("model", "")) for _, m in rl})
+    items.append(
+        "the RL policy (`" + "`, `".join(v for v in versions if v) + "`) was trained and "
+        "selected in Part 7 on the ASSUMED signal program and demand; it is evaluated "
+        "unchanged (frozen inputs, D100)"
+    )
+    off = [(where, m) for where, m in rl if _no_preemption(m)]
+    if off:
+        where = ", ".join(f"{w} (`{m.scenario}`)" for w, m in off)
+        items.append(
+            f"{where} run the S3 policy with emergency preemption off: OUT OF DISTRIBUTION "
+            "(the policy never decided with an ambulance present without preemption), so "
+            "their results describe how the agent degrades, not a design; exploratory, never "
+            "part of A-06"
+        )
+    return [f"- ASSUMED: {t}." for t in items]
+
+
+def _part8_prereg(ev: Evaluation) -> list[str]:
+    """The Part 8 pre-registration bullets: the A-06 rule, the registration record (D92)
+    and the D100 warnings."""
+    a = ev.ecfg.get("a06")
+    if not a:
+        return []
+    rep = a.get("replication_10_6") or {}
+    out = [
+        f"- **A-06** (D94, changes 2026-10-23): family `{a['family']}`, {a['candidate']} vs "
+        f"{', '.join(a['comparisons'])} (primary {a['primary']}) on "
+        f"`{a['user']}.{a['kpi']}`, exact {a.get('alternative', 'two-sided')} paired "
+        f"Wilcoxon, Holm across the comparisons, n = {a['n_required']} required; procedural "
+        "status (PASS / INVALID, never FAIL on direction)."
+        + (
+            f" The spec 10.6 check is repeated against {rep['reference']} (reported, not "
+            f"gating); the main solution stays {rep.get('main_solution', 'S2')}."
+            if rep
+            else ""
+        ),
+        f"- **Registration** (D92): {_registration_text(ev.registration)}.",
+    ]
+    out += [f"- **Warning (D100):** {prob}." for prob in ev.model_problems]
+    return out
+
+
+def _a05_power_note(ev: Evaluation) -> list[str]:
+    a05 = ev.ecfg["a05"]["primary"]
+    fam = ev.families.get(a05["family"])
+    if fam is None:
+        return []
+    n, _ = ambulance_plan(fam.members[fam.baseline].cfg)
+    probes = [
+        f"`{f.name}` ({_ambulances(ambulance_plan(f.members[f.baseline].cfg)[0])} per run)"
+        for f in ev.families.values()
+        if f.name != fam.name
+    ]
+    count = "one ambulance" if n == 1 else _ambulances(n)
+    text = (
+        f"- **Power note (D96):** the A-05 primary rests on {count} per run in `{fam.name}` "
+        "(one travel time per seed, so one long red can decide a seed): its power is limited"
+    )
+    if probes:
+        text += f"; the probe family {', '.join(probes)} is the robust evidence"
+    return [text + ". Nothing is retuned on this account."]
+
+
+def _a06_acceptance(ev: Evaluation) -> list[str]:
+    if ev.a06 is None:
+        return []
+    a = ev.a06
+    lines = [
+        "",
+        "### A-06",
+        "",
+        f"**A-06 {a['status']}** (procedural; section 2 has the tests, the model identity "
+        "and the registration record). Primary: " + (a["primary_sentence"] or "not tested"),
+    ]
+    if a["problems"]:
+        lines += ["", *[f"- INVALID: {p}" for p in a["problems"]]]
+    return lines
+
+
+def _part8_limitations(ev: Evaluation) -> list[str]:
+    out = []
+    rl = _rl_members(ev)
+    if rl:
+        out.append(
+            "- The RL policy was trained on the ASSUMED signal program: after the field visit "
+            'its results are rerun with the unchanged model and labelled "trained on the '
+            'ASSUMED program" (D119); retraining is optional.'
+        )
+    if any(_no_preemption(m) for _, m in rl):
+        out.append(
+            "- S4 (the S3 policy without preemption) is out of distribution: it shows what "
+            "preemption adds under RL, not a design to deploy."
+        )
+    if ev.a06 is not None:
+        main_solution = ev.replication["main_solution"] if ev.replication else "S2"
+        out.append(
+            f"- A-06 and the 10.6 check are presented whatever their direction; the main "
+            f"solution stays {main_solution} (decided at week 7)."
+        )
+    return out
+
+
 def render(ev: Evaluation, summ: dict, docs: Path, figures: Path) -> str:
-    """docs/evaluation.md: one section per entry of SECTIONS."""
+    """docs/evaluation.md: the title, the verdicts and one section per entry of SECTIONS
+    (D99; the Part 4 bodies keep their tables)."""
     figures = Path(figures)
+    equity = _equity_section(ev, docs, figures / "equity_heatmap.png")
+    equity[-4:-4] = _equity_vs_lines(ev)  # before the heatmap and the full-table note
+    assumed = _assumed_section(ev)  # its last line is the frozen-demand note
+    prereg = _prereg_section(ev, summ)
+    occ_at = next((i for i, x in enumerate(prereg) if x.startswith("- Occupancies")), None)
+    at = len(prereg) if occ_at is None else occ_at + 1
+    prereg[at:at] = _part8_prereg(ev)
+    acceptance = _acceptance_section(ev, docs, figures)
+    limits = _limitations_section(ev)
+    a05_at = next((i for i, x in enumerate(limits) if x.startswith("- The `")), len(limits) - 1)
+    limits[a05_at + 1 : a05_at + 1] = _a05_power_note(ev)
     bodies = [
+        _final_section(ev, docs),
+        _a06_section(ev, docs, figures),
+        _rep106_section(ev),
         _runs_section(ev),
-        _prereg_section(ev, summ),
-        _assumed_section(ev),
+        prereg,
+        assumed[:-1] + _part8_assumed(ev) + assumed[-1:],
         _definitions_section(ev),
         _per_user_section(ev),
         _pairs_section(ev, _vs_baseline, docs, figures / "paired_vs_s0.png"),
         _pairs_section(ev, _other_pair, docs),
         _pairs_section(ev, _exploratory, docs),
-        _equity_section(ev, docs, figures / "equity_heatmap.png"),
-        _acceptance_section(ev, docs, figures),
+        equity,
+        acceptance + _a06_acceptance(ev),
         _activity_section(ev),
-        _limitations_section(ev),
+        limits + _part8_limitations(ev),
     ]
     a05 = ev.a05["verdict"]
     hidden = [f"{h['family']} {h['scenario']}" for h in ev.hidden if h["hidden_degradation"]]
+    verdicts = (
+        f"**Verdicts:** A-03 {ev.a03['text']}; A-04 {'PASS' if ev.a04_pass else 'FAIL'}; "
+        f"A-05 {a05}; "
+        + (f"A-06 {ev.a06['status']}; " if ev.a06 is not None else "")
+        + f"hidden degradation: {', '.join(hidden) or 'none'}."
+    )
     lines = [
-        "# Evaluation: S0 vs S1 vs S2 on the Pitié-Salpêtrière junction (Part 4)",
+        PART8_TITLE,
         "",
         f"Generated by `python -m traffic_twin.evaluation.evaluate --config "
-        f"{ev.config_path.as_posix()}` (spec 13.2, 13.3, A-03 to A-05). Do not edit by "
+        f"{ev.config_path.as_posix()}` (spec 13.2, 13.3, A-03 to A-06). Do not edit by "
         "hand: rerun `tasks.py evaluate` (figures: `tasks.py plots-eval`). Results are "
         "provisional until the field visit (ASSUMED signal program).",
         "",
-        f"**Verdicts:** A-03 {ev.a03['text']}; A-04 {'PASS' if ev.a04_pass else 'FAIL'}; "
-        f"A-05 {a05}; hidden degradation: {', '.join(hidden) or 'none'}.",
-        "",
-        f"![KPIs per user]({_rel(figures / 'kpi_by_user.png', docs)})",
+        verdicts,
     ]
+    if ev.a06 is not None and ev.a06["primary_sentence"]:
+        lines += ["", f"**A-06 primary:** {ev.a06['primary_sentence']}"]
+    if ev.replication:
+        lines += ["", f"**Spec 10.6 check (reported, not gating):** {ev.replication['text']}"]
+    lines += ["", f"![KPIs per user]({_rel(figures / 'kpi_by_user.png', docs)})"]
     for title, body in zip(SECTIONS, bodies, strict=True):
         lines += ["", f"## {title}", "", *body]
     return "\n".join(lines).rstrip() + "\n"
@@ -1783,8 +2594,16 @@ def evaluate(
     sets = occupancy_sets(ecfg)
     families: dict[str, Family] = {}
     problems = []
+    loaded = {name: load_family(ecfg, name, results) for name in names}
+    if run_absent:  # D92: refuse before the first missing run is launched
+        planned: dict[Path, list[tuple[str, int]]] = {}
+        for fam in loaded.values():
+            for where, scenario, seed in planned_runs(fam, seeds, min_k):
+                planned.setdefault(where, []).append((scenario, seed))
+        for where, runs in planned.items():
+            run_lock(ecfg, runs, where)
     for name in names:
-        fam = load_family(ecfg, name, results)
+        fam = loaded[name]
         if run_absent:
             for m in fam.members.values():
                 run_missing(m.cfg, seeds, m.results, m.path, min_kpi_version=min_k)
@@ -1826,7 +2645,7 @@ def evaluate(
             failures += f
     a04 = pd.concat(a04_rows, ignore_index=True) if a04_rows else pd.DataFrame()
     act = [activity(f, inter_keys) for f in families.values()]
-    return Evaluation(
+    ev = Evaluation(
         ecfg=ecfg,
         config_path=Path(config_path),
         seeds=[int(s) for s in seeds],
@@ -1845,6 +2664,30 @@ def evaluate(
         inter_keys=inter_keys,
         person_delay=person_delay_summary(families, sets),
     )
+    part8_outputs(ev)
+    return ev
+
+
+def part8_outputs(ev: Evaluation) -> None:
+    """The Part 8 results of `ev` (evaluation.final): the registration record (D92), the
+    D100 input check, A-06 with the 10.6 replication, the final table, the series and the
+    digest. Blocks absent from the config are skipped (a Part 4 config)."""
+    ecfg, families = ev.ecfg, ev.families
+    ev.registration = registration_record(families, registration_commit(ev.config_path))
+    ev.model_problems = check_model_inputs(ecfg) + rl_scenario_problems(families, ecfg)
+    if "a06" in ecfg:
+        ev.a06 = a06_report(
+            families, ecfg, ev.a03, registration=ev.registration, model_problems=ev.model_problems
+        )
+    if "final_table" in ecfg:
+        ev.final = final_table(
+            families, ecfg, ev.a04, ev.activity, equity=ev.equity, hidden=ev.hidden
+        )
+    if "part8" in ecfg:
+        frames = [f for f in (series(fam, ecfg) for fam in families.values()) if len(f)]
+        cols = series(Family("", "", [], {}), ecfg).columns
+        ev.series = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=cols)
+    ev.digest = digest(families)
 
 
 def write_outputs(ev: Evaluation, out: Path) -> dict:
@@ -1880,10 +2723,57 @@ def write_outputs(ev: Evaluation, out: Path) -> dict:
         json.dumps(summ, indent=2, default=str) + "\n", encoding="utf-8"
     )
     prov = provenance(ev.families, ev.ecfg, ev.config_path, ev.seeds)
+    prov["registration"] = ev.registration or None
     (out / "provenance.json").write_text(
         json.dumps(prov, indent=2, default=str) + "\n", encoding="utf-8"
     )
+    write_part8_outputs(ev, out)
     return summ
+
+
+def part8_skipped(ev: Evaluation) -> dict[str, str]:
+    """D98 file name -> why it is not written: a06.json needs the a06 family evaluated;
+    final_table.csv, series.csv and digest.json cover every family of the config. A
+    partial evaluation (`--family ambulance_probe`) therefore leaves the files of the
+    full evaluation, which the API, app and report read, untouched."""
+    every = list(ev.ecfg.get("families") or [])
+    missing = [n for n in every if n not in ev.families]
+    partial = f"families {', '.join(missing)} were not evaluated" if missing else None
+    a06_fam = (ev.ecfg.get("a06") or {}).get("family")
+    skipped = {}
+    if ev.a06 is not None and a06_fam not in ev.families:
+        skipped[EVAL_A06.name] = f"family {a06_fam} was not evaluated"
+    blocks = {
+        EVAL_FINAL_TABLE.name: "final_table" in ev.ecfg,
+        EVAL_SERIES.name: "part8" in ev.ecfg,
+        EVAL_DIGEST.name: True,
+    }
+    if partial:
+        skipped.update((name, partial) for name, on in blocks.items() if on)
+    return skipped
+
+
+def write_part8_outputs(ev: Evaluation, out: Path) -> list[Path]:
+    """D98: final_table.csv, a06.json, series.csv and digest.json under `out` (names of
+    paths.EVAL_*), each when its block is registered (the digest always) and the families
+    it reports on were evaluated (`part8_skipped`: a skipped file is left as it is)."""
+    skipped = part8_skipped(ev)
+    for name, why in skipped.items():
+        log.warning("%s not written (%s): the existing file is kept", name, why)
+    written = []
+    if "final_table" in ev.ecfg and EVAL_FINAL_TABLE.name not in skipped:
+        written.append(out / EVAL_FINAL_TABLE.name)
+        ev.final.to_csv(written[-1], index=False)
+    if ev.a06 is not None and EVAL_A06.name not in skipped:
+        written.append(out / EVAL_A06.name)
+        written[-1].write_text(json.dumps(ev.a06, indent=2, default=str) + "\n", "utf-8")
+    if "part8" in ev.ecfg and EVAL_SERIES.name not in skipped:
+        written.append(out / EVAL_SERIES.name)
+        ev.series.to_csv(written[-1], index=False)
+    if EVAL_DIGEST.name not in skipped:
+        written.append(out / EVAL_DIGEST.name)
+        written[-1].write_text(json.dumps(ev.digest, indent=2) + "\n", encoding="utf-8")
+    return written
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1904,6 +2794,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+CONSOLE_ASCII = {"→": "->", "−": "-", "α": "alpha", "≤": "<=", "±": "+/-"}
+
+
+def _echo(text: str) -> None:
+    """print() that never fails on a narrow console encoding (cp1252 on Windows): the
+    generated sentences carry → and α."""
+    for a, b in CONSOLE_ASCII.items():
+        text = text.replace(a, b)
+    enc = getattr(sys.stdout, "encoding", None) or "utf-8"
+    print(text.encode(enc, "replace").decode(enc, "replace"))
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -1917,6 +2819,9 @@ def main(argv: list[str] | None = None) -> None:
         log.warning("seeds %s are not the pre-registered evaluation seeds", args.seeds)
     try:
         ev = evaluate(ecfg, args.config, names, seeds, args.results, args.run_missing)
+    except RunLockError as e:
+        print(f"evaluation error: {e}", file=sys.stderr)
+        raise SystemExit(RUN_LOCK_EXIT) from None
     except (EvaluationError, ConfigError) as e:
         raise SystemExit(f"evaluation error: {e}") from None
     out = args.out or (
@@ -1950,6 +2855,14 @@ def main(argv: list[str] | None = None) -> None:
             print(f"  invalid sample: {problem}")
     hidden = [f"{h['family']} {h['scenario']}" for h in ev.hidden if h["hidden_degradation"]]
     print(f"hidden degradation: {', '.join(hidden) or 'none'}")
+    if ev.a06 is not None:
+        _echo(f"A-06 {ev.a06['status']} (procedural): {ev.a06['primary_sentence'] or 'no test'}")
+        for problem in ev.a06["problems"]:
+            _echo(f"  invalid: {problem}")
+        if ev.replication:
+            _echo(f"10.6 check (reported, not gating): {ev.replication['text']}")
+    for problem in ev.model_problems:
+        log.warning("D100 frozen S3 input: %s", problem)
     log.info("evaluation outputs: %s", Path(out).as_posix())
     if not ev.a04_pass:
         raise SystemExit(1)

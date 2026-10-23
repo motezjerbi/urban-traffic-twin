@@ -55,3 +55,19 @@ def test_latency_block_and_docs_rewrite(settings):
     assert "STALE-BLOCK" not in new and block.strip() in new
     with pytest.raises(ValueError):
         bench.rewrite_block("no markers here", block)
+
+
+# Parts 8-9 endpoints (D103, contract 4.3): each under 50 ms p95 on the fixtures
+PART9_LIMIT_MS = 50.0
+PART9_ENDPOINTS = (
+    "evaluation", "compare", "series", "sensitivity", "replay events", "replay (positions)",
+)  # fmt: skip
+
+
+def test_part9_endpoints_p95_under_50_ms(settings):
+    stats, _ = bench.bench_inprocess(settings, n=30)
+    assert set(PART9_ENDPOINTS) <= set(stats)
+    for name in PART9_ENDPOINTS:
+        s = stats[name]
+        assert s["p95_ms"] < PART9_LIMIT_MS, (name, s)
+        assert all(k.startswith("200") for k in s["answers"]), (name, s["answers"])

@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -39,7 +40,8 @@ def commands(tasks, *argv):
 
 
 def modules(cmds):
-    return [c[2] for c in cmds]
+    """The modules the commands run (in-process steps left out)."""
+    return [c[2] for c in cmds if isinstance(c, list)]
 
 
 # -- Makefile mirror ---------------------------------------------------------------------
@@ -72,7 +74,7 @@ def make_calls(rules, target) -> list[tuple[str, list[str]]]:
         m = re.search(r"\$\(PY\) (?:-m (\S+)|(tasks\.py \S+?))(?=\s|\$|$)(.*)", line)
         if m:
             args = re.sub(r"\$\(if .*$", "", m.group(3))
-            calls.append((m.group(1) or m.group(2), re.findall(r"(?<!\S)--[\w-]+", args)))
+            calls.append((m.group(1) or m.group(2), re.findall(r"(?<!\S)--[\w.-]+", args)))
     return calls
 
 
@@ -88,11 +90,15 @@ def expected_calls(tasks, name) -> list[tuple[str, list[str]]]:
 
 
 def test_every_makefile_target_has_a_task(tasks):
+    """Every phony target is a task and the reverse; the placeholders of the roadmap
+    (`train eval app`) are gone now that Parts 8-10 exist."""
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     phony = " ".join(re.findall(r"^\.PHONY:(.*)$", makefile, re.M)).split()
-    later = {"train", "eval", "app"}  # placeholders for later parts of the roadmap
-    assert set(phony) - later == set(tasks.TASKS)
-    assert {"plots", "baseline", "check", "part3", "part4", "part5", "part6", "part7"} <= set(phony)
+    assert len(phony) == len(set(phony))
+    assert set(phony) == set(tasks.TASKS)
+    assert {"plots", "baseline", "check", "part3", "part4", "part5", "part6", "part7", "part8",
+            "part9", "part10"} <= set(phony)  # fmt: skip
+    assert not {"train", "eval", "app"} & set(phony) and "later part" not in makefile
 
 
 def test_makefile_mirrors_tasks(tasks, monkeypatch):
@@ -155,17 +161,18 @@ def test_help_lists_every_task(tasks):
 
 # -- Part 2 tasks ----------------------------------------------------------------------------
 def test_sim_passes_scenario_and_seeds(tasks):
-    (cmd,) = commands(tasks, "sim", "--seeds", "1", "2", "3", "--scenario", "x.yaml")
+    lock, cmd = commands(tasks, "sim", "--seeds", "1", "2", "3", "--scenario", "x.yaml")
+    assert isinstance(lock, tasks.Step) and lock.name == "run-lock"
     assert cmd[1:] == ["-m", "traffic_twin.sim.run_scenario", "--config", "x.yaml",
                        "--seed", "1", "2", "3"]  # fmt: skip
-    (gui,) = commands(tasks, "sim-gui", "--seeds", "5", "6")
-    assert gui[-3:] == ["--seed", "5", "--gui"]
+    lock, gui = commands(tasks, "sim-gui", "--seeds", "5", "6")
+    assert lock.name == "run-lock" and gui[-3:] == ["--seed", "5", "--gui"]
 
 
 def test_grid_tasks_default_to_the_grid(tasks):
-    (sim,) = commands(tasks, "sim")
+    _, sim = commands(tasks, "sim")
     assert sim[3:] == ["--config", GRID, "--seed", "1", "2", "3"]
-    (gui,) = commands(tasks, "sim-gui")
+    _, gui = commands(tasks, "sim-gui")
     assert gui[3:] == ["--config", GRID, "--seed", "1", "--gui"]
     (demand,) = commands(tasks, "demand")
     assert demand[3:] == ["--config", GRID]
@@ -185,9 +192,21 @@ def test_bad_seed_rejected(tasks):
         commands(tasks, "calibrate", "--seeds", "-1")
 
 
+def modules_cmds(cmds) -> list:
+    """The subprocess commands (in-process steps left out)."""
+    return [c for c in cmds if isinstance(c, list)]
+
+
+def plain(tasks, cmds) -> list:
+    """Commands with each in-process step written as its name."""
+    return [c.name if isinstance(c, tasks.Step) else c for c in cmds]
+
+
 def test_composite_tasks(tasks):
-    assert modules(commands(tasks, "baseline")) == [
-        "traffic_twin.sim.network", "traffic_twin.sim.run_scenario", "traffic_twin.viz.plots",
+    baseline = plain(tasks, commands(tasks, "baseline"))
+    assert [c if isinstance(c, str) else c[2] for c in baseline] == [
+        "traffic_twin.sim.network", "run-lock", "traffic_twin.sim.run_scenario",
+        "traffic_twin.viz.plots",
     ]  # fmt: skip
     check = [c[2:] for c in commands(tasks, "check")]
     assert check == [["ruff", "check", "."], ["ruff", "format", "--check", "."], ["pytest", "-q"]]
@@ -200,9 +219,9 @@ def test_data_config_option(tasks):
 
 # -- Part 3 tasks ----------------------------------------------------------------------------
 def test_part3_tasks_default_to_pitie(tasks):
-    got = {name: cmd[2:] for name in ("osm", "tls-check", "field-check", "calibrate",
-                                      "validate", "compare")
-           for (cmd,) in [commands(tasks, name)]}  # fmt: skip
+    got = {name: cmds[-1][2:] for name in ("osm", "tls-check", "field-check", "calibrate",
+                                           "validate", "compare")
+           for cmds in [commands(tasks, name)]}  # fmt: skip
     assert got == {
         "osm": ["traffic_twin.sim.osm_import", "--config", S0],
         "tls-check": ["traffic_twin.sim.tls_check", "--config", S0],
@@ -224,9 +243,9 @@ def test_field_sheets_task(tasks):
 
 def test_part3_tasks_take_the_scenario(tasks):
     for name in ("osm", "tls-check", "field-check", "calibrate", "validate"):
-        (cmd,) = commands(tasks, name, "--scenario", "x.yaml")
+        *_, cmd = commands(tasks, name, "--scenario", "x.yaml")
         assert "x.yaml" in cmd and S0 not in cmd, name
-    (cmp,) = commands(tasks, "compare", "--scenario", "s1.yaml", "--baseline", "s0.yaml")
+    _, cmp = commands(tasks, "compare", "--scenario", "s1.yaml", "--baseline", "s0.yaml")
     assert cmp[3:] == ["--baseline-config", "s0.yaml", "--scenario-config", "s1.yaml",
                        "--run-missing"]  # fmt: skip
 
@@ -260,7 +279,10 @@ def test_part3_runs_in_order(tasks):
         "traffic_twin.validation.report",
         "traffic_twin.viz.plots",
     ]
-    tls, field, calib, cmp, report, _ = cmds
+    names = plain(tasks, cmds)
+    # the run lock first (before the calibration loop), then again before compare, validate
+    assert [names[i] for i in (0, 4, 6)] == ["run-lock"] * 3 and names.count("run-lock") == 3
+    tls, field, calib, cmp, report, _ = [c for c in cmds if isinstance(c, list)]
     for cmd in (tls, field, calib, report):  # every step but compare runs on S0
         assert S0 in cmd and S1 not in cmd
     assert cmp[3:] == ["--baseline-config", S0, "--scenario-config", S1, "--run-missing"]
@@ -268,7 +290,7 @@ def test_part3_runs_in_order(tasks):
 
 def test_part3_scenario_is_s1_and_baseline_is_s0(tasks):
     cmds = commands(tasks, "part3", "--scenario", "s1.yaml", "--baseline", "s0.yaml")
-    tls, field, calib, cmp, report, _ = cmds
+    tls, field, calib, cmp, report, _ = [c for c in cmds if isinstance(c, list)]
     for cmd in (tls, field, calib, report):
         assert "s0.yaml" in cmd and "s1.yaml" not in cmd
     assert cmp[3:] == ["--baseline-config", "s0.yaml", "--scenario-config", "s1.yaml",
@@ -325,7 +347,7 @@ def test_part4_scenario_is_s2(tasks):
 def test_part3_part4_chain(tasks):
     """`tasks.py part3 part4` (the full Pitié rerun after the field visit) keeps each
     chain's own defaults."""
-    cmds = commands(tasks, "part3", "part4")
+    cmds = [c for c in commands(tasks, "part3", "part4") if isinstance(c, list)]
     assert len(cmds) == len(tasks.PART3_STEPS) + len(tasks.PART4_STEPS)
     assert cmds[0][3:] == ["--config", S0] and cmds[len(tasks.PART3_STEPS)][3:] == ["--config", S2]
 
@@ -516,6 +538,8 @@ def parse_only(monkeypatch, module_name: str, argv: list[str]) -> tuple:
     monkeypatch.setattr(sys, "argv", [module_name, *argv])
     try:
         module = importlib.import_module(module_name)
+        if not hasattr(module, "main"):  # a package: `python -m pkg` runs pkg/__main__.py
+            module = importlib.import_module(f"{module_name}.__main__")
     except ModuleNotFoundError as exc:
         if optional_dependency_missing(exc):
             pytest.skip(f"{module_name} needs {exc.name}, not installed here")
@@ -633,7 +657,7 @@ def rerun_all(tasks, root: Path, version: str, change: str | None = None) -> Non
     """Stand-in for `compare validate part4 --run-missing`: re-make every moved run
     from its backup (identical KPI rows unless it is `change`) and fix the pages."""
     backup = root / tasks.REBASELINE_DIR / "abc1234"
-    for old in backup.iterdir():
+    for old in (p for p in backup.iterdir() if p.is_dir()):  # not verify.json
         kpis = (old / "kpi_run.csv").read_text(encoding="utf-8")
         write_run(root / tasks.RESULTS / old.name, version,
                   kpis=kpis + ("y,1\n" if old.name == change else ""))  # fmt: skip
@@ -695,20 +719,24 @@ def test_rebaseline_compares_the_run_summary(tasks, results, capsys):
 def test_rebaseline_chain(tasks):
     """Move aside, re-make the published pages with every default, then compare."""
     cmds = commands(tasks, "rebaseline", "--scenario", "x.yaml", "--baseline", "y.yaml")
-    first, *middle, last = cmds
-    assert (first.name, last.name) == ("rebaseline-backup", "rebaseline-verify")
+    lock, first, *middle, last = cmds
+    assert (lock.name, first.name, last.name) == ("run-lock", "rebaseline-backup",
+                                                  "rebaseline-verify")  # fmt: skip
     expected = commands(tasks, *tasks.REBASELINE_STEPS)
-    assert middle == expected
+    assert plain(tasks, middle) == plain(tasks, expected)
+    assert plain(tasks, middle)[0] == "run-lock" and plain(tasks, middle)[2] == "run-lock"
     assert modules(middle) == ["traffic_twin.evaluation.compare",
                                "traffic_twin.validation.report", *PART4_MODULES]  # fmt: skip
-    assert all("--run-missing" in c for c in middle if "compare" in c[2] or "report" in c[2])
+    assert all("--run-missing" in c for c in modules_cmds(middle)
+               if "compare" in c[2] or "report" in c[2])  # fmt: skip
     assert "x.yaml" not in str(cmds) and "y.yaml" not in str(cmds)
 
 
 def test_steps_print_and_dry_run(tasks, capsys):
     assert tasks.main(["rebaseline", "-n"]) == 0
     out = capsys.readouterr().out.splitlines()
-    assert out[0] == "+ tasks.py:rebaseline-backup (in-process)"
+    assert out[:2] == ["+ tasks.py:run-lock (in-process)",
+                       "+ tasks.py:rebaseline-backup (in-process)"]  # fmt: skip
     assert out[-1] == "+ tasks.py:rebaseline-verify (in-process)"
     calls = []
     step = tasks.Step("probe", lambda: calls.append(1) or 4)
@@ -740,13 +768,16 @@ def test_run_stops_at_first_failure(tasks, capsys):
 def test_dry_run_runs_nothing(tasks, capsys):
     assert tasks.main(["sim", "net", "--dry-run"]) == 0
     out = capsys.readouterr().out.splitlines()
-    assert len(out) == 2 and all(line.startswith("+ ") for line in out)
+    assert len(out) == 3 and all(line.startswith("+ ") for line in out)
+    assert out[0] == "+ tasks.py:run-lock (in-process)"
 
 
 def test_part3_dry_run(tasks, capsys):
     assert tasks.main(["part3", "-n"]) == 0
     out = capsys.readouterr().out.splitlines()
-    assert len(out) == len(tasks.PART3_STEPS) and all(line.startswith("+ ") for line in out)
+    assert len(out) == len(tasks.PART3_STEPS) + 3 and all(line.startswith("+ ") for line in out)
+    # the run lock of the chain, then those of compare and validate
+    assert out[0] == out[4] == out[6] == "+ tasks.py:run-lock (in-process)"
 
 
 def test_part4_dry_run(tasks, capsys):
@@ -1606,3 +1637,456 @@ def test_part7_commands_parse_with_their_cli(tasks, rl7_tree, monkeypatch):
         if cmd[2] == "traffic_twin.rl.train":
             assert (values["seed"], values["steps"]) == (0, 400000)
             assert values["eval_pool"] == "transient"  # the original's pool
+
+
+# -- Parts 8-10 tasks (pre-registered D91-D120) -------------------------------------------------
+PREDICT, DEMO, USERTESTS, REPORT = (
+    "traffic_twin.ml.predict", "traffic_twin.demo", "traffic_twin.usertests", "traffic_twin.report",
+)  # fmt: skip
+S2_NOP, S3, S4 = (
+    "configs/pitie_rules_nopreempt.yaml", "configs/pitie_rl_s3.yaml",
+    "configs/pitie_rl_s3_nopreempt.yaml",
+)  # fmt: skip
+PARTS_8_10_MODULE_TASKS = {
+    "demo-runs8": [PREDICT, "demo", "--seeds", "4000", "--configs", S2_NOP, S3, S4],
+    "operator": ["streamlit", "run", "app.py", "--server.address", "127.0.0.1",
+                 "--server.port", "8501"],
+    "usertest-kit": [USERTESTS, "kit"],
+    "usertest-serve": [USERTESTS, "serve"],
+    "usertest-check": [USERTESTS, "check"],
+    "usertest-docs": [USERTESTS, "docs"],
+    "test-browser": ["pytest", "-q", "-m", "browser"],
+    "report-facts": [REPORT, "facts"],
+    "report": [REPORT, "report"],
+    "slides": [REPORT, "slides"],
+    "app-shots": [REPORT, "shots"],
+    "report-check": [REPORT, "check"],
+    "demo": [DEMO, "serve"],
+    "demo-check": [DEMO, "check"],
+    "demo-rehearsal": [DEMO, "rehearsal"],
+    "demo-clean": [DEMO, "clean"],
+    "demo-pack": [DEMO, "pack"],
+    "bootstrap": [DEMO, "bootstrap"],
+    "demo-readiness": [DEMO, "readiness"],
+}  # fmt: skip
+
+
+def test_parts_8_10_task_defaults(tasks):
+    got = {name: [c[2:] for c in commands(tasks, name)] for name in PARTS_8_10_MODULE_TASKS}
+    assert got == {name: [cmd] for name, cmd in PARTS_8_10_MODULE_TASKS.items()}
+    for name in ("part8-guard", "rebaseline-verify"):
+        ((step,),) = [commands(tasks, name)]
+        assert isinstance(step, tasks.Step) and step.name == name
+
+
+def test_part8_chain(tasks):
+    """D97: the guard, then `rebaseline` with every default (move aside, `compare validate
+    part4` re-make the 70 runs and make the 40 S3 / S4 runs, verify), the figures and the
+    provenance check. No option of tasks.py reaches it."""
+    assert tasks.PART8_STEPS == ("part8-guard", "rebaseline", "plots-eval", "provenance")
+    cmds = commands(tasks, "part8")
+    names = [c.name if isinstance(c, tasks.Step) else c[2] for c in cmds]
+    assert names == [
+        "part8-guard", "run-lock", "rebaseline-backup", "run-lock",
+        "traffic_twin.evaluation.compare",
+        "run-lock", "traffic_twin.validation.report", *PART4_MODULES, "rebaseline-verify",
+        "traffic_twin.viz.evaluation", "provenance",
+    ]  # fmt: skip
+    rebaseline = [c for c in commands(tasks, "rebaseline") if not isinstance(c, tasks.Step)]
+    assert [c for c in cmds if not isinstance(c, tasks.Step)][:-1] == rebaseline
+    other = commands(tasks, "part8", "--scenario", "x.yaml", "--baseline", "y.yaml", "--seeds",
+                     "1", "--config", "c.yaml", "--fixtures", "--record")  # fmt: skip
+    assert plain(tasks, other) == plain(tasks, cmds)
+    (ev,) = [c for c in cmds if not isinstance(c, tasks.Step) and c[2].endswith(".evaluate")]
+    assert ev == commands(tasks, "evaluate")[0] and "--run-missing" in ev
+
+
+def test_part8_dry_run(tasks, capsys):
+    assert tasks.main(["part8", "-n"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[0] == "+ tasks.py:part8-guard (in-process)"
+    assert out[-1] == "+ tasks.py:provenance (in-process)"
+    assert len(out) == len(commands(tasks, "part8"))
+
+
+def test_part9_part10_chains(tasks):
+    assert tasks.PART9_STEPS == ("demo-runs8", "api-bench", "usertest-check", "usertest-docs")
+    assert tasks.PART10_STEPS == ("report-facts", "app-shots", "report", "slides", "demo-pack",
+                                  "demo-rehearsal")  # fmt: skip
+    for chain, steps in (("part9", tasks.PART9_STEPS), ("part10", tasks.PART10_STEPS)):
+        assert commands(tasks, chain) == [c for t in steps for c in commands(tasks, t)], chain
+    # the rehearsal options reach the chain's rehearsal only
+    *_, rehearsal = commands(tasks, "part10", "--fixtures", "--no-browser")
+    assert rehearsal[3:] == ["rehearsal", "--fixtures", "--no-browser"]
+
+
+def test_parts_9_10_options_reach_only_their_tasks(tasks):
+    (cmd,) = commands(tasks, "demo-rehearsal", "--fixtures", "--no-browser", "--record")
+    assert cmd[3:] == ["rehearsal", "--fixtures", "--no-browser", "--record"]
+    for name, sub in (("demo", "serve"), ("demo-check", "check")):
+        (cmd,) = commands(tasks, name, "--no-browser", "--fixtures", "--record")
+        assert cmd[3:] == [sub, "--no-browser"], name
+    (kit,) = commands(tasks, "usertest-kit", "--allow-pending-s3", "--allow-dirty")
+    assert kit[3:] == ["kit", "--allow-pending-s3"]
+    (serve,) = commands(tasks, "usertest-serve", "--allow-dirty", "--allow-pending-s3")
+    assert serve[3:] == ["serve", "--allow-dirty"]
+    flags = ["--fixtures", "--no-browser", "--record", "--allow-pending-s3", "--allow-dirty"]
+    untouched = ("usertest-check", "usertest-docs", "demo-clean", "demo-pack", "bootstrap",
+                 "demo-readiness", "report-facts", "report", "slides", "app-shots", "demo-runs8",
+                 "operator", "part9", "evaluate", "sim")  # fmt: skip
+    for name in untouched:
+        assert plain(tasks, commands(tasks, name, *flags)) == plain(tasks, commands(tasks, name))
+
+
+def test_makefile_passes_the_parts_9_10_options():
+    """`make demo-rehearsal FIXTURES=1 NO_BROWSER=1 RECORD=1`, `make usertest-kit
+    ALLOW_PENDING_S3=1` and `make usertest-serve ALLOW_DIRTY=1` reach the module options;
+    `make sim`, `sim-gui` and `baseline` go through tasks.py for the run lock."""
+    rules = makefile_rules()
+    (line,) = rules["demo-rehearsal"][1]
+    for var, flag in (("FIXTURES", "--fixtures"), ("NO_BROWSER", "--no-browser"),
+                      ("RECORD", "--record")):  # fmt: skip
+        assert f"$(if $({var}), {flag})" in line, var
+    for target in ("demo", "demo-check"):
+        (line,) = rules[target][1]
+        assert line.endswith("$(if $(NO_BROWSER), --no-browser)"), target
+    (line,) = rules["usertest-kit"][1]
+    assert line.endswith("$(if $(ALLOW_PENDING_S3), --allow-pending-s3)")
+    (line,) = rules["usertest-serve"][1]
+    assert line.endswith("$(if $(ALLOW_DIRTY), --allow-dirty)")
+    for target in ("sim", "sim-gui", "baseline"):
+        (line,) = rules[target][1]
+        assert line.startswith(f"$(PY) tasks.py {target}$(if $(SCENARIO), --scenario $(SCENARIO))")
+        assert line.endswith("$(if $(SEEDS), --seeds $(SEEDS))"), target
+
+
+def test_parts_8_10_constants_are_the_configs_and_paths(tasks):
+    """tasks.py's Part 8-9 configs are those configs/evaluation.yaml registers (S2_noP, S3,
+    S4 of the main family) and paths.py names; the demo seeds are api.yaml's; the Operator
+    address is that of .streamlit/config.toml (and configs/demo.yaml once it exists); the
+    registration key is the one `evaluate.registration_commit` looks for."""
+    import yaml
+
+    from traffic_twin import paths
+    from traffic_twin.evaluation import evaluate
+
+    ecfg = yaml.safe_load((ROOT / EVAL).read_text(encoding="utf-8"))
+    main = ecfg["families"]["main"]["scenarios"]
+    assert tasks.DEMO_RUNS8_CONFIGS == (main["S2_noP"], main["S3"], main["S4"])
+    assert Path(tasks.PITIE_S4) == paths.PITIE_RL_S4_CONFIG and Path(tasks.PITIE_RL_S3) == Path(S3)
+    assert all((ROOT / c).is_file() for c in tasks.DEMO_RUNS8_CONFIGS)
+    assert tasks.REGISTRATION_KEY in ecfg and tasks.REGISTRATION_KEY == "a06"
+    assert '"a06:"' in Path(evaluate.__file__).read_text(encoding="utf-8")
+    assert Path(tasks.EVAL_PROVENANCE).parent == paths.EVAL_DIR
+    assert tasks.RESULTS == paths.RESULTS_DIR
+    api = yaml.safe_load((ROOT / "configs/api.yaml").read_text(encoding="utf-8"))
+    lo, hi = api["seeds"]["demo"]
+    assert all(lo <= int(s) <= hi for s in tasks.DEMO_SEEDS)  # never an evaluation seed (D101)
+    server = tomllib.loads((ROOT / ".streamlit/config.toml").read_text(encoding="utf-8"))["server"]
+    assert (server["address"], str(server["port"])) == (tasks.OPERATOR_HOST, tasks.OPERATOR_PORT)
+    assert (ROOT / tasks.OPERATOR_SCRIPT).is_file()
+    demo = ROOT / "configs/demo.yaml"  # WS7 (D116)
+    if demo.is_file():
+        d = yaml.safe_load(demo.read_text(encoding="utf-8"))
+        assert (d["api"]["host"], str(d["api"]["port"])) == (tasks.API_HOST, tasks.API_PORT)
+        assert (d["operator"]["host"], str(d["operator"]["port"])) == (
+            tasks.OPERATOR_HOST, tasks.OPERATOR_PORT,
+        )  # fmt: skip
+        assert d["operator"]["script"] == tasks.OPERATOR_SCRIPT
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8").split()
+    for ignored in ("data/demo_check/*", "data/report/*", "data/exports/*", "last_dom.html"):
+        assert ignored in gitignore, ignored  # a stray file there would dirty every I2 run
+
+
+PARTS_8_10_CLI = [
+    ("demo-runs8", ()), ("usertest-kit", ()), ("usertest-kit", ("--allow-pending-s3",)),
+    ("usertest-serve", ()), ("usertest-serve", ("--allow-dirty",)), ("usertest-check", ()),
+    ("usertest-docs", ()), ("report-facts", ()), ("report", ()), ("slides", ()),
+    ("app-shots", ()), ("report-check", ()), ("demo", ()), ("demo", ("--no-browser",)),
+    ("demo-check", ()), ("demo-check", ("--no-browser",)), ("demo-rehearsal", ()),
+    ("demo-rehearsal", ("--fixtures", "--no-browser", "--record")), ("demo-clean", ()),
+    ("demo-pack", ()), ("bootstrap", ()), ("demo-readiness", ()),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(("name", "flags"), PARTS_8_10_CLI)
+def test_parts_8_10_commands_parse_with_their_cli(tasks, monkeypatch, name, flags):
+    """Every argument a Parts 8-10 task passes, with each of its options, is one the
+    module's own parser accepts (parsed only, nothing runs): the contract between tasks.py
+    and the usertests, report and demo CLIs."""
+    (cmd,) = commands(tasks, name, *flags)
+    namespace, extra = parse_only(monkeypatch, cmd[2], cmd[3:])
+    assert extra == [], f"{name}: {cmd[2]} does not accept {extra}"
+    values = vars(namespace)
+    if "--seeds" in cmd:
+        assert [int(s) for s in values["seeds"]] == [4000]
+        assert [Path(c) for c in values["configs"]] == [Path(c) for c in tasks.DEMO_RUNS8_CONFIGS]
+
+
+# The packages the Parts 9-10 tasks run (Phase 0 stubs until their workstreams land)
+TASK_PACKAGES = ("demo", "usertests", "report")
+STUB_MARKERS = ("raise NotImplementedError", "not implemented yet", "Phase 0 stub")
+
+
+def test_task_packages_have_no_stub_left():
+    """Phase 2 gate ("no stubs left"): no module of the packages the Parts 9-10 tasks call
+    still raises NotImplementedError or answers "not implemented yet"."""
+    left = [
+        f"{path.relative_to(ROOT).as_posix()}: {marker!r}"
+        for pkg in TASK_PACKAGES
+        for path in sorted((ROOT / "src/traffic_twin" / pkg).glob("*.py"))
+        for marker in STUB_MARKERS
+        if marker in path.read_text(encoding="utf-8")
+    ]
+    assert not left, "stubs left: " + "; ".join(left)
+
+
+# -- Part 8 guard and verify.json (D92, D97) ------------------------------------------------------
+REGISTERED = """\
+seeds: {evaluation: [1, 2]}
+families:
+  main: {scenarios: {S0: configs/pitie_fixed.yaml, S2: configs/pitie_rules.yaml,
+                     S3: configs/pitie_rl_s3.yaml}}
+  probe: {scenarios: {S0: configs/pitie_amb_fixed.yaml}}
+a06:   # Part 8
+  candidate: S3
+"""
+
+
+@pytest.fixture
+def part8_repo(tasks, results, monkeypatch):
+    """The fake repo of `results` (provenance of pitie_fixed, pitie_rules, pitie_amb_fixed
+    on seeds 1-2), with `git show HEAD:configs/evaluation.yaml` answering `head["text"]`."""
+    root, head = results
+    head["text"] = REGISTERED
+    calls = []
+
+    def git(*args):
+        calls.append(args)
+        if args[0] == "show":
+            return head["text"]
+        return "abc1234 2026-10-23T12:00:00+02:00\n" if "a06:" in head["text"] else ""
+
+    monkeypatch.setattr(tasks, "_git", git)
+    return root, head, calls
+
+
+def test_part8_guard_accepts_the_clean_registration_commit(tasks, part8_repo, capsys):
+    _, _, calls = part8_repo
+    assert tasks.part8_guard() == 0
+    assert "registration committed (abc1234 2026-10-23T12:00:00+02:00)" in capsys.readouterr().out
+    assert calls[0] == ("show", "HEAD:configs/evaluation.yaml")
+
+
+@pytest.mark.parametrize(
+    "case", ["dirty", "no_a06", "comment_only", "ran", "early_s3", "no_provenance"]
+)
+def test_part8_guard_refuses(tasks, part8_repo, capsys, case):
+    root, head, _ = part8_repo
+    expected = {
+        "dirty": "uncommitted changes",
+        "no_a06": "has no `a06` block",
+        "comment_only": "has no `a06` block",
+        "ran": "part8 (its rebaseline) already ran from abc1234",
+        "early_s3": "data/results/pitie_rl_s3_seed2): only part8 makes them",
+        "no_provenance": "the Part 4 evaluation is missing",
+    }[case]
+    if case == "dirty":
+        head["value"] = ("abc1234", True)
+    elif case == "no_a06":
+        head["text"] = REGISTERED.split("a06:")[0]
+    elif case == "comment_only":  # the comment naming the Part 8 keys is not the block
+        head["text"] = REGISTERED.split("a06:")[0] + "# ... a06, final_table, part8 ...\n"
+    elif case == "ran":
+        (root / tasks.REBASELINE_DIR / "abc1234").mkdir(parents=True)
+    elif case == "early_s3":
+        write_run(root / "data/results/pitie_rl_s3_seed2", "abc1234-dirty", kpis="kpi\n")
+        write_run(root / "data/results/pitie_rl_s3_seed4000", "abc1234-dirty", kpis="kpi\n")
+    else:
+        (root / tasks.EVAL_PROVENANCE).unlink()
+    assert tasks.part8_guard() == 1
+    err = capsys.readouterr().err
+    assert expected in err, err
+    if case == "early_s3":
+        assert "seed4000" not in err  # demo seeds are not evaluation seeds
+
+
+def test_part8_guard_ignores_runs_of_already_evaluated_scenarios(tasks, part8_repo):
+    """The S0-S2 runs on the evaluation seeds exist (the rebaseline re-makes them): only
+    the scenarios the last evaluation did not run must have no run yet."""
+    import yaml
+
+    root, _, _ = part8_repo
+    assert (root / "data/results/pitie_fixed_seed1/run.json").is_file()
+    assert tasks.part8_new_runs(yaml.safe_load(REGISTERED)) == []
+    assert tasks.part8_guard() == 0
+
+
+def test_rebaseline_verify_writes_the_a01_evidence(tasks, results, capsys):
+    root, _ = results
+    verify = root / tasks.REBASELINE_DIR / "abc1234" / tasks.VERIFY_FILE
+    assert tasks.rebaseline_backup() == 0
+    rerun_all(tasks, root, "abc1234", change="pitie_rules_seed2")
+    assert tasks.rebaseline_verify() == 1
+    assert json.loads(verify.read_text(encoding="utf-8")) == {
+        "head": "abc1234", "identical": 5, "of": 6,
+        "differing": [{"run": "pitie_rules_seed2", "what": ["kpi_run.csv differs"]}],
+    }  # fmt: skip
+    rerun_all(tasks, root, "abc1234")
+    assert tasks.rebaseline_verify() == 0
+    assert json.loads(verify.read_text(encoding="utf-8")) == {
+        "head": "abc1234", "identical": 6, "of": 6, "differing": [],
+    }  # fmt: skip
+    out = capsys.readouterr().out
+    assert "rebaseline: report data/results/_rebaseline/abc1234/verify.json" in out
+
+
+def test_rebaseline_verify_without_a_backup_writes_nothing(tasks, results, capsys):
+    root, _ = results
+    tasks.rebaseline_verify()
+    assert not (root / tasks.REBASELINE_DIR).exists()  # rebaseline-backup keeps its own check
+    assert "no verify.json written" in capsys.readouterr().out
+
+
+# -- the D92 run lock of `sim` --------------------------------------------------------------------
+@pytest.fixture
+def evaluate_state(monkeypatch):
+    """traffic_twin.evaluation.evaluate with git answering a dirty tree and no
+    registration commit; the returned dict switches them."""
+    evaluate = pytest.importorskip("traffic_twin.evaluation.evaluate")
+    state = {"dirty": True, "registered": False}
+    monkeypatch.setattr(evaluate, "git_head", lambda: ("abc1234", state["dirty"]))
+    commit = {"commit": "abc1234", "committed_at": "2026-10-23T12:00:00+02:00"}
+    monkeypatch.setattr(
+        evaluate, "registration_commit", lambda path=None: commit if state["registered"] else None
+    )
+    return state
+
+
+def test_sim_run_lock_refuses_an_evaluation_run_before_the_registration(
+    tasks, evaluate_state, capsys
+):
+    assert tasks.sim_run_lock(S3, ["3", "4000"]) == 2
+    err = capsys.readouterr().err
+    assert "run lock: refusing 1 run(s)" in err and "pitie_rl_s3 seed 3" in err
+    assert tasks.sim_run_lock("configs/pitie_fixed.yaml", ["10"]) == 2  # would overwrite S0
+    evaluate_state.update(dirty=False, registered=True)  # the clean registration commit
+    assert tasks.sim_run_lock(S3, ["3"]) == 0
+
+
+@pytest.mark.parametrize(
+    ("scenario", "seeds"),
+    [(GRID, ["1", "2", "3"]), (S3, ["4000"]), ("configs/pitie_rl.yaml", ["1"]),
+     ("configs/missing.yaml", ["1"])],
+)  # fmt: skip
+def test_sim_run_lock_passes_other_scenarios_and_seeds(tasks, evaluate_state, scenario, seeds):
+    """The grid on its seeds 1-3, the demo seed, an unregistered Pitie config, and a config
+    run_scenario rejects itself."""
+    assert tasks.sim_run_lock(scenario, seeds) == 0
+
+
+def test_sim_launches_nothing_when_the_lock_refuses(tasks, evaluate_state, monkeypatch, capsys):
+    launched = []
+    monkeypatch.setattr(tasks.subprocess, "call", lambda cmd, **kw: launched.append(cmd) or 0)
+    assert tasks.main(["sim", "--scenario", S4, "--seeds", "1"]) == 2
+    assert launched == []
+    assert "run lock" in capsys.readouterr().err
+    assert tasks.main(["sim-gui", "--scenario", S4, "--seeds", "4001"]) == 0
+    assert [c[2] for c in launched] == ["traffic_twin.sim.run_scenario"]
+
+
+# -- the D92 run lock of `compare`, `validate`, `part3` and `rebaseline` ----------------------
+@pytest.fixture
+def run_folders(tmp_path, monkeypatch):
+    """runs.* as the lock reads them, on tmp folders: a run exists (complete) when its
+    `<scenario>_seed<n>` name is in the returned `fresh` set, and is stale when it is in
+    `stale` too. The results folder the lock checks stays data/results."""
+    runs = pytest.importorskip("traffic_twin.evaluation.runs")
+    state: dict[str, set[str]] = {"fresh": set(), "stale": set()}
+    monkeypatch.setattr(runs, "run_path", lambda results, sc, sd: tmp_path / f"{sc}_seed{sd}")
+    monkeypatch.setattr(runs, "is_complete", lambda d: d.name in state["fresh"])
+    monkeypatch.setattr(runs, "read_meta", lambda d: {"name": d.name})
+    monkeypatch.setattr(runs, "expected_hashes", lambda cfg: {})
+    monkeypatch.setattr(
+        runs, "stale_reason",
+        lambda meta, expected, mkv=None: "stale" if meta["name"] in state["stale"] else None,
+    )  # fmt: skip
+    return state
+
+
+def all_runs(scenario: str) -> set[str]:
+    return {f"{scenario}_seed{s}" for s in range(1, 11)}
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [["compare", "--scenario", S3], ["part3", "--scenario", S3], ["validate", "--scenario", S3],
+     ["compare", "--scenario", S4], ["compare"], ["rebaseline"]],
+)  # fmt: skip
+@pytest.mark.parametrize("why", ["dirty", "unregistered"])
+def test_missing_runs_on_seeds_1_10_launch_nothing_before_the_registration(
+    tasks, evaluate_state, run_folders, monkeypatch, capsys, argv, why
+):
+    """compare.py and validation/report.py (frozen) run the missing seeds 1-10 into
+    data/results with no lock of their own: the tasks refuse them, exit 2, and launch
+    nothing (part3 before its calibration loop, rebaseline before moving any run)."""
+    if why == "unregistered":
+        evaluate_state.update(dirty=False)  # a clean tree, but no commit adds a06: yet
+    launched, moved = [], []
+    monkeypatch.setattr(tasks.subprocess, "call", lambda cmd, **kw: launched.append(cmd) or 0)
+    monkeypatch.setattr(tasks, "rebaseline_backup", lambda: moved.append(1) or 0)
+    run_folders["fresh"] |= all_runs("pitie_fixed")  # only S1 (default) or S3 / S4 missing
+    assert tasks.main(argv) == 2
+    assert launched == [] and moved == []
+    err = capsys.readouterr().err
+    assert "run lock: refusing" in err and "nothing was launched" in err
+
+
+def test_missing_run_lock_names_the_runs_compare_would_make(tasks, evaluate_state, run_folders,
+                                                            capsys):  # fmt: skip
+    """Only the absent and the stale runs count; fresh runs launch nothing, so re-making a
+    page from them works on a dirty tree; after the registration commit everything passes."""
+    run_folders["fresh"] |= all_runs("pitie_fixed") | all_runs("pitie_rl_s3")
+    assert tasks.missing_run_lock([S0, S3], S0) == 0  # every run is there and fresh
+    run_folders["stale"] |= {"pitie_rl_s3_seed4"}
+    assert tasks.missing_run_lock([S0, S3], S0) == 2
+    assert "refusing 1 run(s)" in capsys.readouterr().err  # the stale S3 seed 4 only
+    run_folders["fresh"] -= {"pitie_fixed_seed10"}
+    assert tasks.missing_run_lock([S0], S0) == 2  # S0 too: every controller (D92)
+    assert "pitie_fixed seed 10" in capsys.readouterr().err
+    assert tasks.missing_run_lock([S0], S0, every=True) == 2  # rebaseline: all of them
+    assert "refusing 10 run(s)" in capsys.readouterr().err
+    evaluate_state.update(dirty=False, registered=True)  # the clean registration commit
+    assert tasks.missing_run_lock([S0, S3], S0, every=True) == 0
+    assert tasks.missing_run_lock(["configs/missing.yaml"], S0) == 0  # compare reports it
+
+
+def test_compare_validate_part3_run_after_the_lock(tasks, evaluate_state, run_folders,
+                                                   monkeypatch):  # fmt: skip
+    """With fresh runs (nothing to launch) the dirty tree passes and the modules run."""
+    launched = []
+    monkeypatch.setattr(tasks.subprocess, "call", lambda cmd, **kw: launched.append(cmd) or 0)
+    run_folders["fresh"] |= all_runs("pitie_fixed") | all_runs("pitie_actuated")
+    assert tasks.main(["compare", "validate"]) == 0
+    assert modules(launched) == ["traffic_twin.evaluation.compare",
+                                 "traffic_twin.validation.report"]  # fmt: skip
+    launched.clear()
+    assert tasks.main(["part3"]) == 0
+    assert modules(launched) == modules(commands(tasks, "part3"))
+
+
+def test_ci_runs_the_parts_9_10_checks(tasks):
+    """D118: CI installs the `app` and `report` extras, runs the suite without the
+    headless-browser tests, then the fixtures rehearsal through tasks.py (no real data, no
+    SUMO, no browser), with options the task really passes."""
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    (ci_extras,) = re.findall(r'pip install -e "\.\[([\w,]+)\]"', ci)
+    assert {"dev", "sim", "api", "rl", "app", "report"} <= set(ci_extras.split(","))
+    runs = re.findall(r"^\s+run: (python .*)$", ci, re.M)
+    assert 'python -m pytest -q -m "not browser"' in runs
+    (rehearsal,) = [r for r in runs if "tasks.py" in r]
+    argv = shlex.split(rehearsal)[2:]
+    assert argv == ["demo-rehearsal", "--fixtures", "--no-browser"]
+    (cmd,) = commands(tasks, *argv)
+    assert cmd[2:] == [DEMO, "rehearsal", "--fixtures", "--no-browser"]
+    assert runs.index(rehearsal) > runs.index('python -m pytest -q -m "not browser"')

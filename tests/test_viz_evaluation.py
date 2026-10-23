@@ -1,5 +1,5 @@
-"""Part 4 evaluation figures render from the outputs of `evaluation.evaluate` on
-synthetic runs (no SUMO), and the CLI writes all five."""
+"""Parts 4 and 8 evaluation figures render from the outputs of `evaluation.evaluate` on
+synthetic runs (no SUMO), and the CLI writes all six (the A-06 forest from a06.json)."""
 
 from __future__ import annotations
 
@@ -14,11 +14,14 @@ from test_evaluate import synthetic_setup  # noqa: E402
 from traffic_twin.evaluation.evaluate import load_evaluation  # noqa: E402
 from traffic_twin.evaluation.evaluate import main as evaluate_main  # noqa: E402
 from traffic_twin.viz.evaluation import (  # noqa: E402
+    A06_FIGURE,
     FIGURES,
+    OVERVIEW_LABELS,
     colors_for,
     label_order,
     main,
     make_figures,
+    plot_a06_forest,
     plot_equity_heatmap,
     read_family,
 )
@@ -61,11 +64,43 @@ def test_colours_follow_the_scenario_not_the_panel(evaluated):
     ecfg = load_evaluation(config)
     main_fam = read_family(out, "main")
     probe = read_family(out, "ambulance_probe")
-    assert label_order(ecfg["families"]["ambulance_probe"]) == ["S0", "S2_noP", "S2"]
+    # each ablation reads just before its full scenario (D99): S2_noP -> S2, S4 -> S3
+    assert label_order(ecfg["families"]["main"]) == ["S0", "S1", "S2_noP", "S2", "S4", "S3"]
+    assert label_order(ecfg["families"]["ambulance_probe"]) == ["S0", "S2_noP", "S2", "S4", "S3"]
+    from_kpis = dict(zip(main_fam["kpis"]["label"], main_fam["kpis"]["controller"], strict=True))
+    assert label_order(ecfg["families"]["main"], from_kpis) == label_order(ecfg["families"]["main"])
+    part4 = {"S0", "S2", "S2_noP"}  # the Part 4 probe family keeps its order
+    probe_cfg = dict(ecfg["families"]["ambulance_probe"])
+    probe_cfg["scenarios"] = {k: v for k, v in probe_cfg["scenarios"].items() if k in part4}
+    probe_cfg["pairs"] = [p for p in probe_cfg["pairs"] if {p["a"], p["b"]} <= part4]
+    assert label_order(probe_cfg) == ["S0", "S2_noP", "S2"]
+    assert label_order(probe_cfg, {}) == ["S0", "S2_noP", "S2"]  # from the configs
     for kp in (main_fam["kpis"], probe["kpis"]):
         c = colors_for(kp)
         assert c["S0"] == CONTROLLER_COLORS["fixed"] and c["S2"] == CONTROLLER_COLORS["rules"]
         assert c["S2_noP"] == MUTED  # the ablation, in every figure
+        assert c["S3"] == CONTROLLER_COLORS["rl"] and c["S4"] == MUTED  # S4: S3's ablation
+    assert OVERVIEW_LABELS == ("S0", "S1", "S2", "S3")
+
+
+def test_a06_forest_renders_and_needs_a06_json(evaluated, tmp_path):
+    import json
+
+    config, out = evaluated
+    a06 = json.loads((out / "a06.json").read_text(encoding="utf-8"))
+    _check_png(plot_a06_forest(a06, tmp_path / "forest.png"))
+    invalid = {**a06, "status": "INVALID", "comparisons": [
+        {**a06["comparisons"][0], "p": None, "p_holm": None, "hl": None, "ci_low": None,
+         "ci_high": None, "n": 0},
+    ]}  # fmt: skip
+    _check_png(plot_a06_forest(invalid, tmp_path / "invalid.png"))
+    part4 = tmp_path / "part4"  # a Part 4 evaluation: no a06.json, no forest
+    import shutil
+
+    shutil.copytree(out, part4)
+    (part4 / "a06.json").unlink()
+    paths = make_figures(load_evaluation(config), part4, tmp_path / "fig4")
+    assert A06_FIGURE not in [p.name for p in paths] and len(paths) == len(FIGURES) - 1
 
 
 def test_heatmap_renders_rates_in_pp(tmp_path):

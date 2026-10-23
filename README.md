@@ -10,8 +10,11 @@ The intersection is **Bd de l'Hôpital x Bd Saint-Marcel**, next to the Pitié-S
 hospital (Paris 13e, sensor node 302). The provisional grid intersection of Part 2 is kept as a
 frozen regression scenario.
 
-Storage is **Supabase**: the spec's tables (section 9.1) live in Postgres, and large raw
-simulation logs go to the private Storage bucket `sim-logs` as Parquet.
+Storage is **local**: every run, evaluation and model output is a file under `data/`,
+and the API reads those files (DuckDB). **Supabase is an optional mirror**: the tasks
+`db-load` and `db-runs` copy the sensor rows and finished runs into the spec's tables
+(section 9.1) in Postgres and the raw simulation logs into the private Storage bucket
+`sim-logs` as Parquet; no other task and no test needs it.
 
 Developer guide (module map, data flow, controller contract, invariants):
 [docs/architecture.md](docs/architecture.md). Simulation vs reality validation:
@@ -20,7 +23,9 @@ Developer guide (module map, data flow, controller contract, invariants):
 [docs/eta.md](docs/eta.md). API v1: [docs/api.md](docs/api.md). RL environment and first
 trainings: [docs/rl.md](docs/rl.md). Full RL training, tuning and weight sensitivity:
 [docs/rl_training.md](docs/rl_training.md). Site visit checklist:
-[docs/field_protocol.md](docs/field_protocol.md).
+[docs/field_protocol.md](docs/field_protocol.md). Parts 8-10 (final evaluation, app and
+user tests, report and demo): [Part 8](#final-evaluation-of-s0-to-s4-part-8),
+[Part 9](#app-replay-and-user-tests-part-9), [Part 10](#report-slides-and-demo-part-10).
 
 ## Roadmap
 
@@ -69,13 +74,15 @@ Windows (PowerShell):
 cd C:\path\to\urban-traffic-twin
 python -m venv .venv
 .venv\Scripts\activate                     # or call .venv\Scripts\python.exe directly
-python tasks.py install                    # CPU torch, then pip install -e .[dev,db,sim,ml,api,rl]
+python tasks.py install                    # CPU torch, then pip install -e .[dev,db,sim,ml,api,rl,app,report]
 python tasks.py baseline                   # grid: net + sim (seeds 1 2 3) + plots
 python tasks.py part3                      # Pitié: checks, calibration, S0 vs S1, validation
 python tasks.py part4                      # Pitié: S0 vs S1 vs S2 evaluation (Part 4)
 python tasks.py part5                      # ETA dataset, model, A-07, demo runs, API latency
 python tasks.py part6                      # RL episode timing, first trainings, evaluation
 python tasks.py part7                      # RL Part 7: campaign, S3 selection, sensitivity (hours)
+python tasks.py part8                      # once, on the registration commit: S0-S4 on seeds 1-10
+python tasks.py demo                       # API + Streamlit Operator for the demo (Ctrl+C stops)
 python tasks.py check                      # lint + tests, what CI runs
 ```
 
@@ -102,13 +109,15 @@ Main tasks (`python tasks.py --help` lists them all; `-n` prints the commands wi
 running them; several tasks run in order, e.g. `tasks.py net sim plots`). The Part 3 tasks
 are listed in [Pitié-Salpêtrière junction](#pitié-salpêtrière-junction-part-3), the Part 4
 ones in [Part 4 tasks](#part-4-tasks), the Part 5 and 6 ones in [Part 5 tasks](#part-5-tasks)
-and [Part 6 tasks](#part-6-tasks), the Part 7 ones in [Part 7 tasks](#part-7-tasks).
+and [Part 6 tasks](#part-6-tasks), the Part 7 ones in [Part 7 tasks](#part-7-tasks), and
+the Parts 8-10 ones in [Part 8 tasks](#part-8-tasks), [Part 9 tasks](#part-9-tasks) and
+[Part 10 tasks](#part-10-tasks).
 
 | Task | What it does |
 | --- | --- |
 | `data`, `explore`, `score` | Part 1: download and clean sensors, plot profiles, rank candidates |
 | `net` | build the SUMO network of `--scenario` with netconvert (default: the grid) |
-| `sim --seeds 1 2 3` | run `--scenario` (default `configs/scenario_base.yaml`) headless, one run per seed |
+| `sim --seeds 1 2 3` | run `--scenario` (default `configs/scenario_base.yaml`) headless, one run per seed; an evaluation scenario on seeds 1-10 is refused before the Part 8 registration commit (run lock) |
 | `sim-gui` | the same scenario in sumo-gui (first seed) |
 | `plots` | KPI figures from `data/results/` into `docs/figures/` |
 | `baseline` | `net` + `sim` + `plots` |
@@ -635,7 +644,7 @@ preemption may skip a stage.
 ### Evaluation method (spec 13.2, 13.3)
 
 `tasks.py evaluate` follows `configs/evaluation.yaml`, pre-registered on 2026-10-12 before
-any S2 run on the evaluation seeds (6 dated changes since, recorded in
+any S2 run on the evaluation seeds (9 dated changes since, recorded in
 [docs/evaluation.md](docs/evaluation.md)):
 
 - **Pairs:** S0-S1 (reproduces Part 3), S0-S2 and S1-S2 (confirmatory), S2_noP-S2
@@ -1188,7 +1197,9 @@ RL - S1 is the paired mean difference):
   exploratory only. The spec 10.6 fallback is not triggered by these numbers, since RL
   beats S1 here, but it is not settled either. The rules (S2) stay the reference
   solution until the Part 7 trainings and A-06 on seeds 1-10 (Part 8) decide; if RL does
-  not beat S1 there, S2 is the main solution and RL is reported as a study.
+  not beat S1 there, S2 is the main solution and RL is reported as a study. (Since the
+  Part 7 interim FALLBACK, S2 is the main solution whatever A-06 gives: see
+  ["Binding" in Part 8](#pre-registration-d91-d101).)
 
 ### Safety and the ambulance
 
@@ -1287,7 +1298,9 @@ registered. Every table, the learning curves and the figures are in the generate
 episodes on the ASSUMED signal program and the calibrated demand, so every Part 7 result
 is provisional until the field visit; `part7` is rerun after it (D90). The verdict on the
 development-test seeds is interim and exploratory (10 seeds): the binding comparison of
-S3 with S0, S1 and S2 is A-06 on seeds 1-10, in Part 8.
+S3 with S0, S1 and S2 is A-06 on seeds 1-10, in Part 8 ("binding" as redefined on
+2026-10-23: the confirmatory test of record, presented whatever its direction, which does
+not reopen the choice of S2; see [Part 8](#pre-registration-d91-d101)).
 
 ### Pre-registration (D68-D90)
 
@@ -1483,7 +1496,8 @@ As computed by `rl.study devtest` in `data/rl7/devtest/verdict.json`:
   `reproduce7` gives. Spec 10.6 applies: RL does not beat the actuated baseline on the
   pre-registered criteria, so the rules (S2) become the main solution and RL is
   reported as a study. Part 8 still runs S3 as registered; A-06 on seeds 1-10 stays the
-  binding comparison.
+  binding comparison, in the sense of the dated change of 2026-10-23 (the test of record,
+  which does not reopen the choice of S2; see [Part 8](#pre-registration-d91-d101)).
 - The failure is the pedestrian cost. On cars, buses, the ambulance and the
   person-weighted delay S3 is better than S1, but its pedestrians wait 1.2 s longer at
   the curb on average. S3 does not observe pedestrians (`v1`). Whether a policy that
@@ -1604,6 +1618,231 @@ steps and schedules (D82). The rerun is launched as the campaign launched the or
 with the OMP_/MKL_/OPENBLAS_ variables and the validation pool its provenance records
 (the campaign gives every learner `OPENBLAS_NUM_THREADS=1`), which the comparison checks.
 
+## Final evaluation of S0 to S4 (Part 8)
+
+**Results pending.** S3 and S4 have not run on the evaluation seeds 1-10 yet: they run
+once, with `tasks.py part8`, on the registration commit (the first commit that adds the
+`a06` block to `configs/evaluation.yaml`). Until then this section describes the
+pre-registered protocol only, the final comparison table and A-06 do not exist, and no S3
+or S4 number for seeds 1-10 is published anywhere (the Part 7 numbers above are the
+development-test seeds).
+
+Part 8 adds the selected RL policy S3 (Part 7) and S4, the same policy with emergency
+preemption off, to the pre-registered evaluation of Part 4, tests S3 against the three
+baselines (A-06), repeats the spec 10.6 check of Part 7 on seeds 1-10 and writes the final
+comparison table of spec S8. S2 stays the main solution whatever the result (Part 7
+FALLBACK). Decision numbers D91-D120 refer to
+[Parts 8-10 decisions](docs/architecture.md#parts-8-10-decisions).
+
+**Provisional until the field visit.** Like every earlier part, the Part 8 results will
+rest on simulated runs on the ASSUMED signal program (cycle 123 s) and the calibrated
+demand, with the signal timing and the queues NOT_MEASURED (spec 13.4): they are
+provisional until the field visit, after which `part8` is rerun with the unchanged S3
+model (D119).
+
+### Pre-registration (D91-D101)
+
+- **Registered before any S3 or S4 run on seeds 1-10.** `configs/evaluation.yaml` (9
+  dated changes since its 2026-10-12 pre-registration) gained the Part 8 keys in three
+  dated changes of 2026-10-23: the S3 / S4 scenarios with their pairs and A-05 tests, the
+  `a06` rule with the final-table layout, and the Part 8 seed records. `evaluate`
+  records the registration commit and whether the first S3 run started after it.
+- **Disclosure: one early S3 look.** After the Part 8 keys were written and before the
+  registration commit, a gate check called `traffic_twin.evaluation.compare
+  --run-missing` directly, outside the run lock, and ran S3 on seeds 1-10 (2026-10-23).
+  Three rows of the S0-S3 pair table were seen (two pedestrian waits, S3 worse; the
+  ambulance time loss, S3 better); the A-06 KPI was not. The rule text was not changed
+  after that look, the runs were moved out of the repository and never used, and the
+  first 2026-10-23 change of `configs/evaluation.yaml` records the details.
+- **Scenarios (D93).** S3 `configs/pitie_rl_s3.yaml` (the Part 7 policy, unchanged) and S4
+  `configs/pitie_rl_s3_nopreempt.yaml` join the main family; their ambulance-probe
+  versions `configs/pitie_amb_rl_s3.yaml` and `configs/pitie_amb_rl_s3_nopreempt.yaml`
+  join the probe family, with the S0 demand in each family. S4 is out of distribution:
+  the policy never decided with an ambulance present, so its results describe
+  degradation, not a design, and it is never part of A-06.
+- **A-06 (D94).** Exact two-sided paired Wilcoxon test on the person-weighted delay
+  (`all/person_delay_mean`, S3 minus the reference per seed, Hodges-Lehmann estimate and
+  95 % interval), S3 against S1 (primary), S2 and S0, Holm across the 3 comparisons,
+  alpha 0.05, n = 10 paired seeds required. The status is procedural: PASS when the three
+  comparisons are valid and shown (every S3 run current, the frozen inputs matching, one
+  demand per family, A-03 passing), INVALID otherwise, never FAIL because of the
+  direction of a result. Each comparison reads "S3 better", "S3 worse" or "no
+  significant difference" from the Holm p and the sign of the estimate.
+- **"Binding" (D95).** A-06 is the confirmatory test of record for RL against the
+  baselines, presented whatever its direction; it does not reopen the choice of the main
+  solution, which stays S2 (dated change of 2026-10-23). This is what "binding" means
+  in the Part 6 and Part 7 sections above and in `docs/rl_training.md`.
+- **Spec 10.6 check on seeds 1-10 (D95, reported, not gating).** The Part 7 criteria
+  against S1: C1 the person-weighted delay (HL below 0, p below 0.05), C2 car time loss,
+  bus delay and pedestrian mean curb wait within the 5 % equity limit, C3 no danger,
+  collision or teleport, every curb wait at or under 90 s, every preemption served and no
+  more time-outs than S2; C4 is cited from Part 7. If C1 to C3 pass, RL is reported as a
+  strong candidate for future work, not adopted.
+- **A-04, A-05 and equity (D96).** A-04 judges S3 and S4 in both families. The A-05
+  primary (S0 vs S2) is unchanged; three secondary tests are added (main S0 vs S3, probe
+  S0 vs S3, probe S4 vs S3). With one ambulance per run the primary has limited power;
+  the probe family is the robust evidence. New equity tables compare S3 with S1 and S2.
+- **Final comparison table (D98).** Columns S0, S1, S2 and S3, with the ablations S2_noP
+  and S4 marked; 15 KPI rows from cars to the person-weighted delay, plus safety,
+  activity, equity and occupancy rows. It is written to
+  `data/results/evaluation/final_table.csv` with `a06.json`, `series.csv` and
+  `digest.json`, and is the first section of `docs/evaluation.md`.
+- **Queue series (D98).** Halting vehicles per approach in 60 s bins, mean with the 10 %
+  and 90 % quantiles over the seeds, for the Operator's curves.
+- **Frozen S3 inputs (D100).** The scenario hash does not cover the RL run config, so
+  `evaluate` checks the text sha256 (first 8 characters) of its chain: `configs/rl7/v1.yaml`
+  `10ac6ce8`, `configs/rl7/t1.yaml` `bc124a88`, `configs/rl7.yaml` `96113433` and
+  `configs/rl.yaml` `c0b7dd7b`; a mismatch makes A-06 INVALID.
+- **Seeds (D101).** The Part 8 prototype burned seeds 3200-3209; the Part 8 development
+  seeds are 3210-3229 (both from the Part 7 reserve); the app, the user tests and the
+  demo use the demo seed 4000 only. Seeds 1-10 run only in `tasks.py part8`.
+- **Run lock (D92).** `evaluate --run-missing` exits 2 and launches nothing when a planned
+  run is on an evaluation seed into `data/results/` while the tree is dirty or the
+  registration is not committed; `tasks.py sim` and `sim-gui` check the same lock for the
+  evaluation scenarios, and `tasks.py compare` and `validate` (so `part3` and
+  `rebaseline`, whose modules have no lock of their own) for every run their
+  `--run-missing` would launch. **The lock is not complete:** the frozen modules
+  `traffic_twin.evaluation.compare --run-missing`, `traffic_twin.validation.report
+  --run-missing` and `traffic_twin.sim.run_scenario` launch runs without it, and so does
+  any direct call of `runs.run_missing` or `run_scenario.run`. Never call them on seeds
+  1-10 or with an evaluation scenario into `data/results/`; go through `tasks.py`. An
+  early S3 / S4 run left in `data/results/` is still caught: `part8-guard` refuses it
+  and `evaluate` records `first_s3_started_at` before the registration commit.
+
+### Part 8 tasks
+
+| Task | What it does |
+| --- | --- |
+| `part8-guard` | exit 1 unless the tree is clean, HEAD's `configs/evaluation.yaml` has the `a06` block, `data/results/_rebaseline/<HEAD>/` does not exist and no S3 / S4 run exists on the evaluation seeds |
+| `rebaseline-verify` | compare the re-made evaluation runs with the moved ones, write `data/results/_rebaseline/<HEAD>/verify.json` (the A-01 evidence), then the provenance check |
+| `part8` | `part8-guard rebaseline plots-eval provenance`: the single seed 1-10 run (D97), about 10-15 minutes |
+
+`rebaseline` re-makes the 70 S0-S2 runs from the registration commit, which must be
+byte-identical to the published ones, while `evaluate --run-missing` adds the 40 S3 and
+S4 runs. If any of the 70 differs, Part 8 STOPs before any S3 result is used. If A-04
+fails, `evaluate` exits 1 after writing its outputs; they are published as computed
+(no rerun, no retune), and the chain resumes with `tasks.py plots-eval
+rebaseline-verify`.
+
+## App, replay and user tests (Part 9)
+
+**Results pending.** The app reads the final results once Part 8 has run, and the user
+tests need 3 to 5 real participants, whom the tooling never replaces. A-10 is
+**PENDING**: fewer than 3 sessions are recorded (none so far). It becomes DONE with 3 to 5
+complete sessions and is never a PASS.
+
+**Provisional until the field visit.** Every value the app shows is simulated, from runs
+on the ASSUMED signal program; every view says "données simulées" with the calibration
+date and, while the program is provisional, "programme de feux provisoire" (ENF-05). The
+field visit can change every number.
+
+### Two front ends on one API (D102-D108)
+
+- **User app** `src/traffic_twin/app/mock.html` (Motez Jerbi's design), served by the API
+  at `/mock`: a home screen with the five profiles, the pedestrian, student, bus and
+  ambulance views, the replay of a simulated run (EF-21, his 2D / 3D map fed by `/replay`
+  positions, signals and events) and an Operator card. Deep links set the view, the run
+  (scenario and seed), the instant and the options.
+- **Operator** `app.py` (Streamlit, his layout) at http://127.0.0.1:8501, through
+  `traffic_twin.app.client`: comparison, tests and pairs, equity, safety and ambulance,
+  queue curves, the Part 7 weight sensitivity and CSV exports.
+- Both read the API only (`/evaluation`, `/compare`, `/series`, `/sensitivity`, `/kpi`,
+  `/replay`, ...), never `docs/` or `data/`. Each view has one main item and at most two
+  secondary ones, and shows its loading, degraded, stale, unavailable and error states
+  (spec 12, 12.1).
+- Every invented value of the earlier mock screens is removed; S3 and S4 appear only from
+  the Part 8 outputs. `run_mock.py` is quarantined: port 8001, a "FAUSSES DONNÉES"
+  banner, never part of the demo.
+- Deviations (D91): the user views are an HTML / JS client of the API, not Streamlit
+  pages (spec 8.6); the replay shows simulated runs only; EF-22 (launching a run from the
+  app) is not done and EF-23 exports CSV only.
+- Credits: both front ends are Motez Jerbi's UI, kept and connected to the API; the 3D
+  view uses three.js (MIT, served locally). Third-party notices, including SUMO,
+  OpenStreetMap and the City of Paris open data, are in
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+### User tests (spec 12.2, A-10)
+
+- The protocol is pre-registered in `configs/usertests.yaml` and written up in
+  `docs/usertest_protocol.md`: 3 to 5 participants, 6 core tasks plus the optional
+  replay task on the `pitie_rules` demo run at seed 4000, timings, success scoring and a
+  short questionnaire after each task.
+- Results are entered by hand in `docs/usertests/results.yaml` after each session;
+  `tasks.py usertest-check` validates them and `tasks.py usertest-docs` writes the
+  synthesis `docs/usertests.md` and `docs/usertests/synthesis.json`. The ENF-06 and ENF-05
+  verdicts stay PENDING below 3 sessions.
+- Privacy (ENF-07): participants are `P1` to `P5`, with no name, contact or health
+  information; reduced mobility is never recorded, and consent on paper stays offline.
+
+### Part 9 tasks
+
+| Task | What it does |
+| --- | --- |
+| `demo-runs8` | demo runs of S2_noP, S3 and S4 on seed 4000 into `data/demo/` (S0-S2 come from `demo-runs`); the RL runs get no ETA prediction, an honest degraded case |
+| `operator` | the Streamlit Operator on http://127.0.0.1:8501 (start `tasks.py api` first) |
+| `usertest-kit` | the printable kit `docs/usertests/usertest_kit.pdf`; refuses while S3 is not served (`--allow-pending-s3` for the Phase 2 gate only) |
+| `usertest-serve` | the frozen app for a session, with the start link of each task (`--allow-dirty` serves an uncommitted tree) |
+| `usertest-check` | validate `docs/usertests/results.yaml` (schema, privacy, issue fixes) |
+| `usertest-docs` | `docs/usertests.md` and `synthesis.json` |
+| `test-browser` | the headless-browser view tests only (`pytest -m browser`) |
+| `part9` | `demo-runs8 api-bench usertest-check usertest-docs` |
+
+## Report, slides and demo (Part 10)
+
+**Results pending.** The report, the deck and the rehearsal record are built in the Part
+8-10 integration, from the outputs of Part 8. The rehearsed demo also needs one rehearsal
+by the presenter, logged in `docs/demo/rehearsal_log.yaml` with no manual code edit:
+until then it is **PENDING**.
+
+**Provisional until the field visit.** The report is version 1, "provisional (before the
+field visit)": it rests on simulated data and the ASSUMED signal program. If the field
+visit (3-5 November 2026) measures another program or cycle, a dated change, a v2 rerun
+of Parts 3, 4/8 and 5 and a report v2 follow (D119).
+
+- **Report** (English, D113): `docs/report/report.md` and `docs/report/report.pdf`, built
+  from hand-written templates (`docs/report/src/`) and `docs/report/facts.json`, the
+  committed snapshot of every number with its source and sha256. A missing fact shows as
+  PENDING and is listed in an appendix; a result sentence is generated from the facts,
+  never written by hand. The pre-registration dates come before the results.
+- **Acceptance table** A-01 to A-10, generated (D115): each criterion reads one committed
+  file (`verify.json` for A-01, the evaluation summary for A-03 to A-06, the ETA
+  evaluation for A-07, `docs/demo/rehearsal.json` for A-08 and A-09, the user-test
+  synthesis for A-10).
+- **Slides** (English, D114): `docs/slides/urban_traffic_twin.pptx`, 15 slides with
+  native charts, a "Simulated data" footer and speaker notes.
+- **Demo** (D116): `tasks.py demo` starts the API and the Operator, checks them and opens
+  the home screen; no simulation runs during the demo. `demo-check` walks the scripted
+  steps of `configs/demo.yaml`, `demo-rehearsal` rehearses headless (`--fixtures` on
+  synthetic data, as CI does), and the runbook `docs/demo/runbook.md` has the fallback.
+- **Fresh clone** (D116): `data/` is not versioned, so `tasks.py bootstrap` restores the
+  committed demo pack `docs/demo/demo_pack.zip` (demo runs, evaluation outputs, the ETA
+  files the API reads; never the evaluation runs themselves), after `tasks.py install`.
+  `tasks.py demo-readiness` checks that path from a local clone (A-09).
+- **Safety margin** (D119): a freeze after the integration, one week of buffer before the
+  defence kept free of features, and after the freeze only fixes from the user tests or
+  the field visit.
+
+### Part 10 tasks
+
+| Task | What it does |
+| --- | --- |
+| `report-facts` | `docs/report/facts.json` from the local outputs |
+| `report` | `docs/report/report.md` and `report.pdf` |
+| `slides` | `docs/slides/urban_traffic_twin.pptx` |
+| `app-shots` | headless-browser screenshots of each demo step into `docs/figures/app/` |
+| `report-check` | optional render of the PDF and the deck to `data/report/_qa/` (LibreOffice) |
+| `demo` | the API and the Operator for the demo, checked, until Ctrl+C (`--no-browser`) |
+| `demo-check` | the scripted walkthrough against the API and the views |
+| `demo-rehearsal` | the headless rehearsal into `data/demo_check/` (`--fixtures`, `--no-browser`; `--record` writes `docs/demo/rehearsal.json`) |
+| `demo-clean` | stop leftover demo servers and remove old rehearsal reports; never touches `data/results/`, `data/demo/` or `models/` |
+| `demo-pack` | `docs/demo/demo_pack.zip` and its sha256 manifest |
+| `bootstrap` | restore the demo pack on a fresh clone (verifies the hashes, never overwrites) |
+| `demo-readiness` | local clone of HEAD, demo pack, recorded rehearsal |
+| `part10` | `report-facts app-shots report slides demo-pack demo-rehearsal` |
+
+The Makefile has the same targets: `make demo-rehearsal FIXTURES=1 NO_BROWSER=1`,
+`make usertest-kit ALLOW_PENDING_S3=1`.
+
 ## Testing and CI
 
 - `tasks.py test` runs the whole suite; `tasks.py test-fast` (`pytest -m "not sumo"`)
@@ -1626,7 +1865,14 @@ with the OMP_/MKL_/OPENBLAS_ variables and the validation pool its provenance re
   `configs/rl7.yaml`, the task table, roadmap row 7, the Part 7 decisions in
   `docs/architecture.md` and the link to `docs/rl_training.md` (10.6, 10.3, learning
   curves). `tests/test_rl_s3_model.py` checks the committed S3 model against its sha256
-  pin, its manifest and the golden `tests/data/rl_s3_golden.json`.
+  pin, its manifest and the golden `tests/data/rl_s3_golden.json`. For Parts 8-10 it
+  checks the caveats, the A-06, final-table and Part 8 seed numbers stated here against
+  `configs/evaluation.yaml`, the change count, the three task tables, roadmap rows 8-10,
+  A-10 PENDING while fewer than 3 user-test sessions are recorded, the rehearsal PENDING
+  while no presenter rehearsal is logged, the Parts 8-10 decisions in
+  `docs/architecture.md`, and, once each part reports results, the links to its pages
+  (`docs/evaluation.md` with A-06 and the 10.6 check, the user-test pages, the report,
+  the deck and the runbook).
 - `tests/test_tasks.py` checks that every `tasks.py` task has its Makefile target with
   the same modules and options, the order and defaults of the chains (the ETA freeze
   before any test world), and that every option a Parts 5-6 task passes is accepted by
@@ -1638,10 +1884,20 @@ with the OMP_/MKL_/OPENBLAS_ variables and the validation pool its provenance re
   holdout runs listed when the step runs, and `reproduce7` on a fake run tree (a faithful
   rerun accepted; a changed policy, validation row, episode return, golden or page
   refused; the rerun launched in the original's thread variables and validation pool),
-  and on a campaign-launched stub run.
-- `tasks.py check` needs at least the extras CI installs, `.[dev,sim,api,rl]`;
+  and on a campaign-launched stub run. For Parts 8-10 it checks the `part8` chain and its
+  guard on a fake repo (dirty tree, no `a06` at HEAD, a second run from one commit, an
+  early S3 run), `verify.json`, the run lock of `sim`, `compare`, `validate`, `part3`
+  and `rebaseline` (nothing launched before the registration commit), the options of
+  the demo and user-test tasks, and that every argument of the `usertests`, `report`
+  and `demo` tasks parses with the module's CLI.
+- `tasks.py check` needs at least the extras CI installs, `.[dev,sim,api,rl,app,report]`;
   `tasks.py install` installs them all, `ml` included. A test that needs a missing
   optional package skips.
+- Parts 9 and 10 add the `app` (Streamlit, Plotly) and `report` (python-pptx, reportlab,
+  markdown) extras and the `browser` marker: the view tests drive a headless Chrome (else
+  Edge; `TT_BROWSER` overrides) and skip when none is found. `tasks.py test-browser` runs
+  them alone; the Streamlit Operator is tested with Streamlit's AppTest, without a
+  browser.
 - Parts 5 and 6 add the `ml`, `api` and `rl` extras. CI installs PyTorch from the CPU
   index and the `api` and `rl` extras, not `ml`: XGBoost pulls the NCCL GPU library on
   Linux, so the tests that fit a model skip without it (`pytest.importorskip`). Dataset
@@ -1664,10 +1920,16 @@ with the OMP_/MKL_/OPENBLAS_ variables and the validation pool its provenance re
   `tests/data/grid_baseline_kpis.csv`: exact on Windows, where the fixture was captured,
   within 5 % with a warning elsewhere.
 - GitHub Actions (`.github/workflows/ci.yml`) runs ruff lint, the ruff format check and
-  the full suite, SUMO tests included, on Python 3.11 and 3.12 for pushes and pull
-  requests to `main`. `tasks.py check` runs the same checks locally.
+  the full suite without the browser tests (`pytest -m "not browser"`), SUMO tests
+  included, then the demo rehearsal on synthetic fixtures (`tasks.py demo-rehearsal
+  --fixtures --no-browser`: no real data, no SUMO), on Python 3.11 and 3.12 for pushes
+  and pull requests to `main`. `tasks.py check` runs the same checks locally, browser
+  tests included when a browser is found.
 
 ## Supabase
+
+An optional mirror of the local files (see the introduction): the API, the app and every
+other task read `data/`, never Supabase.
 
 ```bash
 cp .env.example .env        # fill SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL
@@ -1687,8 +1949,10 @@ configs/            data.yaml, intersections.yaml, scenario_base.yaml (grid),
                     pitie_fixed.yaml (S0), pitie_actuated.yaml (S1), pitie_rules.yaml (S2),
                     pitie_rules_nopreempt.yaml, pitie_amb_*.yaml (ambulance probe),
                     pitie_rl.yaml (RL controller), pitie_rl_s3.yaml (S3, Part 7),
+                    pitie_rl_s3_nopreempt.yaml (S4), pitie_amb_rl_s3*.yaml (Part 8),
                     validation.yaml,
-                    evaluation.yaml (pre-registered Part 4 evaluation),
+                    evaluation.yaml (pre-registered evaluation, Parts 4 and 8),
+                    usertests.yaml (user-test protocol), demo.yaml (demo script),
                     eta.yaml, rl.yaml (pre-registered Parts 5-6), api.yaml,
                     rl7.yaml, rl7/ (pre-registered Part 7 and its run configs),
                     pitie/ (S0 fragments, rules.yaml, emergency_probe.yaml, incident_sites.yaml),
@@ -1717,7 +1981,11 @@ src/traffic_twin/
   ml/               ETA: day types, features, dataset, quantile model, prediction,
                     evaluation, departure advice (Part 5)
   api/              FastAPI v1: envelope, endpoints, local store, fixtures, latency bench
-  app/              mock.html, the mock screens served at /mock
+  app/              mock.html (the user app served at /mock), client (the Operator's API
+                    client), browser (headless Chrome / Edge helper)
+  usertests/        user-test protocol, expected answers, kit, synthesis (Part 9)
+  report/           report facts, assembly, PDF, acceptance table, slides, screenshots
+  demo/             demo serve, check, rehearsal, clean, pack, bootstrap, readiness
   rl/               Gymnasium environment, decision clock, features, reward, training,
                     evaluation (Part 6); campaign, study, sensitivity, report7 (Part 7)
 supabase/migrations/
@@ -1726,7 +1994,11 @@ tests/              pytest; conftest.py skips `sumo` tests when SUMO is missing;
 docs/               spec, architecture.md, validation.md, evaluation.md, field_protocol.md,
                     calibration_log.yaml, figures/ (grid), figures/pitie/ (eval/: Part 4),
                     eta.md, api.md, rl.md, figures/eta/, figures/rl/ (Parts 5-6),
-                    rl_training.md, figures/rl7/ (Part 7)
+                    rl_training.md, figures/rl7/ (Part 7),
+                    usertest_protocol.md, usertests.md, usertests/ (Part 9),
+                    report/, slides/, demo/, figures/app/ (Part 10)
+app.py              the Streamlit Operator (through the API)
+run_mock.py         quarantined stand-alone mock server (invented data, port 8001)
 .github/workflows/  CI (ci.yml)
 tasks.py            cross-platform task runner (same targets as the Makefile)
 Makefile

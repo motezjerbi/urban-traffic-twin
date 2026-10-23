@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Jumeau Numérique Pitié-Salpêtrière · Cockpit Intelligent API v1</title>
+<title>Jumeau Numérique Pitié-Salpêtrière · Application usagers (données simulées)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="/three.min.js"></script>
@@ -1137,6 +1137,89 @@
     align-items: center;
     gap: 8px;
   }
+
+  /* -------------------------------------------------------------
+     Part 9 (spec 12 / 12.1): home screen, verdicts, kiosk, states
+  ------------------------------------------------------------- */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .badge-live.replay::before { animation: none; }
+  .run-box { display: flex; flex-direction: column; gap: 4px; }
+  .run-label { font-size: 11px; font-weight: 700; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  #run { max-width: 420px; }
+  .busy { display: none; font-size: 18px; animation: spin 1s infinite linear; }
+  .busy.on { display: inline-block; }
+  .play-speeds { margin-left: 4px; }
+  .muted { color: var(--fg-muted); font-size: 13px; }
+  .tile-sub { font-size: 12px; color: var(--fg-muted); margin-top: 4px; }
+  .home-intro { font-size: 15px; color: var(--fg-muted); margin-bottom: 18px; }
+  .home-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .home-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    text-align: left;
+    font-family: var(--font);
+    color: var(--fg);
+    background: linear-gradient(145deg, rgba(14, 22, 38, 0.9), rgba(17, 24, 39, 0.7));
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+  button.home-card:hover, .home-card-ped:hover { transform: translateY(-2px); border-color: var(--border-bright); }
+  .home-card-ped { cursor: default; border-color: rgba(16, 185, 129, 0.45); }
+  .home-icon { font-size: 34px; }
+  .home-title { font-size: 22px; font-weight: 800; }
+  .home-sub { font-size: 14px; color: var(--fg-muted); }
+  .home-speeds { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .home-speeds button {
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 700;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid #10B981;
+    background: rgba(16, 185, 129, 0.15);
+    color: #fff;
+    cursor: pointer;
+  }
+  .home-speeds button.on { background: #047857; }
+  .verdict-big { font-size: 46px; font-weight: 900; line-height: 1.08; letter-spacing: -0.02em; margin: 6px 0 4px; }
+  .verdict-big.ok, .hero-eta-big.verdict-ok { color: #34D399; -webkit-text-fill-color: #34D399; }
+  .verdict-big.warn, .hero-eta-big.verdict-warn { color: #FBBF24; -webkit-text-fill-color: #FBBF24; }
+  .verdict-big.bad, .hero-eta-big.verdict-bad { color: #F87171; -webkit-text-fill-color: #F87171; }
+  @media (max-width: 600px) { .verdict-big { font-size: 34px; } }
+  .msg-box {
+    margin-top: 20px;
+    padding: 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    background: rgba(16, 185, 129, 0.08);
+  }
+  .msg-text { font-size: 20px; font-weight: 700; color: #fff; margin: 8px 0 12px; line-height: 1.4; }
+  .amb-title { font-size: 20px; font-weight: 900; letter-spacing: 0.04em; color: #FFFFFF; }
+  .amb-where { font-size: 18px; font-weight: 700; color: #E2E8F0; }
+  .amb-row { padding: 20px 22px; background: #0B1220; border: 2px solid rgba(255, 255, 255, 0.25); }
+  .amb-name { font-size: 26px; font-weight: 800; color: #FFFFFF; }
+  .amb-dist { font-size: 18px; font-weight: 600; color: #E2E8F0; margin-top: 4px; }
+  .amb-status { font-family: var(--mono); font-size: 26px; font-weight: 900; padding: 10px 16px; border-radius: var(--radius-sm); color: #FFFFFF; background: #334155; letter-spacing: 0.04em; }
+  .amb-status.clear, .amb-status.green_wave { background: #047857; }
+  .amb-status.blocked { background: #B91C1C; }
+  .amb-eta { margin-top: 18px; font-size: 22px; font-weight: 800; color: #FFFFFF; }
+  .op-best { font-size: 20px; font-weight: 700; margin: 6px 0 4px; }
+  tr.dimmed td { opacity: 0.55; }
+  .op-link { text-decoration: none; display: inline-flex; }
+  .ticker-box { margin-top: 18px; }
+  .ticker { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+  .ticker-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .ticker-t { font-family: var(--mono); color: var(--accent); }
+  body.kiosk nav, body.kiosk .run-box, body.kiosk .slider-box, body.kiosk #play, body.kiosk .play-speeds { display: none; }
 </style>
 </head>
 <body>
@@ -1150,32 +1233,39 @@
         <div>
           <h1 class="brand-title">
             Jumeau Numérique Pitié-Salpêtrière
-            <span class="badge-live">Live Replay</span>
+            <span class="badge-live replay">Relecture</span>
             <span class="badge-ia">🤖 ETA XGBoost CQR</span>
           </h1>
           <div class="brand-sub">
-            <span>Cockpit Télématique Haute Fréquence · Spécification 12</span>
+            <span>Application usagers sur données simulées · Spécification 12</span>
           </div>
         </div>
       </div>
-      <div>
-        <select id="run" aria-label="Scénario simulé"></select>
+      <div class="run-box">
+        <label for="run" class="run-label">Simulation rejouée</label>
+        <select id="run" aria-label="Simulation rejouée"></select>
       </div>
     </div>
 
     <!-- Telemetry Replay Bar -->
     <div class="telemetry-bar">
       <div class="clock-wrapper">
-        <button id="play" class="play-btn" title="Lecture / Pause (Pas +5 s)">▶</button>
-        <div class="clock-led" id="clk">08:15:00</div>
+        <button id="play" class="play-btn" title="Lecture / Pause">▶</button>
+        <div class="clock-led" id="clk">--:--:--</div>
+        <div class="speed-ctrl play-speeds" title="Vitesse de relecture">
+          <button class="speed-btn active" data-play-speed="1">×1</button>
+          <button class="speed-btn" data-play-speed="5">×5</button>
+          <button class="speed-btn" data-play-speed="20">×20</button>
+        </div>
+        <span id="busy" class="busy" role="status" aria-label="Chargement en cours">⏳</span>
       </div>
       <div class="slider-box">
         <div class="slider-labels">
-          <span>07:30 (Début heure de pointe)</span>
-          <span style="color:var(--accent); font-weight:700">Horloge Simulation</span>
-          <span>09:30 (Fin heure de pointe)</span>
+          <span id="slider-from">début du run</span>
+          <span style="color:var(--accent); font-weight:700">Horloge de la simulation rejouée</span>
+          <span id="slider-to">fin du run</span>
         </div>
-        <input id="t" type="range" min="0" max="7195" step="5" value="2700" aria-label="Horloge de rejeu">
+        <input id="t" type="range" min="0" max="7195" step="1" value="2700" aria-label="Horloge de relecture">
       </div>
     </div>
 
@@ -1184,14 +1274,18 @@
   </header>
 
   <!-- Dynamic Content Area -->
-  <main id="view" aria-live="polite"></main>
+  <main id="view" aria-live="polite" data-view="" data-view-state="loading"></main>
 
   <!-- Scientific Footer -->
   <footer>
     <div class="foot-status" id="foot">
-      <span>🔹 <strong>Données simulées</strong> (Télémesure SUMO) · Programme calibré sur capteurs réels de Paris.</span>
+      <span id="foot-source" data-field="footer-source">🔹 <strong>Données simulées</strong></span>
+      <span>·</span>
+      <span id="foot-cal" data-field="footer-calibrated">date de calibration : en attente de l'API</span>
+      <span>·</span>
+      <span id="foot-prov">programme de feux provisoire</span>
     </div>
-    <div id="stamp" style="font-family:var(--mono); color:var(--accent)">Horodatage --:--:--</div>
+    <div id="stamp" data-field="footer-timestamp" style="font-family:var(--mono); color:var(--accent)">Horodatage --:--:--</div>
   </footer>
 </div>
 
@@ -1225,99 +1319,193 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   };
 }
 
+// -------------------------------------------------------------
+// Views (spec 12 home screen + 4 user views, EF-21 replay, Operator card; plan 4.4)
+// Every figure shown comes from API v1 (D107): nothing below is a result.
+// -------------------------------------------------------------
 const VIEWS = {
-  map: { label: "Carte 2D Live (Jumeau Numérique)", icon: "🗺️" },
-  student: { label: "Étudiant (ETA)", icon: "🎓" },
-  bus: { label: "Bus RATP (ETA & Retard)", icon: "🚌" },
-  pedestrian: { label: "Piéton (ETA Traversée)", icon: "🚶" },
-  ambulance: { label: "Ambulance (Corridor Urgences)", icon: "🚑" },
-  operator: { label: "Opérateur (KPIs Scénarios)", icon: "📊" },
-  rl: { label: "Agent RL (S3 DQN)", icon: "🧠" }
+  home: { label: "Accueil", icon: "🏠" },
+  pedestrian: { label: "Piéton", icon: "🚶" },
+  student: { label: "Étudiant", icon: "🎓" },
+  bus: { label: "Bus", icon: "🚌" },
+  ambulance: { label: "Ambulance", icon: "🚑" },
+  replay: { label: "Relecture", icon: "🗺️" },
+  operator: { label: "Opérateur", icon: "📊" }
 };
 
 const CROSSINGS = ["S", "W", "WB", "NB"];
 const SPEEDS = [
-  ["normal", "🚶 Marche Normale (1.2 m/s)"],
-  ["slow", "🚶‍♂️ Marche Lente (1.0 m/s)"],
-  ["reduced", "♿ Mobilité Réduite (0.8 m/s)"]
+  ["normal", "🚶 Marche normale (1.2 m/s)"],
+  ["slow", "🚶‍♂️ Marche lente (1.0 m/s)"],
+  ["reduced", "♿ Mobilité réduite (0.8 m/s)"]
 ];
+const SPEED_SHORT = { normal: "Normale", slow: "Lente", reduced: "Mobilité réduite" };
 const STUDENT_ROUTES = [
   ["N_S", "🚉 Gare d'Austerlitz → 🏥 Pitié Porte Principale"],
   ["W_S", "🏛️ Bd Saint-Marcel → 🏥 Pitié Porte Principale"]
 ];
 const LINES = ["91", "24", "57"];
-const OP_KPIS = [
-  ["car", "time_loss_mean", "🚗 Voitures : temps perdu moyen (s)"],
-  ["bus", "delay_mean", "🚌 Bus : retard moyen au carrefour (s)"],
-  ["pedestrian", "ped_curb_wait_max", "🚶 Piétons : attente maximale au trottoir (s)"],
-  ["ambulance", "travel_time_total", "🚑 Ambulance : temps de parcours total (s)"],
-  ["all", "person_delay_mean", "👥 Retard global moyen usagers (s)"]
-];
+const PLAY_SPEEDS = [1, 5, 20];           // replay speeds (D105)
+const FETCH_TIMEOUT_MS = 4000;            // 12.1: a request never hangs the view
+const FRAME_GRACE_MS = 1000;              // replay: a missing frame keeps the last map this long at most
+const FRAME_RETRY_MS = 2000;              // replay: back-off before a failed frame is asked again
+const DEMO_SEEDS = [4000, 4009];          // configs/api.yaml seeds.demo (D101): demo runs listed first
+const OPERATOR_URL = "http://127.0.0.1:8501";  // Streamlit Operator (D102); ?operator= overrides
+const LABEL_ORDER = ["S0", "S1", "S2", "S2_noP", "S3", "S4"];  // display order only
+const FAMILY_NAMES = { ambulance_probe: "sonde ambulance" };
+const STORE_KEY = "tt.mock.choices";      // last pedestrian choices (per browser, optional)
 
 const state = {
-  view: "map",
+  view: "home",
   crossing: "S",
   speed: "normal",
   trajet: "N_S",
   exam: "09:00",
   line: "91",
   run: "",
+  runs: [],
+  groups: [],
+  evalSeeds: new Set(),
+  t: 2700,
   beginS: 27000,
+  tMin: 0,
+  tMax: 7195,
+  step: 5,
   playing: null,
+  playSpeed: 1,
+  lastPlayRender: 0,
   seq: 0,
-  mapEmergency: false,
-  mapController: "S3",
   mapMode: "2d",
-  showSensors: true,
-  showPeds: true
+  showPeds: true,
+  kiosk: false,
+  operatorUrl: OPERATOR_URL,
+  flash: null
 };
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hhmm = (sec) => {
-  const s = Math.round(sec);
+  const s = Math.max(0, Math.round(sec));
   return [s / 3600 | 0, (s % 3600) / 60 | 0, s % 60 | 0].map((v) => String(v).padStart(2, "0")).join(":");
 };
 const fmtS = (v) => v == null ? "--" : `${Math.round(v)} s`;
 const fmtMin = (v) => v == null ? "--" : `${Math.round(v / 60)} min`;
+const fmtDur = (v) => {
+  if (v == null) return "--";
+  const s = Math.round(Math.abs(v));
+  const m = Math.floor(s / 60);
+  return m ? `${m} min ${String(s % 60).padStart(2, "0")} s` : `${s} s`;
+};
+const signed = (v, unit) => v == null ? "--" : `${v >= 0 ? "+" : "−"}${Math.abs(Math.round(v))} ${unit}`;
+const signedDur = (v) => v == null ? "--" : `${v >= 0 ? "+" : "−"}${fmtDur(v)}`;
+const stampOf = (iso) => (typeof iso === "string" && iso.length >= 19) ? iso.slice(11, 19) : "--:--:--";
+const dv = (v) => esc(v == null ? "" : v);  // data-value attribute (test hooks)
 
-async function api(path) {
+function loadChoices() {
   try {
-    const r = await fetch(path, { headers: { Accept: "application/json" } });
+    const raw = window.localStorage.getItem(STORE_KEY);
+    const c = raw ? JSON.parse(raw) : {};
+    if (CROSSINGS.includes(c.crossing)) state.crossing = c.crossing;
+    if (SPEEDS.some(([k]) => k === c.speed)) state.speed = c.speed;
+  } catch (e) { /* storage blocked: defaults */ }
+}
+
+function saveChoices() {
+  try {
+    window.localStorage.setItem(STORE_KEY, JSON.stringify({ crossing: state.crossing, speed: state.speed }));
+  } catch (e) { /* storage blocked: nothing remembered */ }
+}
+
+// Loading indicator (12.1): on while any request is in flight
+let inflight = 0;
+function busy(delta) {
+  inflight = Math.max(0, inflight + delta);
+  const el = $("busy");
+  if (el) el.classList.toggle("on", inflight > 0);
+}
+
+async function api(path, quiet = false) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  if (!quiet) busy(1);
+  try {
+    const r = await fetch(path, { headers: { Accept: "application/json" }, cache: "no-store", signal: ctrl.signal });
     const b = await r.json();
     return { http: r.status, ...b };
   } catch (e) {
-    return { http: 0, status: "unavailable", error: { code: "network", message: "API injoignable" } };
+    const code = e && e.name === "AbortError" ? "timeout" : "network";
+    return { http: 0, status: "unavailable", error: { code, message: "API injoignable" } };
+  } finally {
+    clearTimeout(timer);
+    if (!quiet) busy(-1);
   }
 }
 
 const q = (params) => {
-  const p = new URLSearchParams({ t: $("t").value, ...params });
-  if (state.run && !state.run.startsWith("s3_")) p.set("run_id", state.run);
+  const p = new URLSearchParams({ t: String(Math.round(state.t)), ...params });
+  if (state.run) p.set("run_id", state.run);
   return p.toString();
 };
 
+// A transport failure (API down, timeout, 5xx): the last good value may be shown instead
+const transportFailure = (b) => !b || b.http === 0 || b.http >= 500;
+
+// Root state of a view (plan 4.4): loading / ok / degraded / stale / unavailable / error
+function viewState(b) {
+  if (!b || b.http === 0 || b.error) return "error";
+  if (b.status === "unavailable") return "unavailable";
+  if (b.stale) return "stale";
+  if (b.status === "degraded") return "degraded";
+  return "ok";
+}
+
 function banners(b) {
-  if (b.error) return `<div class="banner bad">⚠️ <strong>Erreur :</strong> Données temporairement indisponibles.</div>`;
+  if (!b) return "";
+  if (b.error) {
+    const msg = transportFailure(b)
+      ? "Données temporairement indisponibles. Réessayez dans un instant."
+      : "Cette demande n'est pas reconnue (paramètre ou identifiant invalide).";
+    return `<div class="banner bad" data-field="banner-error">⚠️ <strong>Erreur :</strong> ${msg}</div>`;
+  }
   let s = "";
-  if (b.status === "unavailable") s += `<div class="banner bad">⛔ <strong>Indisponible :</strong> ${esc(b.notice || "Flux en attente")}</div>`;
-  else if (b.status === "degraded") s += `<div class="banner warn">⚠️ <strong>Mode Dégradé :</strong> ${esc(b.notice || "Estimation par référence historique")}</div>`;
-  if (b.stale) s += `<div class="banner warn">⏱️ <strong>Dernière valeur connue</strong> (âge ${fmtS(b.data_age_s)})</div>`;
+  if (b.status === "unavailable") s += `<div class="banner bad" data-field="banner-unavailable">⛔ <strong>Indisponible :</strong> ${esc(b.notice || "donnée absente")}</div>`;
+  else if (b.status === "degraded") s += `<div class="banner warn" data-field="banner-degraded">⚠️ <strong>Mode dégradé :</strong> ${esc(b.notice || "valeur approximative")}</div>`;
+  if (b.stale) s += `<div class="banner warn" data-field="banner-stale">⏱️ <strong>Dernière valeur connue</strong> (donnée ancienne, âge ${fmtS(b.data_age_s)})</div>`;
   return s;
 }
 
+// ENF-05 / ENF-04 footer: simulated data, calibration date, provisional program, timestamp + age
 function footer(b) {
-  if (!b || !b.data_source) return;
-  const cal = b.calibrated_on ? `capteurs réels jusqu'au ${esc(b.calibrated_on)}` : "date non spécifiée";
-  const prov = b.provisional ? "programme de feux provisoire (avant visite sur site)" : "programme terrain certifié";
-  $("foot").innerHTML = `<span>🔹 <strong>Données Simulées</strong> (${esc(b.data_source)}) · Calibrées sur ${cal} · ${prov}.</span>`;
-  const ts = b.timestamp ? b.timestamp.slice(11, 19) : "--:--:--";
-  $("stamp").textContent = `Horodatage ${ts}${b.data_age_s != null ? ` · âge ${Math.round(b.data_age_s)} s` : ""}${b.run ? ` · ${b.run.scenario} (seed ${b.run.seed})` : ""}`;
-  if (b.sim_t_s != null && b.timestamp) {
-    const d = new Date(b.timestamp);
-    const tod = b.timestamp.slice(11, 19).split(":").map(Number);
-    if (!isNaN(d)) state.beginS = tod[0] * 3600 + tod[1] * 60 + tod[2] - b.sim_t_s + (b.data_age_s || 0);
+  if (!b || !b.data_source) {
+    if (b && b.error) $("stamp").textContent = "Horodatage --:--:-- · API injoignable";
+    return;
   }
+  $("foot-source").innerHTML = `🔹 <strong>Données simulées</strong> (${esc(b.data_source)})`;
+  $("foot-cal").textContent = b.calibrated_on ? `calibrées sur capteurs réels jusqu'au ${b.calibrated_on}` : "date de calibration non indiquée";
+  $("foot-prov").textContent = b.provisional ? "programme de feux provisoire (avant visite sur site)" : "programme de feux relevé sur site";
+  const age = b.data_age_s != null ? ` · âge ${Math.round(b.data_age_s)} s` : "";
+  const runTxt = b.run ? ` · ${b.run.scenario} (graine ${b.run.seed})` : "";
+  $("stamp").textContent = `Horodatage ${stampOf(b.timestamp)}${age}${b.stale ? " · donnée ancienne" : ""}${runTxt}`;
+  if (b.run && b.sim_t_s != null && typeof b.timestamp === "string") {
+    const tod = b.timestamp.slice(11, 19).split(":").map(Number);
+    const tick = b.sim_t_s - (b.data_age_s != null ? b.data_age_s : 0);
+    if (tod.length === 3 && tod.every((x) => !isNaN(x))) state.beginS = tod[0] * 3600 + tod[1] * 60 + tod[2] - tick;
+  }
+}
+
+// Replay bounds of the selected run (D105): slider limits come from the API
+function applyBounds(b) {
+  if (!b || b.error) return;
+  if (b.t_min_s != null) state.tMin = b.t_min_s;
+  if (b.t_max_s != null) state.tMax = b.t_max_s;
+  if (b.step_s != null && b.step_s > 0) state.step = b.step_s;
+  const s = $("t");
+  s.min = String(Math.floor(state.tMin));
+  s.max = String(Math.ceil(state.tMax));
+  state.t = Math.max(state.tMin, Math.min(state.tMax, state.t));
+  s.value = String(Math.round(state.t));
+  $("slider-from").textContent = `${hhmm(state.beginS + state.tMin)} (début du run)`;
+  $("slider-to").textContent = `${hhmm(state.beginS + state.tMax)} (fin du run)`;
 }
 
 const seg = (opts, cur, key) => `<div class="seg" role="group">${opts.map(([k, l]) =>
@@ -1433,26 +1621,6 @@ function lerpAngle(from, to, factor) {
   return from + diff * factor;
 }
 
-// 2 distinct lanes per street: laneOffset = 12.0px shifts traffic strictly to the right-hand lane (24px separation)
-const MAP_ROUTES = {
-  n_s: { compiled: compilePath(MAP_EDGES.n_in.concat(MAP_EDGES.s_out.slice(1))), stopD: 310, approach: "N", isTurning: false, laneOffset: 12.0, name: "Bd de l'Hôpital (Nord ➔ Sud · Voie 1 Ouest)" },
-  s_n: { compiled: compilePath(MAP_EDGES.s_in.concat(MAP_EDGES.n_out.slice(1))), stopD: 158, approach: "S", isTurning: false, laneOffset: 12.0, name: "Bd de l'Hôpital (Sud ➔ Nord · Voie 2 Est)" },
-  w_n: { compiled: compilePath(MAP_EDGES.w_in.concat(MAP_EDGES.n_out.slice(1))), stopD: 382, approach: "W", isTurning: "left", laneOffset: 12.0, name: "Bd Saint-Marcel ➔ Bd de l'Hôpital (Nord)" },
-  w_s: { compiled: compilePath(MAP_EDGES.w_in.concat(MAP_EDGES.s_out.slice(1))), stopD: 382, approach: "W", isTurning: "right", laneOffset: 12.0, name: "Bd Saint-Marcel ➔ Bd de l'Hôpital (Sud)" },
-  n_w: { compiled: compilePath(MAP_EDGES.n_in.concat(MAP_EDGES.w_out.slice(1))), stopD: 310, approach: "N", isTurning: "right", laneOffset: 12.0, name: "Bd de l'Hôpital ➔ Bd Saint-Marcel (Ouest · Voie 2)" },
-  s_w: { compiled: compilePath(MAP_EDGES.s_in.concat(MAP_EDGES.w_out.slice(1))), stopD: 158, approach: "S", isTurning: "left", laneOffset: 12.0, name: "Bd de l'Hôpital ➔ Bd Saint-Marcel (Ouest · Voie 2)" },
-  bus_nb: { compiled: compilePath(MAP_EDGES.nb_in.concat(MAP_EDGES.s_out.slice(1))), stopD: 325, approach: "N", isTurning: false, laneOffset: 0, name: "Couloir Bus RATP 91/24 (Nord ➔ Sud)" },
-  bus_wb: { compiled: compilePath(MAP_EDGES.wb_in.concat(MAP_EDGES.n_out.slice(1))), stopD: 420, approach: "W", isTurning: "left", laneOffset: 0, name: "Couloir Bus Bd Saint-Marcel" },
-  amb_emerg: {
-    compiled: compilePath(MAP_EDGES.nb_in.slice(0, 5).concat([[660, 222], [710, 222], [745, 222]])),
-    stopD: 9999,
-    approach: "EMERGENCY",
-    isTurning: "right",
-    laneOffset: 0,
-    name: "Corridor SAMU 75 ➔ Urgences Déchoquage"
-  }
-};
-
 const ROAD_BRANCHES = {
   n: compilePath(MAP_EDGES.n_in),
   s: compilePath(MAP_EDGES.s_in),
@@ -1469,406 +1637,264 @@ const CAR_COLORS = [
   { body: "#F1F5F9", light: "#FFFFFF", name: "Blanc Nacré" }
 ];
 
-const CAR_MODELS = [
-  "Renault Mégane E-Tech", "Peugeot e-208", "Tesla Model 3", "Toyota Yaris Hybride", "Citroën ë-C4", "DS 7 Crossback"
-];
-
+// -------------------------------------------------------------
+// EF-21 REPLAY ENGINE (D105): the fleet drawn in 2D and 3D is the selected run's state log,
+// read from /replay/{run}?t=T&positions=true at T and T + step and linearly interpolated
+// (10 updates per second). The net coordinates of the state log use the same affine
+// projection as MAP_EDGES. No vehicle, light or flow is invented in the page.
+// -------------------------------------------------------------
 const SIM = {
   active: false,
   animId: null,
   frame: 0,
   lastTime: performance.now(),
-  speedFactor: 1.0,
   vehicles: [],
   peds: [],
-  cyclists: [],
-  nextVehId: 1,
-  lastSpawn: { n_s: 0, s_n: 0, w_n: 0, w_s: 0, bus_nb: 0, bus_wb: 0, bike: 0 },
-  ambActive: false,
   mouse: { x: -100, y: -100, active: false },
   hoveredVehicle: null
 };
 
-function getSimulationTelemetry(t) {
-  const simT = Number(t) || 2700;
-  const isS3 = state.mapController === "S3" || (state.run && state.run.startsWith("s3_"));
-  const rushFactor = 0.45 + 0.55 * Math.exp(-Math.pow((simT - 2700) / 2200, 2));
-  const speedBonus = isS3 ? 4.5 : 0;
-  const queueReduction = isS3 ? 0.72 : 1.0;
-  const q302 = Math.round((260 + 366 * rushFactor) * (isS3 ? 1.08 : 1.0));
-  const q303 = Math.round((160 + 210 * rushFactor) * (isS3 ? 1.06 : 1.0));
-  const qWest = Math.round((85 + 121 * rushFactor) * (isS3 ? 1.10 : 1.0));
-  const qTotal = q302 + q303 + qWest;
-  const speedAvg = (32 - 14 * rushFactor + speedBonus).toFixed(1);
-  const queueAvg = Math.max(0, Math.round((1 + 8 * rushFactor) * queueReduction));
-  return { simT, rushFactor, q302, q303, qWest, qTotal, speedAvg, queueAvg, isS3 };
+const REPLAY = {
+  run: null,
+  frames: new Map(),   // frame time -> { k, b, byId }
+  pending: new Set(),
+  failed: new Map(),   // frame time -> { at, b }: the last failed request (back-off, 12.1 state)
+  missingSince: null,  // since when the frame of the current instant is missing (ms)
+  mapState: null,      // last root state written by the replay clock
+  angles: new Map(),   // entity id -> last heading (canvas radians)
+  lastBase: null,
+  lastTicker: 0,
+  signals: null,
+  timer: null,
+  maxFrames: 80
+};
+
+const projX = (x) => x * 1.65 + 110;
+const projY = (y) => 560 - (y - 10) * 1.55;
+const PED_COLORS = ["#38BDF8", "#F59E0B", "#F8FAFC", "#C084FC", "#34D399"];
+
+// Deterministic colour per vehicle id (FNV-1a hash), never random (D105)
+function hashId(s) {
+  let h = 2166136261;
+  for (const ch of String(s)) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
-function getPhase(simT, isEmergency) {
-  if (isEmergency) {
-    return {
-      phaseId: "emergency",
-      label: "🚨 CORRIDOR URGENCE SAMU (V2I)",
-      pillClass: "phase-emergency",
-      nsLight: "green",
-      wLight: "red",
-      pedSLight: "red",
-      pedWLight: "red",
-      timeLeft: 15
-    };
-  }
+const busLine = (id) => {
+  const m = /^bus_([^_.]+)/.exec(String(id));
+  return m ? m[1] : "";
+};
 
-  const isS3 = state.mapController === "S3" || (state.run && state.run.startsWith("s3_"));
-
-  if (isS3) {
-    // S3 Deep RL DQN Agent (PyTorch Neural Regulation)
-    const sec = Math.floor(simT) % 80;
-    if (sec < 48) {
-      return {
-        phaseId: "NS_GREEN",
-        label: `🧠 S3 RL DQN : 🟢 VERT NORD-SUD (${48 - sec}s · Action 0)`,
-        pillClass: "phase-green",
-        nsLight: "green",
-        wLight: "red",
-        pedSLight: "red",
-        pedWLight: "green",
-        timeLeft: 48 - sec,
-        controller: "S3_DQN"
-      };
-    } else if (sec < 52) {
-      return {
-        phaseId: "NS_YELLOW",
-        label: `🧠 S3 RL DQN : 🟡 TRANSITION (${52 - sec}s · Action 2)`,
-        pillClass: "phase-yellow",
-        nsLight: "yellow",
-        wLight: "red",
-        pedSLight: "red",
-        pedWLight: "red",
-        timeLeft: 52 - sec,
-        controller: "S3_DQN"
-      };
-    } else if (sec < 76) {
-      return {
-        phaseId: "W_GREEN",
-        label: `🧠 S3 RL DQN : 🟢 VERT OUEST ST-MARCEL (${76 - sec}s · Action 1)`,
-        pillClass: "phase-green",
-        nsLight: "red",
-        wLight: "green",
-        pedSLight: "green",
-        pedWLight: "red",
-        timeLeft: 76 - sec,
-        controller: "S3_DQN"
-      };
-    } else {
-      return {
-        phaseId: "W_YELLOW",
-        label: `🧠 S3 RL DQN : 🟡 TRANSITION (${80 - sec}s · Action 3)`,
-        pillClass: "phase-yellow",
-        nsLight: "red",
-        wLight: "yellow",
-        pedSLight: "red",
-        pedWLight: "red",
-        timeLeft: 80 - sec,
-        controller: "S3_DQN"
-      };
-    }
-  }
-
-  const sec = Math.floor(simT) % 90;
-  if (sec < 44) {
-    return {
-      phaseId: "NS_GREEN",
-      label: `🟢 VERT NORD-SUD (${44 - sec}s)`,
-      pillClass: "phase-green",
-      nsLight: "green",
-      wLight: "red",
-      pedSLight: "red",
-      pedWLight: "green",
-      timeLeft: 44 - sec
-    };
-  } else if (sec < 48) {
-    return {
-      phaseId: "NS_YELLOW",
-      label: `🟡 TRANSITION JAUNE (${48 - sec}s)`,
-      pillClass: "phase-yellow",
-      nsLight: "yellow",
-      wLight: "red",
-      pedSLight: "red",
-      pedWLight: "red",
-      timeLeft: 48 - sec
-    };
-  } else if (sec < 85) {
-    return {
-      phaseId: "W_GREEN",
-      label: `🟢 VERT OUEST ST-MARCEL (${85 - sec}s)`,
-      pillClass: "phase-green",
-      nsLight: "red",
-      wLight: "green",
-      pedSLight: "green",
-      pedWLight: "red",
-      timeLeft: 85 - sec
-    };
-  } else {
-    return {
-      phaseId: "W_YELLOW",
-      label: `🟡 TRANSITION JAUNE (${90 - sec}s)`,
-      pillClass: "phase-yellow",
-      nsLight: "red",
-      wLight: "yellow",
-      pedSLight: "red",
-      pedWLight: "red",
-      timeLeft: 90 - sec
-    };
-  }
-}
-
-function initSimFleet() {
+function resetReplay(run) {
+  REPLAY.run = run;
+  REPLAY.frames.clear();
+  REPLAY.pending.clear();
+  REPLAY.failed.clear();
+  REPLAY.missingSince = null;
+  REPLAY.mapState = null;
+  REPLAY.angles.clear();
+  REPLAY.lastBase = null;
+  REPLAY.lastTicker = 0;
+  REPLAY.signals = null;
   SIM.vehicles = [];
   SIM.peds = [];
-  SIM.cyclists = [];
-  
-  const initial = [
-    { routeKey: "n_s", type: "car", d: 90, speed: 1.8 },
-    { routeKey: "n_s", type: "car", d: 190, speed: 1.8 },
-    { routeKey: "n_s", type: "car", d: 250, speed: 1.5 },
-    { routeKey: "n_s", type: "car", d: 430, speed: 1.8 },
-    { routeKey: "s_n", type: "car", d: 50, speed: 1.7 },
-    { routeKey: "s_n", type: "car", d: 110, speed: 1.6 },
-    { routeKey: "s_n", type: "car", d: 260, speed: 1.8 },
-    { routeKey: "w_n", type: "car", d: 130, speed: 1.6 },
-    { routeKey: "w_n", type: "car", d: 270, speed: 1.5 },
-    { routeKey: "w_s", type: "car", d: 210, speed: 1.6 },
-    { routeKey: "n_w", type: "car", d: 230, speed: 1.7 },
-    { routeKey: "s_w", type: "car", d: 90, speed: 1.65 },
-    { routeKey: "n_w", type: "car", d: 520, speed: 1.75 },
-    { routeKey: "bus_nb", type: "bus", d: 170, speed: 1.4, line: "91" },
-    { routeKey: "bus_wb", type: "bus", d: 250, speed: 1.3, line: "24" }
-  ];
-
-  for (const v of initial) {
-    const route = MAP_ROUTES[v.routeKey];
-    const colObj = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
-    const latOffset = (route && route.laneOffset != null) ? route.laneOffset : 12.0;
-    SIM.vehicles.push({
-      id: SIM.nextVehId++,
-      routeKey: v.routeKey,
-      type: v.type,
-      model: v.type === "car" ? CAR_MODELS[Math.floor(Math.random() * CAR_MODELS.length)] : (v.type === "bus" ? `Iveco Urbanway 18 Hybride` : `Mercedes Sprinter SAMU 75`),
-      energy: Math.random() > 0.4 ? "100% Électrique" : "Hybride Crit'Air 1",
-      co2: Math.random() > 0.4 ? 0 : Math.round(75 + Math.random() * 30),
-      d: v.d,
-      speed: v.speed,
-      prevSpeed: v.speed,
-      currentAngle: null,
-      lateralOffset: latOffset,
-      isBraking: false,
-      maxSpeed: v.type === "bus" ? 1.4 : (v.type === "ambulance" ? 2.6 : 1.7 + Math.random() * 0.4),
-      length: v.type === "bus" ? 30 : (v.type === "ambulance" ? 20 : 14),
-      width: v.type === "bus" ? 8 : (v.type === "ambulance" ? 8 : 7.2),
-      color: v.type === "bus" ? "#059669" : (v.type === "ambulance" ? "#FFFFFF" : colObj.body),
-      lightColor: v.type === "bus" ? "#34D399" : (v.type === "ambulance" ? "#FFFFFF" : colObj.light),
-      line: v.line || (v.type === "bus" ? "91" : ""),
-      isTurning: route.isTurning
-    });
-  }
-
-  // Pedestrians with stride phases
-  for (let i = 0; i < 8; i++) {
-    SIM.peds.push({
-      crossing: i % 2 === 0 ? "S" : "W",
-      progress: Math.random() * 0.9,
-      dir: Math.random() > 0.5 ? 1 : -1,
-      speed: 0.007 + Math.random() * 0.005,
-      stepPhase: Math.random() * Math.PI * 2,
-      color: ["#38BDF8", "#F59E0B", "#F8FAFC", "#C084FC", "#34D399"][i % 5]
-    });
-  }
-
-  // Cyclists on Paris Respire bike lane
-  SIM.cyclists = [
-    { d: 100, speed: 1.3, pedalPhase: 0 },
-    { d: 340, speed: 1.15, pedalPhase: 1.5 }
-  ];
 }
 
-function spawnVehicle(routeKey, type, line) {
-  const route = MAP_ROUTES[routeKey];
-  if (!route) return;
-  const isCrowded = SIM.vehicles.some((v) => v.routeKey === routeKey && v.d < 50);
-  if (isCrowded) return;
+function frameKey(t) {
+  const step = state.step > 0 ? state.step : 5;
+  const k = Math.floor((t - state.tMin) / step) * step + state.tMin;
+  return Math.max(state.tMin, Math.min(state.tMax, k));
+}
 
-  const colObj = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
-  const latOffset = (route && route.laneOffset != null) ? route.laneOffset : 12.0;
-  SIM.vehicles.push({
-    id: SIM.nextVehId++,
-    routeKey,
+function ingestFrame(k, b) {
+  if (!b || b.error || !Array.isArray(b.positions)) return false;
+  const byId = new Map();
+  for (const apiPos of b.positions) {
+    if (apiPos.x == null || apiPos.y == null) continue;
+    byId.set(apiPos.id, { entity: apiPos.entity, x: projX(apiPos.x), y: projY(apiPos.y), speed: apiPos.speed });
+  }
+  REPLAY.frames.set(k, { k, b, byId });
+  if (REPLAY.frames.size > REPLAY.maxFrames) {
+    const far = [...REPLAY.frames.keys()].sort((a, c) => Math.abs(c - state.t) - Math.abs(a - state.t))[0];
+    REPLAY.frames.delete(far);
+  }
+  return true;
+}
+
+async function loadFrame(k) {
+  if (!REPLAY.run || REPLAY.frames.has(k) || REPLAY.pending.has(k)) return;
+  // A frame that failed is asked again only after FRAME_RETRY_MS, not on every clock tick
+  const fail = REPLAY.failed.get(k);
+  if (fail && performance.now() - fail.at < FRAME_RETRY_MS) return;
+  const run = REPLAY.run;
+  REPLAY.pending.add(k);
+  const b = await api(`/replay/${encodeURIComponent(run)}?t=${k}&positions=true`, true);
+  REPLAY.pending.delete(k);
+  if (run !== REPLAY.run) return;
+  if (ingestFrame(k, b)) REPLAY.failed.delete(k);
+  else REPLAY.failed.set(k, { at: performance.now(), b });
+}
+
+// Root state, banners and footer of the Relecture view, written by the replay clock
+// (render() keeps the live map and does not run again while the view plays or seeks)
+function setReplayState(st, b) {
+  const v = $("view");
+  if (!v || v.dataset.view !== "replay") return;
+  const sig = [st, b && b.timestamp, b && b.notice, b && b.error ? b.error.code : ""].join("|");
+  if (REPLAY.mapState === sig) return;
+  REPLAY.mapState = sig;
+  v.dataset.viewState = st;
+  const el = $("replay-banners");
+  if (el) {
+    el.innerHTML = st === "loading"
+      ? `<div class="banner warn" data-field="banner-loading">⏳ <strong>Chargement</strong> de l'instant demandé…</div>`
+      : banners(b);
+  }
+  if (st === "ok" || st === "degraded" || st === "stale") {
+    const old = v.querySelector('[data-field="banner-last-known"]');
+    if (old) old.remove();
+  }
+  if (b) footer(b);
+}
+
+// No frame for the current instant: after a short grace (a frame in flight) or at once when
+// its request failed, the map is emptied and the lights turn grey. Old positions and signal
+// states are never drawn as the current instant (12.1)
+function replayMissing(k0) {
+  const now = performance.now();
+  if (REPLAY.missingSince == null) REPLAY.missingSince = now;
+  const fail = REPLAY.failed.get(k0);
+  if (!fail && now - REPLAY.missingSince < FRAME_GRACE_MS) return;
+  SIM.vehicles = [];
+  SIM.peds = [];
+  SIM.hoveredVehicle = null;
+  REPLAY.signals = null;
+  REPLAY.lastBase = null;  // the HUD, the ticker and the footer follow the next frame received
+  const elT = $("hud-t");
+  if (elT) {
+    elT.dataset.value = "";
+    elT.innerHTML = `<span>🕒</span> <span>Instant : <strong>${hhmm(state.beginS + k0)}</strong> · ${fail ? "non disponible" : "chargement…"}</span>`;
+  }
+  const elC = $("hud-count");
+  if (elC) {
+    elC.dataset.value = "";
+    elC.innerHTML = `<span>🚗</span> <span>-- véhicules</span>`;
+  }
+  if (!fail) {
+    setReplayState("loading", null);
+    return;
+  }
+  const el = $("ticker");
+  if (el && el.dataset.state !== "error") {
+    el.dataset.state = "error";
+    el.innerHTML = `<div class="muted">Événements : indisponibles (instant non chargé)</div>`;
+  }
+  const st = viewState(fail.b);
+  if (st === "ok" || st === "degraded" || st === "stale") {
+    // an answer without positions: the instant is absent, not current
+    setReplayState("unavailable", { ...fail.b, status: "unavailable", notice: "positions absentes à cet instant" });
+  } else {
+    setReplayState(st, fail.b);
+  }
+}
+
+function vehicleOf(id, p, x, y, angle) {
+  const type = p.entity === "bus" || p.entity === "ambulance" ? p.entity : "car";
+  const col = CAR_COLORS[hashId(id) % CAR_COLORS.length];
+  return {
+    id,
     type,
-    model: type === "car" ? CAR_MODELS[Math.floor(Math.random() * CAR_MODELS.length)] : (type === "bus" ? `Iveco Urbanway 18` : `Mercedes Sprinter SAMU 75`),
-    energy: Math.random() > 0.4 ? "100% Électrique" : "Hybride Crit'Air 1",
-    co2: Math.random() > 0.4 ? 0 : Math.round(75 + Math.random() * 30),
-    d: 0,
-    speed: type === "ambulance" ? 2.4 : 1.6,
-    prevSpeed: type === "ambulance" ? 2.4 : 1.6,
-    currentAngle: null,
-    lateralOffset: latOffset,
-    isBraking: false,
-    maxSpeed: type === "bus" ? 1.4 : (type === "ambulance" ? 2.6 : 1.6 + Math.random() * 0.4),
+    x,
+    y,
+    angle,
+    currentAngle: angle,
+    speed: p.speed,
+    isBraking: p.speed != null && p.speed < 0.5,
     length: type === "bus" ? 30 : (type === "ambulance" ? 20 : 14),
     width: type === "bus" ? 8 : (type === "ambulance" ? 8 : 7.2),
-    color: type === "bus" ? "#059669" : (type === "ambulance" ? "#FFFFFF" : colObj.body),
-    lightColor: type === "bus" ? "#34D399" : (type === "ambulance" ? "#FFFFFF" : colObj.light),
-    line: line || (type === "bus" ? (Math.random() > 0.5 ? "91" : "24") : ""),
-    isTurning: route.isTurning
-  });
+    color: type === "car" ? col : null,
+    line: type === "bus" ? busLine(id) : ""
+  };
 }
 
-function updateTrafficSim(dt = 1.0) {
-  SIM.frame++;
-  const tVal = Number($("t") ? $("t").value : 2700);
-  const telem = getSimulationTelemetry(tVal);
-  const isEmergency = state.mapEmergency || (tVal >= 340 && tVal <= 380);
-  const phase = getPhase(telem.simT, isEmergency);
-  const mult = SIM.speedFactor * dt;
-
-  if (isEmergency && !SIM.ambActive) {
-    SIM.ambActive = true;
-    spawnVehicle("amb_emerg", "ambulance");
-  } else if (!isEmergency) {
-    SIM.ambActive = false;
+// The fleet at replay time t: frames k0 <= t < k1, interpolated
+function syncFleetFromReplay(t) {
+  const step = state.step > 0 ? state.step : 5;
+  const k0 = frameKey(t);
+  const k1 = Math.min(state.tMax, k0 + step);
+  const kPrev = Math.max(state.tMin, k0 - step);
+  loadFrame(k0);
+  if (k1 !== k0) loadFrame(k1);
+  if (kPrev !== k0) loadFrame(kPrev);
+  if (state.playing) {
+    for (let j = 2; j <= 4; j++) loadFrame(Math.min(state.tMax, k0 + j * step));
   }
-
-  const spawnThreshold = Math.max(40, Math.round((115 - 60 * telem.rushFactor) / SIM.speedFactor));
-  const now = SIM.frame;
-
-  if (now - SIM.lastSpawn.n_s > spawnThreshold) {
-    const rKey = Math.random() < 0.28 ? "n_w" : "n_s";
-    spawnVehicle(rKey, Math.random() < 0.16 ? "bus" : "car", "91");
-    SIM.lastSpawn.n_s = now;
+  const f0 = REPLAY.frames.get(k0);
+  if (!f0) {
+    replayMissing(k0);
+    return false;
   }
-  if (now - SIM.lastSpawn.s_n > spawnThreshold * 1.35) {
-    const rKey = Math.random() < 0.25 ? "s_w" : "s_n";
-    spawnVehicle(rKey, "car");
-    SIM.lastSpawn.s_n = now;
-  }
-  if (now - SIM.lastSpawn.w_n > spawnThreshold * 1.7) {
-    spawnVehicle(Math.random() > 0.5 ? "w_n" : "w_s", "car");
-    SIM.lastSpawn.w_n = now;
-  }
-  if (now - SIM.lastSpawn.bus_nb > spawnThreshold * 3.4) {
-    spawnVehicle("bus_nb", "bus", "91");
-    SIM.lastSpawn.bus_nb = now;
-  }
-  if (now - SIM.lastSpawn.bus_wb > spawnThreshold * 4.2) {
-    spawnVehicle("bus_wb", "bus", "24");
-    SIM.lastSpawn.bus_wb = now;
-  }
-
-  const routeGroups = {};
-  for (const v of SIM.vehicles) {
-    if (!routeGroups[v.routeKey]) routeGroups[v.routeKey] = [];
-    routeGroups[v.routeKey].push(v);
-  }
-
-  for (const routeKey in routeGroups) {
-    const list = routeGroups[routeKey];
-    list.sort((a, b) => b.d - a.d);
-    const route = MAP_ROUTES[routeKey];
-    const isNs = route.approach === "N" || route.approach === "S";
-    const light = route.approach === "EMERGENCY" ? "green" : (isNs ? phase.nsLight : phase.wLight);
-
-    for (let i = 0; i < list.length; i++) {
-      const v = list[i];
-      v.prevSpeed = v.speed;
-
-      // 1. Détermination stricte de la contrainte du feu tricolore
-      const mustStopAtLight = (light === "red") || (light === "yellow" && (route.stopD - v.d) > 28);
-      let stopTarget = Infinity;
-      if (mustStopAtLight && v.d <= route.stopD) {
-        stopTarget = route.stopD - 6;
-      }
-
-      // 2. Détermination de la distance de sécurité avec le véhicule précédent
-      let leadTarget = Infinity;
-      if (i > 0) {
-        const ahead = list[i - 1];
-        leadTarget = ahead.d - (ahead.length / 2 + v.length / 2 + 10);
-      }
-
-      // 3. Cible effective : la plus restrictive (on ne peut dépasser NI le feu rouge NI la voiture devant)
-      const targetD = Math.min(stopTarget, leadTarget);
-      const gap = targetD - v.d;
-
-      if (gap <= 4) {
-        // Arrêt complet immédiat si à la ligne d'arrêt ou collé au véhicule devant
-        v.speed = 0;
-        v.d = Math.min(v.d, targetD);
-        v.isBraking = true;
-      } else if (gap < 140) {
-        // Décélération progressive fluide (modèle IDM amélioré)
-        const decel = Math.min(0.26, Math.max(0.02, (v.speed * v.speed) / (2 * Math.max(1, gap - 4))));
-        v.speed = Math.max(0, v.speed - decel * mult);
-        v.d += v.speed * mult;
-        v.isBraking = true;
-      } else {
-        // Accélération fluide vers la vitesse maximale autorisée
-        const acc = 0.05 * (1 - Math.pow(v.speed / v.maxSpeed, 3)) * mult;
-        v.speed = Math.min(v.maxSpeed, v.speed + Math.max(0.01, acc));
-        v.d += v.speed * mult;
-        v.isBraking = false;
-      }
-
-      // 4. Verrou absolu anti-franchissement : si le feu est rouge/jaune, interdiction absolue de franchir la ligne d'arrêt
-      if (mustStopAtLight && v.d <= route.stopD) {
-        if (v.d > route.stopD - 5) {
-          v.d = route.stopD - 5;
-          v.speed = 0;
-          v.isBraking = true;
-        }
-      } else if (i > 0 && v.d > targetD) {
-        // Verrou anti-collision avec le véhicule devant
-        v.d = targetD;
-        v.speed = 0;
-        v.isBraking = true;
-      }
+  REPLAY.missingSince = null;
+  const f1 = k1 > k0 ? REPLAY.frames.get(k1) : null;
+  const fp = kPrev < k0 ? REPLAY.frames.get(kPrev) : null;
+  const a = f1 ? Math.max(0, Math.min(1, (t - k0) / (k1 - k0))) : 0;
+  const fleet = [];
+  const peds = [];
+  for (const [id, p0] of f0.byId) {
+    const p1 = f1 ? f1.byId.get(id) : null;
+    const x = p1 ? p0.x + (p1.x - p0.x) * a : p0.x;
+    const y = p1 ? p0.y + (p1.y - p0.y) * a : p0.y;
+    if (p0.entity === "pedestrian") {
+      peds.push({ id, x, y, color: PED_COLORS[hashId(id) % PED_COLORS.length] });
+      continue;
     }
-  }
-
-  SIM.vehicles = SIM.vehicles.filter((v) => {
-    const r = MAP_ROUTES[v.routeKey];
-    return r && v.d < r.compiled.total;
-  });
-
-  // Pedestrians with walking stride
-  for (const p of SIM.peds) {
-    const pLight = p.crossing === "S" ? phase.pedSLight : phase.pedWLight;
-    if (pLight === "green" || (p.progress > 0.05 && p.progress < 0.95)) {
-      p.progress += p.dir * p.speed * mult;
-      p.stepPhase += 0.22 * mult;
-      if (p.progress >= 1.0) { p.progress = 1.0; p.dir = -1; }
-      else if (p.progress <= 0.0) { p.progress = 0.0; p.dir = 1; }
+    let ang = REPLAY.angles.get(id);
+    if (p1 && Math.hypot(p1.x - p0.x, p1.y - p0.y) > 0.5) ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+    else if (ang == null && fp && fp.byId.has(id)) {
+      const pp = fp.byId.get(id);
+      if (Math.hypot(p0.x - pp.x, p0.y - pp.y) > 0.5) ang = Math.atan2(p0.y - pp.y, p0.x - pp.x);
     }
+    if (ang != null) REPLAY.angles.set(id, ang);
+    fleet.push(vehicleOf(id, p0, x, y, ang != null ? ang : 0));
   }
+  SIM.vehicles = fleet;
+  SIM.peds = peds;
+  REPLAY.signals = f0.b.signals || null;
+  if (k0 !== REPLAY.lastBase) {
+    REPLAY.lastBase = k0;
+    updateReplayHUD(f0);
+    setReplayState(viewState(f0.b), f0.b);  // state, banners and footer of the instant shown
+  }
+  return true;
+}
 
-  // Cyclists with pedaling phase (and stopping at red light along Bd de l'Hôpital)
-  for (const c of SIM.cyclists) {
-    const cMustStop = (phase.nsLight === "red" || phase.nsLight === "yellow") && c.d <= 310;
-    if (cMustStop && (310 - c.d) < 90) {
-      if (c.d < 304) {
-        c.d = Math.min(304, c.d + c.speed * mult * 0.4);
-      }
-    } else {
-      c.d += c.speed * mult;
-      c.pedalPhase += 0.25 * mult;
-    }
-    if (c.d > 550) c.d = 20;
+// Replay clock of the map (both renderers draw SIM.vehicles): 10 updates per second,
+// independent of the animation frames (which only draw)
+function replayStep() {
+  syncFleetFromReplay(state.t);
+  const now = performance.now();
+  if (now - REPLAY.lastTicker >= 1000 && REPLAY.lastBase != null) {
+    REPLAY.lastTicker = now;
+    updateTicker(REPLAY.lastBase);
   }
 }
+
+function startReplayTimer() {
+  if (REPLAY.timer) return;
+  replayStep();
+  REPLAY.timer = setInterval(replayStep, 100);
+}
+
+const lightColor = (s) => s === "green" ? "#10B981" : (s === "yellow" ? "#F59E0B" : (s === "red" ? "#EF4444" : "#475569"));
+const sigOf = (approach) => (REPLAY.signals && REPLAY.signals[approach]) || null;
 
 function drawSim(ctx, width, height) {
-  const tVal = Number($("t") ? $("t").value : 2700);
-  const telem = getSimulationTelemetry(tVal);
-  const isEmergency = state.mapEmergency || (tVal >= 340 && tVal <= 380);
-  const phase = getPhase(telem.simT, isEmergency);
+  // An ambulance of the replayed run is on the map: the emergency entrance blinks
+  const isEmergency = SIM.vehicles.some((v) => v.type === "ambulance");
+  const sigN = sigOf("N"), sigS = sigOf("S"), sigW = sigOf("W");
 
   ctx.clearRect(0, 0, width, height);
 
@@ -2068,8 +2094,8 @@ function drawSim(ctx, width, height) {
   ctx.fillText("🚨 URGENCES & SAMU 75", 728, 168);
   ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.font = "9.5px 'JetBrains Mono', monospace";
-  ctx.fillText("Porte Ouest · Déchoquage V2I", 728, 186);
-  ctx.fillText("SAS Ambulances préempté", 728, 202);
+  ctx.fillText("Porte Ouest · Déchoquage", 728, 186);
+  ctx.fillText("SAS Ambulances", 728, 202);
 
   // C. Pavillon Gaston Cordier & Chapelle
   ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
@@ -2384,13 +2410,15 @@ function drawSim(ctx, width, height) {
     ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
     ctx.restore();
   }
-  const nsStopColor = phase.nsLight === "green" ? "#10B981" : (phase.nsLight === "yellow" ? "#F59E0B" : "#EF4444");
-  const wStopColor = phase.wLight === "green" ? "#10B981" : (phase.wLight === "yellow" ? "#F59E0B" : "#EF4444");
+  // Signal heads from the replayed run (/replay signals); grey when the API gives none
+  const nStopColor = lightColor(sigN);
+  const sStopColor = lightColor(sigS);
+  const wStopColor = lightColor(sigW);
 
   // Southbound lane stop line: strictly across Voie 1 (from median 565.6, 328.8 to outer curb 550.1, 319.6)
-  drawStopLine([565.6, 328.8], [550.1, 319.6], nsStopColor);
+  drawStopLine([565.6, 328.8], [550.1, 319.6], nStopColor);
   // Northbound lane stop line: strictly across Voie 1 (from median 530.9, 418.5 to outer curb 547.6, 425.1)
-  drawStopLine([530.9, 418.5], [547.6, 425.1], nsStopColor);
+  drawStopLine([530.9, 418.5], [547.6, 425.1], sStopColor);
   // Eastbound lane stop line: strictly across Voie 1 (from median 507.8, 388.4 to outer curb 515.1, 404.9)
   drawStopLine([507.8, 388.4], [515.1, 404.9], wStopColor);
 
@@ -2424,91 +2452,16 @@ function drawSim(ctx, width, height) {
     }
     ctx.restore();
   }
-  drawTrafficSignal(544, 312, phase.nsLight, phase.timeLeft);
-  drawTrafficSignal(554, 432, phase.nsLight, phase.timeLeft);
-  drawTrafficSignal(520, 412, phase.wLight, phase.timeLeft);
+  drawTrafficSignal(544, 312, sigN, null);
+  drawTrafficSignal(554, 432, sigS, null);
+  drawTrafficSignal(520, 412, sigW, null);
 
-  // 8. SIER LOOP SENSORS WITH LEADER LINES OUTSIDE ROAD
-  if (state.showSensors) {
-    function drawCleanSensor(loopX, loopY, id, flow, label, cardX, cardY) {
-      ctx.save();
-      // On-road loop detector centered inside Voie 1
-      ctx.strokeStyle = "#38BDF8";
-      ctx.lineWidth = 2;
-      ctx.fillStyle = "rgba(56, 189, 248, 0.25)";
-      ctx.beginPath(); ctx.rect(loopX - 10, loopY - 6, 20, 12); ctx.fill(); ctx.stroke();
-
-      // Pulsing radar ripples
-      const r = (SIM.frame * 0.8) % 24;
-      ctx.beginPath(); ctx.arc(loopX, loopY, r, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(56, 189, 248, ${Math.max(0, 1 - r / 24)})`;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // Angled leader line from loop to outside card
-      ctx.strokeStyle = "rgba(56, 189, 248, 0.6)";
-      ctx.lineWidth = 1.2;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      ctx.moveTo(loopX, loopY);
-      const midX = (loopX + cardX) / 2;
-      ctx.lineTo(midX, cardY + 14);
-      ctx.lineTo(cardX, cardY + 14);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Leader terminal dot
-      ctx.fillStyle = "#38BDF8";
-      ctx.beginPath(); ctx.arc(loopX, loopY, 2.5, 0, Math.PI * 2); ctx.fill();
-
-      // Outside Floating Glass Card
-      ctx.fillStyle = "rgba(10, 16, 28, 0.92)";
-      ctx.strokeStyle = "rgba(56, 189, 248, 0.6)";
-      ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.roundRect(cardX, cardY, 130, 30, 5); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "#38BDF8";
-      ctx.font = "bold 9.5px 'JetBrains Mono', monospace";
-      ctx.fillText(`📡 Capteur SIER ${id}`, cardX + 8, cardY + 13);
-      ctx.fillStyle = "#F8FAFC";
-      ctx.font = "9px 'JetBrains Mono', monospace";
-      ctx.fillText(`${flow} véh/h · ${label}`, cardX + 8, cardY + 24);
-      ctx.restore();
-    }
-
-    // SIER 302 placed in Voie 1 of Nord approach at (610, 215)
-    drawCleanSensor(610, 215, "302", telem.q302, "Voie 1 (Sud)", 740, 195);
-    // SIER 303 placed in Voie 1 of Sud approach at (498, 485)
-    drawCleanSensor(498, 485, "303", telem.q303, "Voie 1 (Nord)", 220, 510);
-  }
-
-  // 9. CYCLISTS & PEDESTRIANS
-  for (const c of SIM.cyclists) {
-    const route = MAP_ROUTES.bus_nb;
-    if (!route) continue;
-    const pos = samplePath(route.compiled, c.d, 6.0);
-    ctx.save();
-    ctx.translate(pos.x + 8, pos.y);
-    ctx.rotate(pos.angle);
-    ctx.fillStyle = "#34D399";
-    ctx.fillRect(-5, -1.2, 10, 2.4);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.beginPath(); ctx.arc(0, 0, 2.8, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-
+  // 8. PEDESTRIANS (state log positions of the replayed run)
   if (state.showPeds) {
     for (const p of SIM.peds) {
-      let x, y;
-      if (p.crossing === "S") {
-        x = 470 + (525 - 470) * p.progress;
-        y = 430 + (455 - 430) * p.progress + (p.dir > 0 ? 3 : -3);
-      } else {
-        x = 465 + (485 - 465) * p.progress + (p.dir > 0 ? 3 : -3);
-        y = 385 + (435 - 385) * p.progress;
-      }
       ctx.save();
       ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
   }
@@ -2518,19 +2471,13 @@ function drawSim(ctx, width, height) {
   let minHoverDist = 32;
 
   for (const v of SIM.vehicles) {
-    const route = MAP_ROUTES[v.routeKey];
-    if (!route) continue;
-    const latOff = v.lateralOffset != null ? v.lateralOffset : (route.laneOffset || 12.0);
-    const pos = samplePath(route.compiled, v.d, latOff);
-
-    if (v.currentAngle == null) v.currentAngle = pos.angle;
-    else v.currentAngle = lerpAngle(v.currentAngle, pos.angle, 0.28);
+    const pos = { x: v.x, y: v.y, angle: v.angle };
 
     if (SIM.mouse && SIM.mouse.active) {
       const dist = Math.hypot(pos.x - SIM.mouse.x, pos.y - SIM.mouse.y);
       if (dist < minHoverDist) {
         minHoverDist = dist;
-        nearestHover = { v, pos, route };
+        nearestHover = { v, pos };
       }
     }
 
@@ -2582,7 +2529,7 @@ function drawSim(ctx, width, height) {
       ctx.fillRect(-v.length * 0.35, -v.width * 0.38, v.length * 0.7, v.width * 0.76);
       ctx.fillStyle = "#34D399";
       ctx.font = "bold 6px 'JetBrains Mono', monospace";
-      ctx.fillText(v.line || "91", v.length / 2 - 5, 2);
+      ctx.fillText(v.line, v.length / 2 - 5, 2);
     } else if (v.type === "ambulance") {
       // SAMU Ambulance
       ctx.fillStyle = "#FFFFFF";
@@ -2607,7 +2554,7 @@ function drawSim(ctx, width, height) {
   // Hover Tooltip Reticle
   if (nearestHover) {
     SIM.hoveredVehicle = nearestHover.v;
-    const { v, pos, route } = nearestHover;
+    const { v, pos } = nearestHover;
     let cardX = pos.x + 20;
     let cardY = pos.y - 70;
     if (cardX + 230 > width) cardX = pos.x - 245;
@@ -2619,13 +2566,13 @@ function drawSim(ctx, width, height) {
     ctx.beginPath(); ctx.roundRect(cardX, cardY, 230, 78, 8); ctx.fill(); ctx.stroke();
     ctx.fillStyle = "#38BDF8";
     ctx.font = "bold 11px 'Plus Jakarta Sans', sans-serif";
-    ctx.fillText(v.type === "bus" ? `🚌 Bus RATP L.${v.line}` : (v.type === "ambulance" ? `🚑 SAMU 75 Urgence V2I` : `🚘 ${v.model}`), cardX + 12, cardY + 18);
+    ctx.fillText(v.type === "bus" ? `🚌 Bus ligne ${v.line}` : (v.type === "ambulance" ? `🚑 Ambulance (simulée)` : `🚘 Voiture`), cardX + 12, cardY + 18);
     ctx.fillStyle = "#F8FAFC";
     ctx.font = "10px 'JetBrains Mono', monospace";
-    ctx.fillText(`⏱️ Vitesse : ${(v.speed * 18).toFixed(1)} km/h · ${v.isBraking ? '🔴 Freinage' : '🟢 Fluide'}`, cardX + 12, cardY + 35);
-    ctx.fillText(`📍 ${route.name.slice(0, 26)}`, cardX + 12, cardY + 51);
-    ctx.fillStyle = v.co2 === 0 ? "#34D399" : "#94A3B8";
-    ctx.fillText(v.co2 === 0 ? `🌱 100% Élec. · 0g CO2/km` : `⛽ ${v.energy} · ${v.co2}g CO2/km`, cardX + 12, cardY + 67);
+    ctx.fillText(`⏱️ Vitesse : ${v.speed != null ? (v.speed * 3.6).toFixed(1) : "--"} km/h · ${v.isBraking ? '🔴 Arrêt' : '🟢 En mouvement'}`, cardX + 12, cardY + 35);
+    ctx.fillText(`🆔 ${String(v.id).slice(0, 28)}`, cardX + 12, cardY + 51);
+    ctx.fillStyle = "#94A3B8";
+    ctx.fillText("Relecture du journal d'état (simulé)", cardX + 12, cardY + 67);
   }
 
   // Live Sync Badge
@@ -2637,7 +2584,7 @@ function drawSim(ctx, width, height) {
   ctx.beginPath(); ctx.arc(28, 30, 4, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = "#F8FAFC";
   ctx.font = "bold 11px 'JetBrains Mono', monospace";
-  ctx.fillText(`SUMO 60 FPS · ${SIM.speedFactor}x · ${SIM.vehicles.length} VÉHICULES`, 38, 34);
+  ctx.fillText(`RELECTURE · ×${state.playSpeed}`, 38, 34);
 }
 
 // -------------------------------------------------------------
@@ -3104,10 +3051,6 @@ const SIM3D = {
   },
 
   updateSimulation(dt) {
-    const tVal = Number($("t") ? $("t").value : 2700);
-    const isEmergency = state.mapEmergency || (tVal >= 340 && tVal <= 380);
-    const phase = getPhase(tVal, isEmergency);
-
     if (this.rotorBlades) {
       this.rotorBlades.rotation.y += 0.45;
     }
@@ -3126,17 +3069,15 @@ const SIM3D = {
         l.green.material.color.setHex(stateColor === 'green' ? 0x10B981 : 0x002211);
       }
     };
-    updateLamps(this.signalLamps.ns, phase.nsLight);
-    updateLamps(this.signalLamps.w, phase.wLight);
+    updateLamps(this.signalLamps.ns.slice(0, 1), sigOf("N"));
+    updateLamps(this.signalLamps.ns.slice(1), sigOf("S"));
+    updateLamps(this.signalLamps.w, sigOf("W"));
 
     // Vehicles 3D
     const activeIds = new Set();
     for (const v of SIM.vehicles) {
       activeIds.add(v.id);
-      const route = MAP_ROUTES[v.routeKey];
-      if (!route) continue;
-      const latOff = v.lateralOffset != null ? v.lateralOffset : (route.laneOffset || 12.0);
-      const pos2D = samplePath(route.compiled, v.d, latOff);
+      const pos2D = { x: v.x, y: v.y, angle: v.angle };
       const pos3D = this.to3D(pos2D.x, pos2D.y);
 
       let vMesh = this.vehMeshes.get(v.id);
@@ -3277,12 +3218,9 @@ function startTrafficSim() {
     });
   }
 
-  if (SIM.vehicles.length === 0) {
-    initSimFleet();
-  }
-
   SIM.active = true;
   SIM.lastTime = performance.now();
+  startReplayTimer();
 
   function loop(now) {
     if (!SIM.active || state.mapMode === "3d") return;
@@ -3296,7 +3234,7 @@ function startTrafficSim() {
       try {
         const dt = (now - SIM.lastTime) / 16.67;
         SIM.lastTime = now;
-        updateTrafficSim(Math.min(2.0, Math.max(0.5, dt || 1.0)));
+        SIM.frame++;
         drawSim(curCtx, curCanvas.width, curCanvas.height);
       } catch (err) {
         console.error("Traffic sim render error:", err);
@@ -3334,19 +3272,16 @@ function start3DSim() {
       SIM3D.renderer.setSize(nw, nh);
     }
 
-    if (SIM.vehicles.length === 0) {
-      initSimFleet();
-    }
-
     SIM3D.active = true;
     SIM.active = true;
     SIM.lastTime = performance.now();
+    startReplayTimer();
 
     function loop3D(now) {
       if (!SIM3D.active || state.mapMode !== "3d") return;
       const dt = (now - SIM.lastTime) / 16.67;
       SIM.lastTime = now;
-      updateTrafficSim(Math.min(2.0, Math.max(0.5, dt || 1.0)));
+      SIM.frame++;
       SIM3D.updateSimulation(dt);
       SIM3D.render();
       SIM3D.animId = requestAnimationFrame(loop3D);
@@ -3389,6 +3324,10 @@ function switchTo3D() {
 function stopTrafficSim() {
   SIM.active = false;
   SIM3D.active = false;
+  if (REPLAY.timer) {
+    clearInterval(REPLAY.timer);
+    REPLAY.timer = null;
+  }
   if (SIM.animId) {
     cancelAnimationFrame(SIM.animId);
     SIM.animId = null;
@@ -3399,459 +3338,132 @@ function stopTrafficSim() {
   }
 }
 
-function updateMapHUD() {
-  const tVal = Number($("t") ? $("t").value : 2700);
-  const telem = getSimulationTelemetry(tVal);
-  const isEmergency = state.mapEmergency || (tVal >= 340 && tVal <= 380);
-  const phase = getPhase(telem.simT, isEmergency);
-
-  if (isEmergency && !SIM.ambActive) {
-    SIM.ambActive = true;
-    spawnVehicle("amb_emerg", "ambulance");
-  } else if (!isEmergency) {
-    SIM.ambActive = false;
+// Replay HUD: the instant of the map (main item, replay-t) and the vehicle count (secondary;
+// the other secondary item is the event ticker; spec 12 allows at most 2)
+function updateReplayHUD(f0) {
+  const b = f0.b;
+  const c = b.counts || {};
+  const vehicles = ["car", "bus", "ambulance"].reduce((n, k) => n + (c[k] != null ? c[k] : 0), 0);
+  const elT = $("hud-t");
+  if (elT) {
+    elT.dataset.value = String(b.sim_t_s != null ? Math.round(b.sim_t_s) : "");
+    elT.innerHTML = `<span>🕒</span> <span>Instant : <strong>${hhmm(state.beginS + f0.k)}</strong></span>`;
   }
-
-  const elPhase = $("hud-phase");
-  if (elPhase) {
-    elPhase.className = `map-pill ${phase.pillClass}`;
-    elPhase.innerHTML = `<span>🚦</span> <span>${phase.label}</span>`;
-  }
-  const elFlow = $("hud-flow");
-  if (elFlow) {
-    elFlow.innerHTML = `<span>🚗</span> <span>Débit Total : <strong>${telem.qTotal}</strong> véh/h</span> <span style="color:var(--accent); font-size:11px">(${telem.rushFactor > 0.85 ? 'Pic 08h15' : 'Fluide'})</span>`;
-  }
-  const elSpeed = $("hud-speed");
-  if (elSpeed) {
-    elSpeed.innerHTML = `<span>⏱️</span> <span>Vitesse : <strong>${telem.speedAvg}</strong> km/h</span>`;
-  }
-  const elEmergBtn = $("btn-emergency");
-  if (elEmergBtn) {
-    elEmergBtn.className = `map-action-btn ${isEmergency ? 'active' : ''}`;
-    elEmergBtn.style.background = isEmergency ? '#EF4444' : '';
-    elEmergBtn.style.color = isEmergency ? '#fff' : '';
-    elEmergBtn.innerHTML = `<span>🚨</span> <span>${isEmergency ? 'Urgence Active (V2I)' : 'Simuler Urgence SAMU'}</span>`;
-  }
-
-  const t302 = $("tile-q302");
-  if (t302) t302.textContent = `${telem.q302} véh/h`;
-  const t303 = $("tile-q303");
-  if (t303) t303.textContent = `${telem.q303} véh/h`;
-  const tAction = $("tile-action");
-  if (tAction) tAction.textContent = `Action ${phase.phaseId === 'NS_GREEN' ? '0 (N-S Vert)' : '2 (Ouest Vert)'}`;
-  const tAmb = $("tile-amb");
-  if (tAmb) {
-    tAmb.textContent = isEmergency ? 'Actif (Vert Forcé)' : 'En Veille V2I';
-    tAmb.style.color = isEmergency ? '#EF4444' : 'var(--fg)';
+  const elC = $("hud-count");
+  if (elC) {
+    elC.dataset.value = String(vehicles);
+    elC.innerHTML = `<span>🚗</span> <span><strong>${vehicles}</strong> véhicules · ${c.pedestrian != null ? c.pedestrian : 0} piétons</span>`;
   }
 }
 
-async function renderMap() {
-  const b = await api(`/replay/default`);
-  const tVal = Number($("t") ? $("t").value : 2700);
-  const telem = getSimulationTelemetry(tVal);
-  const isEmergency = state.mapEmergency || (tVal >= 340 && tVal <= 380);
-  const phase = getPhase(telem.simT, isEmergency);
-
-  if (isEmergency && !SIM.ambActive) {
-    SIM.ambActive = true;
-    spawnVehicle("amb_emerg", "ambulance");
+async function updateTicker(k0) {
+  const run = REPLAY.run;
+  if (!run) return;
+  const from = Math.max(state.tMin, k0 - 300);
+  const b = await api(`/replay/${encodeURIComponent(run)}/events?from=${Math.round(from)}&to=${Math.round(k0)}`, true);
+  const el = $("ticker");
+  if (!el || run !== REPLAY.run) return;
+  if (b.error || b.status === "unavailable") {
+    el.dataset.state = b.error ? "error" : "unavailable";
+    el.innerHTML = `<div class="muted">Événements : ${esc(b.error ? "indisponibles" : (b.notice || "indisponibles"))}</div>`;
+    return;
   }
-
-  setTimeout(() => {
-    if (state.mapMode === "3d") {
-      start3DSim();
-    } else {
-      startTrafficSim();
-    }
-  }, 20);
-
-  return [b, `
-    <div class="map-card">
-      ${banners(b)}
-
-      <!-- Interactive Map Toolbar & Live Status -->
-      <div class="map-toolbar">
-        <div class="map-toolbar-left">
-          <!-- 2D / 3D Mode Toggle Switch -->
-          <div class="view-mode-toggle">
-            <button id="btn-mode-2d" class="view-mode-btn ${state.mapMode === '2d' ? 'active' : ''}">
-              <span>🗺️</span> <span>Plan 2D HD</span>
-            </button>
-            <button id="btn-mode-3d" class="view-mode-btn ${state.mapMode === '3d' ? 'active' : ''}">
-              <span>🌐</span> <span>Jumeau 3D</span>
-              <span class="badge-3d-live">LIVE</span>
-            </button>
-          </div>
-
-          <div id="hud-phase" class="map-pill ${phase.pillClass}">
-            <span>🚦</span> <span>${phase.label}</span>
-          </div>
-          <div id="hud-flow" class="map-pill">
-            <span>🚗</span> <span>Débit Total : <strong>${telem.qTotal}</strong> véh/h</span>
-            <span style="color:var(--accent); font-size:11px">(${telem.rushFactor > 0.85 ? 'Pic 08h15' : 'Fluide'})</span>
-          </div>
-          <div id="hud-speed" class="map-pill">
-            <span>⏱️</span> <span>Vitesse : <strong>${telem.speedAvg}</strong> km/h</span>
-          </div>
-        </div>
-
-        <div class="map-toolbar-right">
-          <div class="speed-ctrl" title="Accélérateur de simulation">
-            <button class="speed-btn ${SIM.speedFactor === 1 ? 'active' : ''}" data-speed="1">1x</button>
-            <button class="speed-btn ${SIM.speedFactor === 2 ? 'active' : ''}" data-speed="2">2x</button>
-            <button class="speed-btn ${SIM.speedFactor === 4 ? 'active' : ''}" data-speed="4">4x</button>
-          </div>
-          <button id="btn-emergency" class="map-action-btn ${isEmergency ? 'active' : ''}" style="${isEmergency ? 'background:#EF4444; color:#fff;' : ''}">
-            <span>🚨</span> <span>${isEmergency ? 'Urgence Active (V2I)' : 'Simuler Urgence SAMU'}</span>
-          </button>
-          <button id="btn-toggle-sensors" class="map-action-btn ${state.showSensors ? 'active' : ''}">
-            <span>📡</span> <span>Capteurs SIER</span>
-          </button>
-          <button id="btn-toggle-peds" class="map-action-btn ${state.showPeds ? 'active' : ''}">
-            <span>🚶</span> <span>Piétons & Vélos</span>
-          </button>
-          <select id="ctrl-select" class="map-action-btn" style="padding:6px 10px">
-            <option value="S3" ${state.mapController === 'S3' ? 'selected' : ''}>🧠 S3 RL DQN (PyTorch)</option>
-            <option value="S2" ${state.mapController === 'S2' ? 'selected' : ''}>🚦 S2 Règles (Nominal)</option>
-            <option value="S1" ${state.mapController === 'S1' ? 'selected' : ''}>📡 S1 Actué (Capteurs)</option>
-            <option value="S0" ${state.mapController === 'S0' ? 'selected' : ''}>⏱️ S0 Temps Fixe</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Digital Twin Canvas Container (2D Canvas + 3D Viewport) -->
-      <div class="map-canvas-container">
-        <!-- 2D High Definition Canvas -->
-        <canvas id="trafficCanvas" width="1150" height="660" style="${state.mapMode === '3d' ? 'display:none;' : 'display:block;'}"></canvas>
-
-        <!-- 3D Three.js Interactive Viewport -->
-        <div id="trafficCanvas3D" style="${state.mapMode === '3d' ? 'display:block;' : 'display:none;'}"></div>
-
-        <!-- 3D Camera Controls Floating Bar -->
-        <div id="controls3D" class="controls-3d-overlay" style="${state.mapMode === '3d' ? 'display:flex;' : 'display:none;'}">
-          <div class="camera-presets-group">
-            <span class="preset-label">🎥 Angles Caméra :</span>
-            <button class="cam-btn active" data-cam="aerial">Vue Aérienne (45°)</button>
-            <button class="cam-btn" data-cam="ground">Ras du Sol (V2I)</button>
-            <button class="cam-btn" data-cam="helico">Hélicoptère SAMU</button>
-            <button class="cam-btn" data-cam="topdown">Zénithal (90°)</button>
-            <button class="cam-btn" data-cam="reset">🔄 Recentrer</button>
-          </div>
-          <div class="controls-hint">
-            <span>🖱️ <strong>Clic gauche + glisser :</strong> Rotation 360°</span>
-            <span>•</span>
-            <span>🖱️ <strong>Clic droit :</strong> Pan</span>
-            <span>•</span>
-            <span>📜 <strong>Molette :</strong> Zoom</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Visual Map Legend -->
-      <div class="map-legend-row">
-        <div class="legend-items">
-          <div class="legend-item">
-            <span class="legend-color-dot" style="background:#FFFFFF; box-shadow:0 0 6px rgba(255,255,255,0.8)"></span>
-            <span>2 Voies Distinctes (Circulation à droite ⬆⬇)</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color-dot" style="background:#38BDF8"></span>
-            <span>Véhicules &amp; Feux Stop</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color-dot" style="background:#059669"></span>
-            <span>Bus RATP (Lignes 91, 24)</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color-dot" style="background:#10B981"></span>
-            <span>Piste Cyclable Paris Respire</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color-dot" style="background:#EF4444"></span>
-            <span>SAMU 75 (Balayage Gyrophares)</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color-dot" style="background:#F59E0B"></span>
-            <span>Hélisurface d'Urgence H</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color-dot" style="background:#06B6D4"></span>
-            <span>Boucles Radar SIER (302 &amp; 303)</span>
-          </div>
-        </div>
-        <div style="font-family:var(--mono); color:var(--accent)">
-          Intersection C · Bd de l'Hôpital × Bd Saint-Marcel · Glisser la souris pour orbiter en 3D
-        </div>
-      </div>
-
-      <!-- Live Multi-Angle Telemetry Dashboard (4 Synchronized KPI Cards) -->
-      <div class="metric-tiles-grid" style="margin-top:20px">
-        <div class="tile">
-          <div class="tile-title">📡 Détecteur SIER 302 (Nord)</div>
-          <div class="tile-val" id="tile-q302" style="color:var(--accent)">${telem.q302} véh/h</div>
-          <div class="tile-sub">File moyenne : ${Math.max(1, Math.round(telem.queueAvg * 1.3))} véh. · Occup. 18%</div>
-        </div>
-
-        <div class="tile">
-          <div class="tile-title">📡 Détecteur SIER 303 (Sud)</div>
-          <div class="tile-val" id="tile-q303" style="color:var(--emerald-bright)">${telem.q303} véh/h</div>
-          <div class="tile-sub">File moyenne : ${Math.max(1, Math.round(telem.queueAvg * 0.8))} véh. · Occup. 12%</div>
-        </div>
-
-        <div class="tile">
-          <div class="tile-title">🧠 Agent RL (S3 Double DQN)</div>
-          <div class="tile-val" id="tile-action" style="color:#C084FC">Action ${phase.phaseId === 'NS_GREEN' ? '0 (N-S Vert)' : '2 (Ouest Vert)'}</div>
-          <div class="tile-sub">Gain global usagers : -18.7% retard</div>
-        </div>
-
-        <div class="tile">
-          <div class="tile-title">🚑 Corridor Urgence SAMU</div>
-          <div class="tile-val" id="tile-amb" style="color:${isEmergency ? '#EF4444' : 'var(--fg)'}">${isEmergency ? 'Actif (Vert Forcé)' : 'En Veille V2I'}</div>
-          <div class="tile-sub">Préemption feux : +38s économisées</div>
-        </div>
-      </div>
-    </div>
-  `];
+  const evs = (b.events || []).slice(-6).reverse();
+  el.dataset.state = "ok";
+  el.innerHTML = evs.length ? evs.map((evt) => {
+    const stage = evt.stage_from != null || evt.stage_to != null ? ` · ${esc(evt.stage_from != null ? evt.stage_from : "?")} → ${esc(evt.stage_to != null ? evt.stage_to : "?")}` : "";
+    return `<div class="ticker-row"><span class="ticker-t">${evt.t != null ? hhmm(state.beginS + evt.t) : "--:--:--"}</span>
+      <span>${esc(evt.source)} · ${esc(evt.rule)}${stage}</span><span class="muted">${esc(evt.detail)}</span></div>`;
+  }).join("") : `<div class="muted">Aucun événement de contrôle dans les 5 dernières minutes.</div>`;
 }
 
-async function student() {
-  stopTrafficSim();
-  const b = await api(`/eta?${q({ trajet: state.trajet, student: "true", deadline: state.exam })}`);
-  const rest = b.rest_of_trip_s || 0;
-  
-  let etaText = "--";
-  let lowMin = 0, medMin = 0, highMin = 0;
-  let adviceHTML = "";
-
-  if (!b.error && b.eta_median_s != null) {
-    const totalMed = b.eta_median_s + rest;
-    const totalLow = b.eta_low_s + rest;
-    const totalHigh = b.eta_high_s + rest;
-    
-    etaText = fmtMin(totalMed);
-    lowMin = Math.round(totalLow / 60);
-    medMin = Math.round(totalMed / 60);
-    highMin = Math.round(totalHigh / 60);
-
-    if (b.advice) {
-      const cls = { comfortable: "ok", small_margin: "warn", risk_of_delay: "bad" }[b.advice.code] || "warn";
-      const icon = { comfortable: "🚀", small_margin: "⚡", risk_of_delay: "🚨" }[b.advice.code] || "ℹ️";
-      adviceHTML = `
-        <div class="advice-pill ${cls}">
-          <span style="font-size:20px">${icon}</span>
-          <span>${esc(b.advice.message)}</span>
-          <span style="font-family:var(--mono); font-size:13px; opacity:0.85">· Marge : +${Math.round((b.advice.margin_s || 0) / 60)} min</span>
-        </div>
-      `;
-    }
-  }
-
-  const routes = STUDENT_ROUTES.map(([k, l]) => `<option value="${k}" ${k === state.trajet ? "selected" : ""}>${esc(l)}</option>`).join("");
-
+// -------------------------------------------------------------
+// VIEW: HOME (spec 12: five profiles in one click, no account)
+// -------------------------------------------------------------
+async function home() {
+  const b = await api("/health");
+  const flash = state.flash
+    ? `<div class="banner bad" data-field="deeplink-error">⚠️ <strong>Lien invalide :</strong> ${esc(state.flash)}. Choisissez un profil.</div>`
+    : "";
+  state.flash = null;
+  const card = (key, icon, title, sub) => `
+    <button class="home-card" data-go="${key}" data-field="home-card-${key}">
+      <span class="home-icon">${icon}</span>
+      <span class="home-title">${title}</span>
+      <span class="home-sub">${sub}</span>
+    </button>`;
+  const speeds = SPEEDS.map(([k]) =>
+    `<button class="${k === state.speed ? "on" : ""}" data-go="pedestrian" data-key="speed" data-val="${k}">${esc(SPEED_SHORT[k])}</button>`).join("");
   return [b, `
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:14px">
-      <div style="display:flex; align-items:center; gap:10px">
-        <label for="trajet" style="font-size:13px; font-weight:700; color:var(--fg-muted)">📍 Trajet Étudiant :</label>
-        <select id="trajet" aria-label="Trajet">${routes}</select>
+    ${flash}
+    ${banners(b)}
+    <div class="home-intro">Choisissez votre profil. Aucune inscription ; les données affichées sont <strong>simulées</strong>.</div>
+    <div class="home-grid">
+      <div class="home-card home-card-ped" data-field="home-card-pedestrian">
+        <span class="home-icon">🚶</span>
+        <span class="home-title">Piéton</span>
+        <span class="home-sub">Puis-je traverser maintenant ? Passage ${esc(state.crossing)} · votre vitesse :</span>
+        <div class="home-speeds" role="group" aria-label="Vitesse de marche">${speeds}</div>
       </div>
-      <div style="display:flex; align-items:center; gap:10px">
-        <label for="exam" style="font-size:13px; font-weight:700; color:var(--fg-muted)">🎯 Heure d'Examen :</label>
-        <input id="exam" type="time" value="${esc(state.exam)}">
-      </div>
-    </div>
-
-    <!-- HERO ETA CARD ÉTUDIANT -->
-    <div class="hero-eta-card">
-      ${banners(b)}
-      <div class="hero-eta-header">
-        <div class="hero-eta-label">
-          <span>🎓</span> <span>Temps de Trajet Estimé (ETA Médiane $p_{50}$)</span>
-        </div>
-        <span class="badge-ia">Couverture Garantie 80% (CQR)</span>
-      </div>
-
-      <div class="hero-eta-digits-row">
-        <div class="hero-eta-big">${etaText}</div>
-        <div class="hero-eta-unit">(${Math.round((b.eta_median_s || 0) + rest)} secondes au total)</div>
-      </div>
-
-      <!-- Animated Conformal Interval Visual Gauge -->
-      <div class="cqr-container">
-        <div class="cqr-top">
-          <span>📊 Encadrement de Confiance Prédictif (Quantiles XGBoost $p_{10} \rightarrow p_{90}$)</span>
-          <span style="color:var(--emerald-bright); font-family:var(--mono); font-weight:800">80% Confiance</span>
-        </div>
-        <div class="cqr-gauge-track">
-          <div class="cqr-gauge-band" style="left:20%; width:60%"></div>
-          <div class="cqr-gauge-median" style="left:50%" title="Médiane p50"></div>
-        </div>
-        <div class="cqr-scale">
-          <span>🟢 $p_{10}$ (Trajet fluide) : <strong>${lowMin} min</strong></span>
-          <span style="color:#fff; font-weight:800">⭐ Médiane : <strong>${medMin} min</strong></span>
-          <span>🔴 $p_{90}$ (Trafic saturé) : <strong>${highMin} min</strong></span>
-        </div>
-      </div>
-
-      ${adviceHTML}
-
-      <!-- Metric Tiles Grid -->
-      <div class="metric-tiles-grid">
-        <div class="tile">
-          <div class="tile-title">⏱️ Traversée Carrefour</div>
-          <div class="tile-val">${fmtS(b.eta_median_s)}</div>
-        </div>
-        <div class="tile">
-          <div class="tile-title">🚶 Marche Porte Pitié</div>
-          <div class="tile-val">${fmtS(rest)}</div>
-        </div>
-        <div class="tile">
-          <div class="tile-title">🤖 Modèle ML</div>
-          <div class="tile-val" style="font-size:16px">${esc(b.model_version ?? "XGBoost CQR v1")}</div>
-        </div>
-      </div>
+      ${card("student", "🎓", "Étudiant", "Quand partir pour arriver à l'heure ?")}
+      ${card("bus", "🚌", "Conducteur de bus", "Retard, écart avec le bus précédent, priorité")}
+      ${card("ambulance", "🚑", "Ambulance", "État des 3 prochains carrefours")}
+      ${card("operator", "📊", "Opérateur", "Comparer les scénarios")}
+      ${card("replay", "🗺️", "Relecture", "Rejouer une simulation en 2D / 3D")}
     </div>
   `];
 }
 
 // -------------------------------------------------------------
-// VIEW 2 : BUS (ETA PROCHAIN BUS & RETARD GÉANT)
-// -------------------------------------------------------------
-async function bus() {
-  const b = await api(`/bus/${state.line}/status?${q({})}`);
-  const hasDelay = b.delay_s != null;
-  const delaySec = Math.round(b.delay_s || 0);
-  const headwaySec = Math.round(b.headway_s || 360);
-  const nextBusEtaSec = b.next_arrival_s != null ? Math.round(b.next_arrival_s) : headwaySec;
-  const nextBusEtaMin = Math.max(1, Math.round(nextBusEtaSec / 60));
-  const etaDisplay = b.next_arrival_text || (nextBusEtaSec < 60 ? `${nextBusEtaSec} SEC` : `~${nextBusEtaMin} MIN`);
-
-  return [b, `
-    ${seg(LINES.map((l) => [l, `Ligne ${l}`]), state.line, "line")}
-
-    <!-- HERO ETA CARD BUS -->
-    <div class="hero-eta-card" style="border-color:rgba(16, 185, 129, 0.4)">
-      ${banners(b)}
-      <div class="hero-eta-header">
-        <div class="hero-eta-label" style="color:var(--emerald-bright)">
-          <span class="bus-avatar">🚌💨</span>
-          <span>ETA Prochain Passage · Ligne ${state.line}</span>
-        </div>
-        <span class="bus-line-badge">${state.line}</span>
-      </div>
-
-      <div class="hero-eta-digits-row">
-        <div class="hero-eta-big" style="background:linear-gradient(135deg, #FFF, #34D399); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
-          ${etaDisplay}
-        </div>
-        <div class="hero-eta-unit">Prochain passage dans ${fmtMin(nextBusEtaSec)} · Intervalle régulier : ${fmtS(headwaySec)}</div>
-      </div>
-
-      <!-- Retard Display -->
-      <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin:16px 0">
-        <div class="advice-pill ${delaySec > 45 ? 'bad' : (delaySec > 20 ? 'warn' : 'ok')}">
-          <span>${delaySec > 30 ? '⚠️' : '⚡'}</span>
-          <span>Retard carrefour : <strong>${hasDelay ? (delaySec >= 0 ? `+${delaySec} s` : `${delaySec} s`) : '--'}</strong></span>
-        </div>
-
-        <div class="badge-live" style="font-size:12px; padding:6px 12px; background:rgba(56,189,248,0.15); border-color:var(--accent); color:var(--accent)">
-          ${b.priority_active ? '📡 ⚡ Priorité Détecteur Feux Active' : '📡 Priorité Disponible'}
-        </div>
-      </div>
-
-      <div class="metric-tiles-grid">
-        <div class="tile">
-          <div class="tile-title">🚍 Véhicule Actif</div>
-          <div class="tile-val" style="font-size:16px">${esc(b.vehicle_id || "bus_91_E.7")}</div>
-        </div>
-        <div class="tile">
-          <div class="tile-title">⏱️ Intervalle Prévu</div>
-          <div class="tile-val">${fmtS(b.scheduled_headway_s)}</div>
-        </div>
-        <div class="tile">
-          <div class="tile-title">📍 Direction</div>
-          <div class="tile-val" style="font-size:16px">${esc(b.flow || "Sens Est")}</div>
-        </div>
-      </div>
-
-      <div style="margin-top:18px; font-size:13px; color:var(--fg-muted)">
-        ${esc(b.message || "Télématique RATP en direct sur le couloir réservé.")}
-      </div>
-    </div>
-  `];
-}
-
-// -------------------------------------------------------------
-// VIEW 3 : PIÉTON (ETA TRAVERSÉE & FEU TRICOLORE ANIMÉ)
+// VIEW: PEDESTRIAN (EF-18; main item = the verdict)
 // -------------------------------------------------------------
 async function pedestrian() {
-  const b = await api(`/crossing/${state.crossing}?${q({ speed: state.speed })}`);
+  const b = await api(`/crossing/${encodeURIComponent(state.crossing)}?${q({ speed: state.speed })}`);
   const isGreen = b.signal === "green";
-  const isClearance = b.signal === "clearance";
-
-  let statusText = "Attendez le vert";
-  let statusClass = "bad";
-  let etaCountdown = b.next_green_in_s;
-
-  if (isGreen) {
-    etaCountdown = b.green_remaining_s;
-    if (b.can_cross) {
-      statusText = "🟢 Vous pouvez traverser en toute sécurité !";
-      statusClass = "ok";
-    } else if (b.can_cross === false) {
-      statusText = "⚠️ Ne partez plus : temps restant insuffisant !";
-      statusClass = "bad";
-    } else {
-      statusText = "🟢 Vert actif (durée nominale)";
-      statusClass = "warn";
-    }
-  } else if (isClearance) {
-    statusText = "🟠 Phase de dégagement : attendez le prochain cycle";
-    statusClass = "warn";
-  }
+  let verdict = "État du feu inconnu";
+  let cls = "warn";
+  if (isGreen && b.can_cross === true) { verdict = "Vous pouvez traverser"; cls = "ok"; }
+  else if (isGreen && b.can_cross === false) { verdict = "Attendez : vert trop court pour vous"; cls = "bad"; }
+  else if (isGreen) { verdict = "Feu vert · temps restant inconnu"; cls = "warn"; }
+  else if (b.signal === "clearance") { verdict = "Attendez (fin du vert)"; cls = "bad"; }
+  else if (b.signal === "red") { verdict = "Attendez"; cls = "bad"; }
+  const verdictValue = b.error ? "" : (b.can_cross == null ? "unknown" : String(b.can_cross));
+  const obstruction = b.obstructed == null ? "obstruction : non mesurée" : (b.obstructed ? "passage obstrué" : "passage libre");
+  const remainingVal = isGreen ? b.green_remaining_s : b.next_green_in_s;
+  const remainingTitle = isGreen ? "Temps de vert restant" : "Prochain vert piéton dans";
+  const basis = b.remaining_basis === "replay" ? "d'après la relecture de la simulation" : (b.remaining_basis === "program" ? "d'après le programme de feux" : "");
 
   return [b, `
     ${seg(CROSSINGS.map((c) => [c, `Passage ${c}`]), state.crossing, "crossing")}
     ${seg(SPEEDS, state.speed, "speed")}
 
-    <div class="hero-eta-card" style="border-color:${isGreen ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}">
+    <div class="hero-eta-card" style="border-color:${cls === "ok" ? "rgba(16, 185, 129, 0.5)" : "rgba(239, 68, 68, 0.45)"}">
       ${banners(b)}
-
       <div class="ped-layout">
-        <!-- Visual Animated Traffic Light -->
-        <div class="traffic-light">
-          <div class="lens red ${!isGreen ? 'active' : ''}">
+        <div class="traffic-light" aria-hidden="true">
+          <div class="lens red ${b.signal === "red" || b.signal === "clearance" ? "active" : ""}">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M12 11v6m0 0l-3 4m3-4l3 4"/></svg>
           </div>
-          <div class="lens green ${isGreen ? 'active' : ''}">
+          <div class="lens green ${isGreen ? "active" : ""}">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="2.8"/><path d="M10 10l2 1 2-1v4l-3 4m3-4l3 3"/></svg>
           </div>
         </div>
 
         <div>
-          <div class="hero-eta-label" style="color:${isGreen ? 'var(--emerald-bright)' : 'var(--rose)'}">
-            ${isGreen ? '🟢 TEMPS DE VERT RESTANT (ETA EXPIRATION)' : '🔴 ETA PROCHAIN FEU VERT'}
-          </div>
+          <div class="hero-eta-label">🚶 Passage ${esc(state.crossing)} · ${esc(SPEED_SHORT[state.speed] || state.speed)}</div>
+          <div class="verdict-big ${cls}" data-field="ped-verdict" data-value="${dv(verdictValue)}">${b.error ? "Indisponible" : verdict}</div>
+          <div class="muted" style="margin-top:6px">${esc(obstruction)}</div>
 
-          <div class="hero-eta-digits-row">
-            <div class="hero-eta-big" style="background:linear-gradient(135deg, #FFF, ${isGreen ? '#34D399' : '#F87171'}); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
-              ${fmtS(etaCountdown)}
-            </div>
-            <div class="hero-eta-unit">sur le Passage ${state.crossing}</div>
-          </div>
-
-          <div class="advice-pill ${statusClass}" style="margin:8px 0 16px">
-            <span>${statusText}</span>
-          </div>
-
-          <div class="metric-tiles-grid" style="margin-top:12px">
+          <div class="metric-tiles-grid" style="margin-top:18px">
             <div class="tile">
-              <div class="tile-title">📏 Largeur Chaussée</div>
-              <div class="tile-val">${esc(b.length_m)} m</div>
+              <div class="tile-title">⏱️ ${remainingTitle}</div>
+              <div class="tile-val" data-field="ped-remaining" data-value="${dv(remainingVal)}">${fmtS(remainingVal)}</div>
+              <div class="tile-sub">${esc(basis)}</div>
             </div>
             <div class="tile">
-              <div class="tile-title">⏱️ Temps de Marche Requis</div>
-              <div class="tile-val">${fmtS(b.walk_time_s)}</div>
+              <div class="tile-title">🚶 Temps de traversée à votre vitesse</div>
+              <div class="tile-val" data-field="ped-walk" data-value="${dv(b.walk_time_s)}">${fmtS(b.walk_time_s)}</div>
+              <div class="tile-sub">${b.length_m != null && b.speed_mps != null ? `${esc(b.length_m)} m à ${esc(b.speed_mps)} m/s` : ""}</div>
             </div>
           </div>
         </div>
@@ -3861,483 +3473,460 @@ async function pedestrian() {
 }
 
 // -------------------------------------------------------------
-// VIEW 4 : AMBULANCE (CORRIDOR URGENCES & ONDE VERTE ⚡)
+// VIEW: STUDENT (EF-20; ETA median, 80 % interval, departure advice)
 // -------------------------------------------------------------
+async function student() {
+  const b = await api(`/eta?${q({ trajet: state.trajet, student: "true", deadline: state.exam })}`);
+  const ok = !b.error && b.eta_median_s != null;
+  const rest = b.rest_of_trip_s != null ? b.rest_of_trip_s : 0;
+  const med = ok ? b.eta_median_s + rest : null;
+  const low = ok && b.eta_low_s != null ? b.eta_low_s + rest : null;
+  const high = ok && b.eta_high_s != null ? b.eta_high_s + rest : null;
+  const hasInt = low != null && high != null && high >= low;
+
+  let gauge = "";
+  if (hasInt) {
+    const pad = Math.max(30, (high - low) * 0.25);
+    const lo = Math.max(0, low - pad);
+    const span = Math.max(1, high + pad - lo);
+    const pct = (v) => ((v - lo) / span * 100).toFixed(1);
+    gauge = `
+      <div class="cqr-gauge-track">
+        <div class="cqr-gauge-band" style="left:${pct(low)}%; width:${(pct(high) - pct(low)).toFixed(1)}%"></div>
+        <div class="cqr-gauge-median" style="left:${pct(med)}%" title="Médiane"></div>
+      </div>
+      <div class="cqr-scale">
+        <span>🟢 Au mieux : <strong>${fmtMin(low)}</strong></span>
+        <span style="color:#fff; font-weight:800">Médiane : <strong>${fmtMin(med)}</strong></span>
+        <span>🔴 Au pire : <strong>${fmtMin(high)}</strong></span>
+      </div>`;
+  }
+
+  let advice = `<div class="advice-pill warn" data-field="stu-advice" data-value=""><span>ℹ️</span><span>Conseil de départ non disponible</span></div>`;
+  if (b.advice) {
+    const cls = { comfortable: "ok", small_margin: "warn", risk_of_delay: "bad" }[b.advice.code] || "warn";
+    const icon = { comfortable: "🚀", small_margin: "⚡", risk_of_delay: "🚨" }[b.advice.code] || "ℹ️";
+    const margin = b.advice.margin_s != null ? ` · marge ${signedDur(b.advice.margin_s)}` : "";
+    advice = `
+      <div class="advice-pill ${cls}" data-field="stu-advice" data-value="${dv(b.advice.code)}">
+        <span style="font-size:20px">${icon}</span>
+        <span>${esc(b.advice.message)}</span>
+        <span style="font-family:var(--mono); font-size:13px; opacity:0.85">${margin}</span>
+      </div>`;
+  }
+  const routes = STUDENT_ROUTES.map(([k, l]) => `<option value="${k}" ${k === state.trajet ? "selected" : ""}>${esc(l)}</option>`).join("");
+
+  return [b, `
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:14px">
+      <div style="display:flex; align-items:center; gap:10px">
+        <label for="trajet" style="font-size:13px; font-weight:700; color:var(--fg-muted)">📍 Trajet :</label>
+        <select id="trajet" aria-label="Trajet">${routes}</select>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px">
+        <label for="exam" style="font-size:13px; font-weight:700; color:var(--fg-muted)">🎯 Heure d'examen :</label>
+        <input id="exam" type="time" value="${esc(state.exam)}">
+      </div>
+    </div>
+
+    <div class="hero-eta-card">
+      ${banners(b)}
+      <div class="hero-eta-header">
+        <div class="hero-eta-label"><span>🎓</span> <span>Temps de trajet estimé (médiane)</span></div>
+        ${b.approximate ? `<span class="badge-ia">estimation approximative</span>` : ""}
+      </div>
+      <div class="hero-eta-digits-row">
+        <div class="hero-eta-big" data-field="stu-eta" data-value="${dv(med)}">${ok ? fmtMin(med) : "non disponible"}</div>
+      </div>
+
+      <div class="cqr-container">
+        <div class="cqr-top">
+          <span>📊 Intervalle à 80 % (au mieux → au pire)</span>
+          <span data-field="stu-interval" data-value="${hasInt ? `${low},${high}` : ""}" style="color:var(--emerald-bright); font-family:var(--mono); font-weight:800">
+            ${hasInt ? `${signedDur(low - med)} / ${signedDur(high - med)}` : "non disponible"}
+          </span>
+        </div>
+        ${gauge}
+      </div>
+
+      ${advice}
+    </div>
+  `];
+}
+
+// -------------------------------------------------------------
+// VIEW: BUS (EF-19; main item = delay at the junction)
+// -------------------------------------------------------------
+async function bus() {
+  const b = await api(`/bus/${encodeURIComponent(state.line)}/status?${q({})}`);
+  const delay = b.delay_s;
+  const cls = delay == null ? "warn" : (delay > 45 ? "bad" : (delay > 20 ? "warn" : "ok"));
+  const basis = b.delay_basis === "junction_time_loss"
+    ? "temps perdu au carrefour (la simulation n'a pas d'horaire)"
+    : "";
+  let priority = "priorité aux feux : non disponible sur cette ligne";
+  let prioValue = "unavailable";
+  if (b.priority_available) {
+    prioValue = b.priority_active == null ? "unknown" : String(b.priority_active);
+    priority = b.priority_active == null ? "priorité aux feux : état inconnu"
+      : (b.priority_active ? "priorité aux feux : active" : "priorité aux feux : inactive");
+  }
+  const message = b.message || "aucun message à relayer";
+  return [b, `
+    ${seg(LINES.map((l) => [l, `Ligne ${l}`]), state.line, "line")}
+
+    <div class="hero-eta-card" style="border-color:rgba(16, 185, 129, 0.4)">
+      ${banners(b)}
+      <div class="hero-eta-header">
+        <div class="hero-eta-label" style="color:var(--emerald-bright)">
+          <span class="bus-avatar">🚌</span>
+          <span>Retard au carrefour · Ligne ${esc(state.line)}</span>
+        </div>
+        <span class="bus-line-badge">${esc(state.line)}</span>
+      </div>
+
+      <div class="hero-eta-digits-row">
+        <div class="hero-eta-big verdict-${cls}" data-field="bus-delay" data-value="${dv(delay)}">${delay == null ? "non disponible" : signed(delay, "s")}</div>
+        <div class="hero-eta-unit" style="font-size:16px">${esc(basis)}${b.vehicle_id ? ` · bus ${esc(b.vehicle_id)}` : ""}</div>
+      </div>
+
+      <div class="metric-tiles-grid">
+        <div class="tile">
+          <div class="tile-title">↔️ Écart avec le bus précédent</div>
+          <div class="tile-val" data-field="bus-headway" data-value="${dv(b.headway_s)}">${fmtDur(b.headway_s)}</div>
+          <div class="tile-sub">prévu : ${fmtDur(b.scheduled_headway_s)}</div>
+        </div>
+        <div class="tile">
+          <div class="tile-title">🚦 Priorité aux feux</div>
+          <div class="tile-val" style="font-size:16px" data-field="bus-priority" data-value="${dv(prioValue)}">${esc(priority)}</div>
+        </div>
+      </div>
+
+      <div class="msg-box">
+        <div class="tile-title">📣 Message à relayer aux passagers</div>
+        <div class="msg-text" id="bus-msg-text" data-field="bus-message" data-value="${dv(b.message)}">${esc(message)}</div>
+        ${b.message ? `<button class="map-action-btn" data-copy="bus-msg-text">📋 Copier le message</button>` : ""}
+      </div>
+    </div>
+  `];
+}
+
+// -------------------------------------------------------------
+// VIEW: AMBULANCE (EF-17; no interaction, large high-contrast text)
+// -------------------------------------------------------------
+const AMB_STATUS = { clear: "DÉGAGÉ", green_wave: "ONDE VERTE", blocked: "BLOQUÉ" };
+
 async function ambulance() {
   const b = await api(`/ambulance/next-intersections?${q({})}`);
-  const passed = (b.intersections || []).some(i => i.modelled && i.passed);
-  const where = !b.vehicle_id ? "Aucune ambulance d'urgence active" : passed ? "Carrefour Pitié franchi avec succès" : "Ambulance SAMU en approche prioritaire";
-
-  const rows = (b.intersections || []).map((i, k) => {
-    const tagClass = i.status || "unknown";
-    const label = i.passed ? "FRANCHI" : (i.status === 'green_wave' ? '⚡ ONDE VERTE' : (i.status === 'clear' ? 'DÉGAGÉ' : (i.status === 'blocked' ? 'BLOQUÉ' : 'INCONNU')));
+  const where = b.error ? "" : (b.vehicle_id
+    ? `Ambulance simulée en approche${b.approach ? ` (approche ${esc(b.approach)})` : ""}`
+    : "Aucune ambulance dans la simulation à cet instant");
+  const rows = (b.intersections || []).slice(0, 3).map((jn, k) => {
+    const label = jn.passed ? "FRANCHI" : (AMB_STATUS[jn.status] || (jn.modelled ? "INCONNU" : "NON MODÉLISÉ"));
+    const tag = jn.passed ? "clear" : jn.status;
+    const dist = jn.distance_m != null && !jn.passed ? `à ${Math.round(jn.distance_m)} m (à vol d'oiseau)` : (jn.modelled ? "" : "carrefour non modélisé");
     return `
-      <div class="corridor-node">
+      <div class="corridor-node amb-row">
         <div>
-          <div style="font-size:16px; font-weight:800">${k + 1}. ${esc(i.name)}</div>
-          <div style="font-size:13px; color:var(--fg-muted); margin-top:2px">
-            ${i.distance_m != null && !i.passed ? `Distance capteur : <strong>${Math.round(i.distance_m)} m</strong>` : (i.passed ? 'Franchi' : 'Carrefour prioritaire')}
-            ${i.reason ? `· <em>${esc(i.reason)}</em>` : ''}
-          </div>
+          <div class="amb-name">${k + 1}. ${esc(jn.name)}</div>
+          <div class="amb-dist">${dist}</div>
         </div>
-        <div class="status-tag ${tagClass}">${label}</div>
-      </div>
-    `;
+        <div class="amb-status ${esc(tag)}" data-field="amb-j${k + 1}-status" data-value="${dv(jn.modelled ? jn.status : "not_modelled")}">${label}</div>
+      </div>`;
   }).join("");
-
   return [b, `
     <div class="hero-eta-card amb-hud-card">
       ${banners(b)}
-
       <div class="beacon-header">
-        <div class="siren-lights">
-          <span class="siren-red">🚨</span>
-          <span class="siren-blue">🔵</span>
-        </div>
+        <div class="siren-lights"><span class="siren-red">🚨</span><span class="siren-blue">🔵</span></div>
         <div>
-          <div style="font-size:18px; font-weight:900; letter-spacing:0.04em; color:var(--rose)">
-            COCKPIT URGENCE AMBULANCE · HÔPITAL PITIÉ
-          </div>
-          <div style="font-size:13px; color:var(--fg-muted)">${where}</div>
+          <div class="amb-title">AMBULANCE · CORRIDOR PITIÉ-SALPÊTRIÈRE</div>
+          <div class="amb-where">${where}</div>
         </div>
       </div>
-
-      <div class="hero-eta-header">
-        <div class="hero-eta-label" style="color:var(--rose)">
-          <span>🚑 ETA PASSAGE CARREFOUR PITIÉ</span>
-        </div>
-        <span class="badge-live" style="background:rgba(239,68,68,0.2); border-color:#EF4444; color:#F87171">Priorité Absolue V2I</span>
+      <div class="corridor-list">
+        ${rows || '<div class="amb-where">Aucun carrefour disponible</div>'}
       </div>
-
-      <div class="hero-eta-digits-row">
-        <div class="hero-eta-big" style="background:linear-gradient(135deg, #FFF, #F87171); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
-          ${b.countdown_text || (b.vehicle_id ? '00:28' : 'STANDBY')}
-        </div>
-        <div class="hero-eta-unit">${b.unit_text || (b.vehicle_id ? 'Secondes avant franchissement' : 'En attente d\'appel')}</div>
-      </div>
-
-      <div class="corridor-list" style="margin-top:20px">
-        ${rows || '<div class="muted">Aucune étape de corridor disponible</div>'}
+      <div class="amb-eta" data-field="amb-eta" data-value="${dv(b.eta_destination_s)}">
+        ETA destination : ${b.eta_destination_s != null ? fmtDur(b.eta_destination_s) : "non modélisé"}
       </div>
     </div>
   `];
 }
 
 // -------------------------------------------------------------
-// VIEW 5 : OPÉRATEUR (SCOREBOARD COMPARATIF GLOBAL S0 / S1 / S2)
+// VIEW: REPLAY (EF-21; Motez's 2D/3D map fed by the selected run)
 // -------------------------------------------------------------
+async function replay() {
+  const run = state.run || "default";
+  const t = Math.round(state.t);
+  const b = await api(`/replay/${encodeURIComponent(run)}?t=${t}&positions=true`);
+  applyBounds(b);
+  if (REPLAY.run !== run) resetReplay(run);
+  REPLAY.lastBase = null;   // the HUD and the ticker of the new view are filled on the next step
+  REPLAY.lastTicker = 0;
+  REPLAY.mapState = null;   // the replay clock writes the state of the new view
+  REPLAY.missingSince = null;
+  if (!b.error) {
+    const k = frameKey(state.t);
+    if (k === t) ingestFrame(k, b);
+  }
+  const label = b.run ? `${esc(b.run.scenario)} · graine ${esc(b.run.seed)}` : "run indisponible";
+  setTimeout(() => {
+    if (state.view !== "replay") return;
+    if (state.mapMode === "3d") start3DSim(); else startTrafficSim();
+  }, 20);
+
+  return [b, `
+    <div class="map-card">
+      <div id="replay-banners">${banners(b)}</div>
+      <div class="map-toolbar">
+        <div class="map-toolbar-left">
+          <div class="view-mode-toggle">
+            <button id="btn-mode-2d" class="view-mode-btn ${state.mapMode === '2d' ? 'active' : ''}">
+              <span>🗺️</span> <span>Plan 2D</span>
+            </button>
+            <button id="btn-mode-3d" class="view-mode-btn ${state.mapMode === '3d' ? 'active' : ''}">
+              <span>🌐</span> <span>Jumeau 3D</span>
+            </button>
+          </div>
+          <div id="hud-t" class="map-pill" data-field="replay-t" data-value=""><span>🕒</span> <span>Instant : --:--:--</span></div>
+          <div id="hud-count" class="map-pill" data-field="replay-count" data-value=""><span>🚗</span> <span>-- véhicules</span></div>
+        </div>
+        <div class="map-toolbar-right">
+          <span class="map-pill">🎞️ Relecture d'une simulation · ${label}</span>
+          <button id="btn-toggle-peds" class="map-action-btn ${state.showPeds ? 'active' : ''}">
+            <span>🚶</span> <span>Piétons</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="map-canvas-container">
+        <canvas id="trafficCanvas" width="1150" height="660" style="${state.mapMode === '3d' ? 'display:none;' : 'display:block;'}"></canvas>
+        <div id="trafficCanvas3D" style="${state.mapMode === '3d' ? 'display:block;' : 'display:none;'}"></div>
+        <div id="controls3D" class="controls-3d-overlay" style="${state.mapMode === '3d' ? 'display:flex;' : 'display:none;'}">
+          <div class="camera-presets-group">
+            <span class="preset-label">🎥 Angles caméra :</span>
+            <button class="cam-btn active" data-cam="aerial">Vue aérienne (45°)</button>
+            <button class="cam-btn" data-cam="ground">Ras du sol</button>
+            <button class="cam-btn" data-cam="helico">Hélicoptère</button>
+            <button class="cam-btn" data-cam="topdown">Zénithal (90°)</button>
+            <button class="cam-btn" data-cam="reset">🔄 Recentrer</button>
+          </div>
+          <div class="controls-hint">
+            <span>🖱️ <strong>Clic gauche + glisser :</strong> rotation</span>
+            <span>•</span>
+            <span>🖱️ <strong>Clic droit :</strong> déplacement</span>
+            <span>•</span>
+            <span>📜 <strong>Molette :</strong> zoom</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="map-legend-row">
+        <div class="legend-items">
+          <div class="legend-item"><span class="legend-color-dot" style="background:#38BDF8"></span><span>Voitures (couleur fixe par véhicule)</span></div>
+          <div class="legend-item"><span class="legend-color-dot" style="background:#059669"></span><span>Bus (numéro de ligne)</span></div>
+          <div class="legend-item"><span class="legend-color-dot" style="background:#FFFFFF"></span><span>Ambulance</span></div>
+          <div class="legend-item"><span class="legend-color-dot" style="background:#F8FAFC; border-radius:50%"></span><span>Piétons</span></div>
+          <div class="legend-item"><span class="legend-color-dot" style="background:#475569"></span><span>Feu gris : état non fourni</span></div>
+        </div>
+        <div style="font-family:var(--mono); color:var(--accent)">
+          Positions du journal d'état (pas de ${esc(state.step)} s), interpolées · données simulées
+        </div>
+      </div>
+
+      <div class="ticker-box">
+        <div class="tile-title">📜 Derniers événements de contrôle (préemption, priorité bus)</div>
+        <div id="ticker" class="ticker" data-field="replay-events"><div class="muted">Chargement des événements…</div></div>
+      </div>
+    </div>
+  `];
+}
+
+// -------------------------------------------------------------
+// VIEW: OPERATOR CARD (EF-16 summary; the dense Operator is the Streamlit app)
+// -------------------------------------------------------------
+function roleOf(label, evLabels) {
+  const fromEval = evLabels.find((d) => d && d.label === label);
+  if (fromEval && fromEval.role) return fromEval.role;
+  const grp = state.groups && state.groups.find((g) => g.label === label && g.family === "main");
+  return grp && grp.role ? grp.role : null;
+}
+
 async function operator() {
-  const res = await Promise.all(["S0", "S1", "S2"].map((s) => api(`/kpi?scenario=${s}`)));
-  const val = (r, u, k) => (r.rows || []).find((z) => z.user === u && z.kpi === k);
+  const ev = await api("/evaluation?family=main");
+  const evLabels = !ev.error && Array.isArray(ev.labels) ? ev.labels : [];
+  let labels = evLabels.map((d) => d && d.label).filter(Boolean);
+  if (!labels.length) labels = [...new Set((state.groups || []).filter((grp) => grp.family === "main" && grp.label).map((grp) => grp.label))];
+  labels.sort((a, c) => (LABEL_ORDER.indexOf(a) + 1 || 99) - (LABEL_ORDER.indexOf(c) + 1 || 99) || a.localeCompare(c));
+  const res = await Promise.all(labels.map((L) => api(`/kpi?scenario=${encodeURIComponent(L)}&user=all&family=main`)));
 
-  const cell = (r, u, k) => {
-    const x = val(r, u, k);
-    if (!x || x.mean == null) return "<td>--</td>";
-    let badge = "";
-    if (x.rel_change_vs_s0_pct != null) {
-      const isWorse = x.worse_flag;
-      const cls = isWorse ? "loss" : "gain";
-      const sign = x.rel_change_vs_s0_pct > 0 ? "+" : "";
-      badge = `<span class="diff-badge ${cls}">${sign}${x.rel_change_vs_s0_pct.toFixed(1)}%</span>`;
+  let best = null;
+  const rows = labels.map((L, i) => {
+    const b = res[i];
+    const kr = (b.rows || []).find((row) => row.user === "all" && row.kpi === "person_delay_mean");
+    const role = roleOf(L, evLabels);
+    const dim = role === "ablation" || role === "exploratory";
+    if (kr && kr.mean != null && !dim && (!best || kr.mean < best.mean)) best = { label: L, mean: kr.mean };
+    let cells;
+    if (b.error) cells = `<td colspan="4" class="muted">indisponible</td>`;
+    else if (!kr || kr.mean == null) cells = `<td colspan="4" class="muted">${esc(b.notice || "pas encore évalué")}</td>`;
+    else {
+      const rel = kr.rel_change_vs_s0_pct;
+      const badge = rel == null ? "--" : `<span class="diff-badge ${kr.worse_flag ? "loss" : "gain"}">${rel > 0 ? "+" : ""}${rel.toFixed(1)} %</span>`;
+      cells = `<td><strong>${kr.mean.toFixed(1)} s</strong></td><td>${kr.std != null ? kr.std.toFixed(1) + " s" : "--"}</td><td>${esc(kr.n)}</td><td>${badge}</td>`;
     }
-    return `<td><strong>${x.mean.toFixed(1)} s</strong>${badge}</td>`;
-  };
+    const roleTxt = role === "ablation" ? " (ablation)" : (role === "exploratory" ? " (exploratoire)" : "");
+    return `<tr class="${dim ? "dimmed" : ""}" data-label="${esc(L)}"><td><strong>${esc(L)}</strong>${roleTxt}${b.source === "runs" ? ' <span class="muted">(runs, non évalué)</span>' : ""}</td>${cells}</tr>`;
+  }).join("");
 
-  // Pre-registered Part 7 results for S3 (DQN V1) against S0
-  const S3_DATA = {
-    "car:time_loss_mean": { mean: 56.4, rel_pct: -25.7, worse: false },
-    "bus:delay_mean": { mean: 49.4, rel_pct: -19.5, worse: false },
-    "pedestrian:ped_curb_wait_max": { mean: 88.0, rel_pct: +2.4, worse: false },
-    "ambulance:travel_time_total": { mean: 99.8, rel_pct: -29.5, worse: false },
-    "all:person_delay_mean": { mean: 46.7, rel_pct: -25.5, worse: false }
-  };
-
-  const s3Cell = (u, k) => {
-    const item = S3_DATA[`${u}:${k}`];
-    if (!item) return "<td>--</td>";
-    const sign = item.rel_pct > 0 ? "+" : "";
-    const badge = `<span class="diff-badge ${item.worse ? 'loss' : 'gain'}">${sign}${item.rel_pct.toFixed(1)}%</span>`;
-    return `<td style="background:rgba(168,85,247,0.08); border-left:1px dashed rgba(168,85,247,0.3)">
-      <strong style="color:#C084FC">${item.mean.toFixed(1)} s</strong>${badge}
-    </td>`;
-  };
-
-  const head = res.map((r, i) => `<th>${["S0 (Feux Fixes)", "S1 (Feux Actués)", "S2 (Règles IA)"][i]}</th>`).join("")
-    + `<th style="color:#C084FC; background:rgba(168,85,247,0.18); border-left:1px dashed rgba(168,85,247,0.4)">🧠 S3 (Agent RL DQN)</th>`;
-
-  const body = OP_KPIS.map(([u, k, l]) => `<tr><td>${esc(l)}</td>${res.map((r) => cell(r, u, k)).join("")}${s3Cell(u, k)}</tr>`).join("");
-  const n = (res[0].rows || [])[0]?.n;
-
-  return [res[0], `
-    <div class="hero-eta-card" style="border-color:rgba(139, 92, 246, 0.45); box-shadow:0 0 35px rgba(139,92,246,0.15)">
-      ${banners(res[0])}
+  const ok = res.filter((b) => !b.error);
+  let main = ok.find((b) => b.status === "degraded") || ok.find((b) => b.status === "ok") || res[0] || ev;
+  // The card's root state also reflects the final evaluation and the labels without an
+  // answer (12.1): a table with registered labels missing, not evaluated or stale is
+  // degraded, never "ok"
+  const missing = labels.filter((L, i) => res[i].error || res[i].status === "unavailable");
+  const evBad = !ev.error && (ev.status === "degraded" || ev.status === "unavailable");
+  const shown = main && !main.error && (main.status === "ok" || main.status === "degraded");
+  const folded = shown && (evBad || missing.length > 0);
+  if (folded) {
+    const notices = [];
+    if (main.status === "degraded" && main.notice) notices.push(main.notice);
+    if (evBad) notices.push(`évaluation finale : ${ev.notice || "incomplète"}`);
+    else notices.push(`${missing.join(", ")} : indisponible`);
+    main = { ...main, status: "degraded", notice: [...new Set(notices)].join(" · ") };
+  }
+  const operatorLink = `<a class="map-action-btn op-link" href="${esc(state.operatorUrl)}" target="_blank" rel="noopener">📊 Ouvrir l'Opérateur détaillé (courbes, tests, sensibilité, exports)</a>`;
+  return [main, `
+    <div class="hero-eta-card" style="border-color:rgba(139, 92, 246, 0.45)">
+      ${banners(main)}
       <div class="hero-eta-header">
-        <div class="hero-eta-label" style="color:#C084FC">
-          <span>📊</span> <span>TABLEAU DE BORD COMPARATIF MULTI-SCÉNARIOS (S0 / S1 / S2 / S3)</span>
-        </div>
-        <span class="badge-ia">Consolidation ${n || 10} Graines (D33 & D79)</span>
+        <div class="hero-eta-label" style="color:#C084FC"><span>📊</span> <span>Retard moyen par personne, par scénario (famille principale)</span></div>
       </div>
-
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin:16px 0 24px">
-        <div style="background:rgba(16,185,129,0.12); border:1px solid #10B981; border-radius:var(--radius-md); padding:16px">
-          <div style="font-size:12px; color:#34D399; font-weight:700; text-transform:uppercase">Contrôleur Nominal Déployé (S2 Règles)</div>
-          <div style="font-size:42px; font-weight:800; color:#34D399; margin:4px 0">-16.6 %</div>
-          <div style="font-size:12.5px; color:var(--fg-muted)">Retard usagers vs S0 · 100% équitable piétons</div>
-        </div>
-
-        <div style="background:rgba(168,85,247,0.12); border:1px solid #A855F7; border-radius:var(--radius-md); padding:16px">
-          <div style="font-size:12px; color:#C084FC; font-weight:700; text-transform:uppercase">Modèle RL Recherche (S3 DQN V1)</div>
-          <div style="font-size:42px; font-weight:800; color:#C084FC; margin:4px 0">-25.5 %</div>
-          <div style="font-size:12.5px; color:var(--fg-muted)">Retard usagers vs S0 (-18.7% vs S1) · Corridor ambulance -29.5%</div>
-        </div>
+      <div class="op-best" data-field="op-best" data-value="${dv(best ? best.label : "")}">
+        ${best ? `Plus faible retard moyen par personne : <strong>${esc(best.label)}</strong> (${best.mean.toFixed(1)} s)` : "Aucun scénario évalué disponible"}
       </div>
-
       <div class="table-box">
         <table>
-          <thead>
-            <tr>
-              <th>Indicateur Clé (KPI)</th>
-              ${head}
-            </tr>
-          </thead>
-          <tbody>${body}</tbody>
+          <thead><tr><th>Scénario</th><th>Retard moyen par personne</th><th>Écart-type</th><th>Graines</th><th>vs S0</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="5" class="muted">aucun scénario enregistré</td></tr>`}</tbody>
         </table>
       </div>
-
-      <div style="margin-top:20px; font-size:13px; line-height:1.6; color:var(--fg-muted); background:rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-sm); border:1px solid var(--border)">
-        💡 <strong>Lecture des résultats :</strong>
-        <ul style="margin:6px 0 0; padding-left:20px">
-          <li><strong>S0 (Fixe) :</strong> Baseline rigide (cycle 123s sans capteurs).</li>
-          <li><strong>S1 (Actué) :</strong> Détection par boucles électromagnétiques prolongeant le vert local.</li>
-          <li><strong>S2 (Règles IA) :</strong> Algorithme expert de régulation multi-critères garantissant l'équité piétonne (< 90s) et la préemption des urgences.</li>
-          <li><strong>S3 (DQN V1) :</strong> Agent par renforcement profond maximisant le débit global (-25.5% de délai, -19.5% bus, -29.5% ambulance) tout en restant borné par le Safety Guard.</li>
-        </ul>
-      </div>
+      <div class="muted" style="margin-top:10px">Ablations et scénarios exploratoires grisés. ${ev.status === "ok" || (folded && evBad) ? "" : `Évaluation finale : ${esc(ev.notice || "indisponible")}.`}</div>
+      <div style="margin-top:16px">${operatorLink}</div>
     </div>
   `];
 }
 
 // -------------------------------------------------------------
-// VIEW 6 : AGENT RL INTELLIGENT (S3 · DQN V1)
+// Core controller
 // -------------------------------------------------------------
-async function rl() {
-  const [h] = await Promise.all([
-    api("/health")
-  ]);
+const RENDER = { home, pedestrian, student, bus, ambulance, replay, operator };
+const LAST_GOOD = new Map();  // view + parameters -> { b, html } (12.1 last known value)
+const cacheKey = () => [state.view, state.run, state.crossing, state.speed, state.trajet, state.exam, state.line].join("|");
 
-  const t = Number($("t").value);
-  const cycleSec = t % 123;
-  const isAmbTime = (t >= 340 && t <= 380);
-
-  // Dynamic simulated Q-values and decision states
-  let activePhase = "N_S";
-  let activeAction = 0;
-  let q0 = 12.4, q1 = 4.2, q2 = 8.1, q3 = 3.5;
-
-  if (isAmbTime) {
-    // Ambulance priority override
-    activePhase = "N_S (Priorité Ambulance V2I)";
-    activeAction = 0;
-    q0 = 34.5; q1 = -18.2; q2 = 15.0; q3 = -12.0;
-  } else if (cycleSec < 62) {
-    activePhase = "Phase 1 : Boulevard de l'Hôpital (N_S)";
-    const progress = cycleSec / 62;
-    q0 = +(18.5 - progress * 14.0).toFixed(1);
-    q1 = +(2.0 + progress * 11.5).toFixed(1);
-    q2 = +(9.2 - progress * 5.0).toFixed(1);
-    q3 = +(4.0 + progress * 6.0).toFixed(1);
-    activeAction = q0 >= q1 ? 0 : 2;
-  } else {
-    activePhase = "Phase 2 : Boulevard Saint-Marcel (W)";
-    const progress = (cycleSec - 62) / 61;
-    q1 = +(17.2 - progress * 13.0).toFixed(1);
-    q0 = +(3.1 + progress * 12.0).toFixed(1);
-    q3 = +(8.5 - progress * 4.5).toFixed(1);
-    q2 = +(4.5 + progress * 5.5).toFixed(1);
-    activeAction = q1 >= q0 ? 1 : 3;
-  }
-
-  // Normalize Q-values for visual progress bars
-  const qMin = Math.min(q0, q1, q2, q3);
-  const qMax = Math.max(q0, q1, q2, q3);
-  const norm = (v) => Math.max(12, Math.min(100, Math.round(((v - qMin) / ((qMax - qMin) || 1)) * 100)));
-
-  const actions = [
-    { id: 0, name: "Conserver Phase 1 (N_S Vert)", desc: "Maintient l'écoulement principal Bd de l'Hôpital", q: q0, target: "N_S" },
-    { id: 1, name: "Conserver Phase 2 (W Vert)", desc: "Maintient l'écoulement secondaire Bd St-Marcel", q: q1, target: "W" },
-    { id: 2, name: "Basculer vers Phase 1 (Intergreen)", desc: "Déclenche le dégagement sécurisé vers N_S", q: q2, target: "N_S" },
-    { id: 3, name: "Basculer vers Phase 2 (Intergreen)", desc: "Déclenche le dégagement sécurisé vers W", q: q3, target: "W" }
-  ];
-
-  // Simulated live queue telemetry (62-dim observation feature sample)
-  const queueNorth = Math.max(0, Math.round(4 + 3 * Math.sin(t / 180) + (activeAction === 1 ? 5 : -2)));
-  const queueSouth = Math.max(0, Math.round(3 + 2 * Math.cos(t / 200)));
-  const queueWest  = Math.max(0, Math.round(2 + 4 * Math.sin(t / 220) + (activeAction === 0 ? 4 : -2)));
-  const speedAvg   = (38.5 + 4 * Math.cos(t / 150)).toFixed(1);
-
-  return [h, `
-    <div class="hero-eta-card" style="border-color: rgba(139, 92, 246, 0.45); box-shadow: 0 0 35px rgba(139, 92, 246, 0.15)">
-      ${banners(h)}
-
-      <div class="hero-eta-header">
-        <div class="hero-eta-label" style="color: #C084FC">
-          <span>🧠</span> <span>PILOTAGE PAR RENFORCEMENT PROFOND (AGENT S3 · DQN V1)</span>
-        </div>
-        <div style="display:flex; gap:8px">
-          <span class="badge-live" style="border-color:#A855F7; color:#C084FC; background:rgba(168,85,247,0.15)">
-            🤖 Modèle rl7-dqn-v1-s0-415724a4
-          </span>
-          <span class="badge-ia">Double DQN (PyTorch)</span>
-        </div>
-      </div>
-
-      <!-- Live Decision & Giant Impact -->
-      <div class="hero-eta-digits-row">
-        <div class="hero-eta-big" style="font-size:62px; background:linear-gradient(135deg, #FFF, #C084FC); -webkit-background-clip:text; -webkit-text-fill-color:transparent">
-          -18.7 %
-        </div>
-        <div class="hero-eta-unit">
-          Réduction du retard moyen par voyageur par rapport aux feux actués S1 (p = 0.002)
-        </div>
-      </div>
-
-      <!-- Live Decision Status Banner -->
-      <div class="advice-pill ok" style="width:100%; margin-bottom:20px; font-size:15px; border-color:${isAmbTime ? '#EF4444' : '#A855F7'}; background:${isAmbTime ? 'rgba(239,68,68,0.2)' : 'rgba(168,85,247,0.18)'}; color:${isAmbTime ? '#FCA5A5' : '#E9D5FF'}">
-        <span>${isAmbTime ? '🚨' : '⚡'}</span>
-        <span>
-          <strong>DÉCISION ACTIVE DU RÉSEAU DE NEURONES (t = ${t} s) :</strong> 
-          ${actions[activeAction].name} · <em>${activePhase}</em>
-          ${isAmbTime ? '· <strong>Corridor Prioritaire d\'Urgence V2I Validé</strong>' : ''}
-        </span>
-      </div>
-
-      <!-- Action Space Grid with Q-Values -->
-      <div style="margin:20px 0">
-        <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg-muted); margin-bottom:10px">
-          Espace d'Actions Discrètes & Scores Q-Values Estimés
-        </div>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px">
-          ${actions.map((act) => {
-            const isChosen = act.id === activeAction;
-            return `
-              <div style="background:rgba(15,23,42,0.8); border:2px solid ${isChosen ? 'var(--accent)' : 'var(--border)'}; border-radius:var(--radius-md); padding:14px; position:relative; box-shadow:${isChosen ? '0 0 20px rgba(56,189,248,0.25)' : 'none'}">
-                ${isChosen ? '<span class="badge-live" style="position:absolute; top:10px; right:10px; font-size:10px; padding:2px 8px">Action Émise</span>' : ''}
-                <div style="font-weight:700; font-size:14px; color:${isChosen ? '#FFF' : 'var(--fg-muted)'}">${esc(act.name)}</div>
-                <div style="font-size:12px; color:var(--fg-muted); margin:4px 0 10px">${esc(act.desc)}</div>
-                <div style="display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:13px; font-weight:700; color:${isChosen ? 'var(--accent)' : 'var(--fg)'}">
-                  <span>Q-Value</span>
-                  <span>${act.q >= 0 ? '+' : ''}${act.q.toFixed(1)}</span>
-                </div>
-                <div style="height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-top:6px">
-                  <div style="width:${norm(act.q)}%; height:100%; background:${isChosen ? 'linear-gradient(90deg, #38BDF8, #10B981)' : 'rgba(255,255,255,0.2)'}; border-radius:3px; transition:width 0.4s ease"></div>
-                </div>
-              </div>
-            `;
-          }).join("")}
-        </div>
-      </div>
-
-      <!-- Vector Observation Space (Sample of the 62 Dimensions) -->
-      <div style="margin:24px 0">
-        <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg-muted); margin-bottom:10px">
-          Vecteur d'Observation Télémesure SUMO (Échantillon des 62 Caractéristiques d'Entrée)
-        </div>
-        <div class="metric-tiles-grid">
-          <div class="tile">
-            <div class="tile-title">🚗 File Approche Nord</div>
-            <div class="tile-val">${queueNorth} véh.</div>
-            <div class="tile-sub">Capteurs réels 302</div>
-          </div>
-          <div class="tile">
-            <div class="tile-title">🚗 File Approche Sud</div>
-            <div class="tile-val">${queueSouth} véh.</div>
-            <div class="tile-sub">Capteurs réels 303</div>
-          </div>
-          <div class="tile">
-            <div class="tile-title">🚗 File Approche Ouest</div>
-            <div class="tile-val">${queueWest} véh.</div>
-            <div class="tile-sub">Bd Saint-Marcel</div>
-          </div>
-          <div class="tile">
-            <div class="tile-title">⏱️ Vitesse Moyenne Carrefour</div>
-            <div class="tile-val" style="color:var(--emerald-bright)">${speedAvg} km/h</div>
-            <div class="tile-sub">Fluidité globale</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Interim Verdict Specification 10.6 & Multi-criteria -->
-      <div style="margin-top:28px">
-        <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg-muted); margin-bottom:12px">
-          Audit Contractuel de Performance (Spécification 10.6 · Verdict d'Acceptation)
-        </div>
-        <div class="table-box">
-          <table>
-            <thead>
-              <tr>
-                <th>Critère de Décision (D79)</th>
-                <th>Performance Mesurée</th>
-                <th>Seuil Contractuel</th>
-                <th>Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>C1 : Retard Global Personnes</strong></td>
-                <td>-9.5 s / personne (gain net)</td>
-                <td>p &lt; 0.05 (exact Wilcoxon)</td>
-                <td><span class="diff-badge gain">✅ PASS (p = 0.002)</span></td>
-              </tr>
-              <tr>
-                <td><strong>C2 : Équité Multi-Usagers</strong></td>
-                <td>Voitures -13.9% · Bus -21.7% · Piétons +6.2%</td>
-                <td>Aucun mode pire de &gt; 5% vs S1</td>
-                <td><span class="diff-badge loss">⚠️ FAIL (Piéton +6.2%)</span></td>
-              </tr>
-              <tr>
-                <td><strong>C3 : Sécurité Routière & Invariants</strong></td>
-                <td>0 collision · 0 phase rouge violée · 100% préemptions</td>
-                <td>Zéro anomalie de sécurité</td>
-                <td><span class="diff-badge gain">✅ PASS (0 violation)</span></td>
-              </tr>
-              <tr>
-                <td><strong>C4 : Reproductibilité Bit-à-Bit</strong></td>
-                <td>5 sur 5 modèles au-dessus de la baseline</td>
-                <td>≥ 4 modèles conformes</td>
-                <td><span class="diff-badge gain">✅ PASS (Reproductible)</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:var(--radius-md); padding:16px 20px; margin-top:14px; font-size:13.5px; line-height:1.6; color:#FDE68A">
-          📌 <strong>Verdict Stratégique 10.6 (FALLBACK) :</strong> Bien que le modèle RL (S3) surpasse largement tous les contrôleurs sur la fluidité générale et les transports d'urgence (-29.5% pour les ambulances), le contrôleur par règles <strong>S2</strong> reste la solution de déploiement nominale sur le carrefour réel car il protège l'équité des temps de traversée piétonne (C2).
-        </div>
-      </div>
-    </div>
-  `];
-}
-
-// -------------------------------------------------------------
-// Core Controller & Event Dispatcher
-// -------------------------------------------------------------
-const RENDER = { map: renderMap, student, bus, pedestrian, ambulance, operator, rl };
-
-async function render() {
-  const seq = ++state.seq;
-  $("clk").textContent = hhmm(state.beginS + Number($("t").value));
-  
-  if (state.view !== "map") {
-    stopTrafficSim();
-  }
-  
-  // Render Navigation Buttons
-  $("nav").innerHTML = Object.entries(VIEWS).map(([k, v]) => 
+function renderNav() {
+  $("nav").innerHTML = Object.entries(VIEWS).map(([k, v]) =>
     `<button class="nav-btn ${k === state.view ? 'on' : ''}" data-view="${k}">
        <span class="emoji">${v.icon}</span> <span>${v.label}</span>
      </button>`
   ).join("");
+}
+
+function updateClock() {
+  $("clk").textContent = hhmm(state.beginS + state.t);
+}
+
+async function render() {
+  const seq = ++state.seq;
+  updateClock();
+  renderNav();
+  document.body.classList.toggle("kiosk", state.kiosk);
+  if (state.view !== "replay") stopTrafficSim();
 
   const v = $("view");
-
-  // Keep live canvas alive when already in map view
-  if (state.view === "map" && v.dataset.view === "map" && $("trafficCanvas")) {
-    updateMapHUD();
-    startTrafficSim();
+  // Keep the live map when already in the replay view: the animation loop follows state.t
+  if (state.view === "replay" && v.dataset.view === "replay" && REPLAY.run === (state.run || "default") && $("trafficCanvas")) {
+    REPLAY.lastTicker = 0;
     return;
   }
-
-  if (!v.dataset.view || v.dataset.view !== state.view) {
+  if (v.dataset.view !== state.view) {
+    v.dataset.view = state.view;
+    v.dataset.viewState = "loading";
     v.innerHTML = `<div class="hero-eta-card" style="text-align:center; padding:50px; color:var(--fg-muted)">
       <div style="font-size:32px; animation:spin 1s infinite linear">⏳</div>
-      <div style="margin-top:12px; font-weight:700">Actualisation télématique…</div>
+      <div style="margin-top:12px; font-weight:700">Chargement des données simulées…</div>
     </div>`;
   }
 
-  const [b, html] = await RENDER[state.view]();
+  const key = cacheKey();
+  let [b, html] = await RENDER[state.view]();
   if (seq !== state.seq) return;
-
+  let st = viewState(b);
+  if (transportFailure(b) && LAST_GOOD.has(key)) {
+    const last = LAST_GOOD.get(key);
+    html = `<div class="banner bad" data-field="banner-last-known">⚠️ <strong>Données temporairement indisponibles</strong> · dernière valeur connue (${stampOf(last.b.timestamp)})</div>${last.html}`;
+    b = last.b;
+    st = "stale";
+  } else if (!transportFailure(b) && st !== "error") {
+    LAST_GOOD.set(key, { b, html });
+  }
   v.dataset.view = state.view;
+  v.dataset.viewState = st;
   v.innerHTML = html;
   footer(b);
-
-  if (state.view === "map") {
-    startTrafficSim();
-  }
 }
 
-// Event Listeners
+function setView(view) {
+  state.view = view;
+  render();
+}
+
+function playLabel() {
+  $("play").textContent = state.playing ? "❚❚" : "▶";
+  $("play").style.background = state.playing ? "var(--accent)" : "rgba(56, 189, 248, 0.15)";
+  $("play").style.color = state.playing ? "#000" : "var(--accent)";
+}
+
+function stopPlay() {
+  if (state.playing) clearInterval(state.playing);
+  state.playing = null;
+  playLabel();
+}
+
+function startPlay() {
+  if (state.playing) return;
+  state.lastPlayRender = performance.now();
+  state.playing = setInterval(() => {
+    state.t = Math.min(state.tMax, state.t + state.playSpeed * 0.1);
+    $("t").value = String(Math.round(state.t));
+    updateClock();
+    if (state.t >= state.tMax) stopPlay();
+    const now = performance.now();
+    if (state.view !== "replay" && now - state.lastPlayRender >= 1000) {
+      state.lastPlayRender = now;
+      render();
+    }
+  }, 100);
+  playLabel();
+}
+
+// Event listeners
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
-  if (btn.id === "btn-mode-2d") {
-    switchTo2D();
-    return;
-  }
-  if (btn.id === "btn-mode-3d") {
-    switchTo3D();
-    return;
-  }
-  if (false) {
-    switchTo2D();
-    return;
-  }
-  if (btn.id === "btn-mode-3d") {
-    switchTo3D();
-    return;
-  }
-  if (false) {
-    state.mapMode = "2d";
-    const c2d = $("trafficCanvas");
-    const c3d = $("trafficCanvas3D");
-    const ctrl3d = $("controls3D");
-    if (c2d) c2d.style.display = "block";
-    if (c3d) c3d.style.display = "none";
-    if (ctrl3d) ctrl3d.style.display = "none";
-    document.querySelectorAll(".view-mode-btn").forEach(b => b.classList.toggle("active", b.id === "btn-mode-2d"));
-    stopTrafficSim();
-    startTrafficSim();
-    return;
-  }
-  if (btn.id === "btn-mode-3d") {
-    state.mapMode = "3d";
-    const c2d = $("trafficCanvas");
-    const c3d = $("trafficCanvas3D");
-    const ctrl3d = $("controls3D");
-    if (c2d) c2d.style.display = "none";
-    if (c3d) c3d.style.display = "block";
-    if (ctrl3d) ctrl3d.style.display = "flex";
-    document.querySelectorAll(".view-mode-btn").forEach(b => b.classList.toggle("active", b.id === "btn-mode-3d"));
-    stopTrafficSim();
-    start3DSim();
-    return;
-  }
+  if (btn.id === "btn-mode-2d") { switchTo2D(); return; }
+  if (btn.id === "btn-mode-3d") { switchTo3D(); return; }
   if (btn.dataset.cam) {
     if (SIM3D && SIM3D.setCameraPreset) {
       SIM3D.setCameraPreset(btn.dataset.cam);
-      document.querySelectorAll(".cam-btn").forEach(b => b.classList.toggle("active", b === btn));
+      document.querySelectorAll(".cam-btn").forEach((c) => c.classList.toggle("active", c === btn));
     }
     return;
   }
-  if (btn.dataset.speed) {
-    SIM.speedFactor = Number(btn.dataset.speed);
-    document.querySelectorAll(".speed-btn").forEach((b) => b.classList.toggle("active", b.dataset.speed === btn.dataset.speed));
-    return;
-  }
-  if (btn.id === "btn-emergency") {
-    state.mapEmergency = !state.mapEmergency;
-    if (state.mapEmergency) {
-      setTimeout(() => {
-        state.mapEmergency = false;
-        if (state.view === "map") updateMapHUD();
-      }, 16000);
-    }
-    updateMapHUD();
-    return;
-  }
-  if (btn.id === "btn-toggle-sensors") {
-    state.showSensors = !state.showSensors;
-    btn.classList.toggle("active", state.showSensors);
+  if (btn.dataset.playSpeed) {
+    state.playSpeed = Number(btn.dataset.playSpeed);
+    document.querySelectorAll("[data-play-speed]").forEach((c) => c.classList.toggle("active", c === btn));
     return;
   }
   if (btn.id === "btn-toggle-peds") {
@@ -4345,120 +3934,192 @@ document.addEventListener("click", (e) => {
     btn.classList.toggle("active", state.showPeds);
     return;
   }
+  if (btn.dataset.copy) {
+    const el = $(btn.dataset.copy);
+    const text = el ? el.textContent.trim() : "";
+    const done = () => { btn.textContent = "✓ Message copié"; };
+    try {
+      navigator.clipboard.writeText(text).then(done, () => { btn.textContent = "Copie impossible : sélectionnez le texte"; });
+    } catch (err) {
+      btn.textContent = "Copie impossible : sélectionnez le texte";
+    }
+    return;
+  }
+  if (btn.dataset.go) {
+    if (btn.dataset.key) {
+      state[btn.dataset.key] = btn.dataset.val;
+      saveChoices();
+    }
+    setView(btn.dataset.go);
+    return;
+  }
   if (btn.dataset.view) {
-    state.view = btn.dataset.view;
-    render();
+    setView(btn.dataset.view);
   } else if (btn.dataset.set) {
     state[btn.dataset.set] = btn.dataset.val;
+    if (btn.dataset.set === "crossing" || btn.dataset.set === "speed") saveChoices();
     render();
   }
 });
 
 document.addEventListener("change", (e) => {
-  if (e.target.id === "ctrl-select") {
-    state.mapController = e.target.value;
-    if (state.mapController === "S3") {
-      const s3Opt = Array.from($("run").options).find(o => o.value.startsWith("s3_"));
-      if (s3Opt) { $("run").value = s3Opt.value; state.run = s3Opt.value; }
-    } else if (state.mapController === "S0") {
-      const s0Opt = Array.from($("run").options).find(o => o.value.includes("fixed"));
-      if (s0Opt) { $("run").value = s0Opt.value; state.run = s0Opt.value; }
-    } else if (state.mapController === "S2") {
-      const s2Opt = Array.from($("run").options).find(o => o.value.includes("rules") && !o.value.startsWith("s3_"));
-      if (s2Opt) { $("run").value = s2Opt.value; state.run = s2Opt.value; }
-    }
-    updateMapHUD();
-    return;
-  }
   if (e.target.id === "trajet") { state.trajet = e.target.value; render(); }
-  if (e.target.id === "exam") { state.exam = e.target.value || "09:00"; render(); }
+  if (e.target.id === "exam") { state.exam = e.target.value || state.exam; render(); }
   if (e.target.id === "run") {
     state.run = e.target.value;
-    if (state.run && state.run.startsWith("s3_")) {
-      state.mapController = "S3";
-      const sel = $("ctrl-select");
-      if (sel) sel.value = "S3";
-    } else if (state.run && (state.run.includes("fixed") || state.run.includes("S0"))) {
-      state.mapController = "S0";
-      const sel = $("ctrl-select");
-      if (sel) sel.value = "S0";
-    } else {
-      state.mapController = "S2";
-      const sel = $("ctrl-select");
-      if (sel) sel.value = "S2";
-    }
+    $("view").dataset.view = "";
     render();
   }
 });
 
+let sliderTimer = null;
 $("t").addEventListener("input", () => {
-  $("clk").textContent = hhmm(state.beginS + Number($("t").value));
-  if (state.view === "map" && $("trafficCanvas")) {
-    updateMapHUD();
-  } else {
-    render();
+  state.t = Number($("t").value);
+  updateClock();
+  if (state.view === "replay" && $("trafficCanvas")) {
+    REPLAY.lastTicker = 0;
+    return;
   }
+  clearTimeout(sliderTimer);
+  sliderTimer = setTimeout(render, 150);
 });
 
 $("play").addEventListener("click", () => {
-  if (state.playing) {
-    clearInterval(state.playing);
-    state.playing = null;
-    $("play").textContent = "▶";
-    $("play").style.background = "rgba(56, 189, 248, 0.15)";
-    $("play").style.color = "var(--accent)";
-    return;
-  }
-  $("play").textContent = "❚❚";
-  $("play").style.background = "var(--accent)";
-  $("play").style.color = "#000";
-  state.playing = setInterval(() => {
-    const t = $("t");
-    t.value = Math.min(Number(t.max), Number(t.value) + 5);
-    $("clk").textContent = hhmm(state.beginS + Number(t.value));
-    if (state.view === "map" && $("trafficCanvas")) {
-      updateMapHUD();
-    } else {
-      render();
-    }
-  }, 1000);
+  if (state.playing) stopPlay(); else startPlay();
 });
 
-// Initial Bootstrap
-async function init() {
-  const [h, s] = await Promise.all([api("/health"), api("/scenarios")]);
-  const runs = (s.scenarios || []).flatMap((g) => g.runs.map((r) => ({ ...r, scenario: g.scenario, label: g.label })));
-  const def = h.default_run ? h.default_run.run_id : "";
+// -------------------------------------------------------------
+// Run list (/scenarios) and deep links (D106)
+// -------------------------------------------------------------
+const isDemoSeed = (seed) => seed >= DEMO_SEEDS[0] && seed <= DEMO_SEEDS[1];
+// seed_role from /scenarios (api.yaml seeds.demo, evaluation.yaml seeds.evaluation); the
+// DEMO_SEEDS range and /evaluation seeds only when the API does not give it
+const isDemoRun = (r) => r.seedRole ? r.seedRole === "demo" : isDemoSeed(r.seed);
+const isEvalRun = (r) => r.seedRole ? r.seedRole === "evaluation" : state.evalSeeds.has(r.seed);
+const labelRank = (l) => (LABEL_ORDER.indexOf(l) + 1) || 99;
 
-  const s3Runs = [
-    { run_id: "s3_rl_dqn_seed4000", text: "S3 · pitie_rl (graine 4000) · 🧠 RL DQN (-25.5% délai) · 🤖 ETA" },
-    { run_id: "s3_rl_dqn_seed1", text: "S3 · pitie_rl (graine 1) · 🧠 RL DQN" },
-    { run_id: "s3_rl_dqn_seed2", text: "S3 · pitie_rl (graine 2) · 🧠 RL DQN" }
-  ];
-
-  const s3Html = s3Runs.map((r) =>
-    `<option value="${r.run_id}">${esc(r.text)}</option>`
-  ).join("");
-
-  const serverHtml = runs.map((r) => 
-    `<option value="${esc(r.run_id)}" ${r.run_id === def ? "selected" : ""}>
-      ${esc(r.label ? r.label + " · " : "")}${esc(r.scenario)} (graine ${r.seed})${r.has_eta ? " · 🤖 ETA" : ""}
-    </option>`
-  ).join("");
-
-  $("run").innerHTML = s3Html + serverHtml || `<option value="">aucun run</option>`;
-
-  const s3Opt = Array.from($("run").options).find(o => o.value.startsWith("s3_"));
-  if (state.mapController === "S3" && s3Opt) {
-    state.run = s3Opt.value;
-    $("run").value = s3Opt.value;
-  } else {
-    state.run = def;
+function buildRuns(s) {
+  state.groups = (s && !s.error && Array.isArray(s.scenarios)) ? s.scenarios : [];
+  const runs = [];
+  for (const grp of state.groups) {
+    for (const sr of (grp.runs || [])) {
+      runs.push({ run_id: sr.run_id, seed: sr.seed, has_eta: sr.has_eta, seedRole: sr.seed_role, scenario: grp.scenario, label: grp.label, family: grp.family, role: grp.role });
+    }
   }
-  const r = await api(`/replay/default`);
-  if (r.sim_t_s != null) $("t").value = r.sim_t_s;
-  footer(r.data_source ? r : h);
-  render();
+  const order = (r) => [isDemoRun(r) ? 0 : 1, r.family === "main" ? 0 : (r.family ? 1 : 2), labelRank(r.label), r.scenario, r.seed];
+  runs.sort((a, c) => {
+    const x = order(a), y = order(c);
+    for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+    return 0;
+  });
+  state.runs = runs;
+}
+
+function runText(r) {
+  const fam = FAMILY_NAMES[r.family] ? ` (${FAMILY_NAMES[r.family]})` : "";
+  const role = r.role === "ablation" ? " · ablation" : (r.role === "exploratory" ? " · exploratoire" : "");
+  const seed = isEvalRun(r) ? `graine d'évaluation ${r.seed}` : `graine ${r.seed}`;
+  return `${r.label ? r.label + fam + " · " : ""}${r.scenario} · ${seed}${role}${r.has_eta ? " · ETA" : ""}`;
+}
+
+function fillRunSelect() {
+  const opt = (r) => `<option value="${esc(r.run_id)}" ${r.run_id === state.run ? "selected" : ""}>${esc(runText(r))}</option>`;
+  const demo = state.runs.filter(isDemoRun);
+  const other = state.runs.filter((r) => !isDemoRun(r));
+  let html = "";
+  if (demo.length) html += `<optgroup label="Runs de démonstration">${demo.map(opt).join("")}</optgroup>`;
+  if (other.length) html += `<optgroup label="Runs d'évaluation et autres">${other.map(opt).join("")}</optgroup>`;
+  $("run").innerHTML = html || `<option value="">aucun run disponible</option>`;
+  if (state.run) $("run").value = state.run;
+}
+
+function readDeepLink(P, problems) {
+  const pick = (key, allowed, label) => {
+    if (!P.has(key)) return;
+    const val = P.get(key);
+    if (allowed.includes(val)) state[key] = val;
+    else problems.push(`${label} « ${val} » inconnu`);
+  };
+  if (P.has("view")) {
+    if (VIEWS[P.get("view")]) state.view = P.get("view");
+    else problems.push(`vue « ${P.get("view")} » inconnue`);
+  }
+  pick("crossing", CROSSINGS, "passage");
+  pick("speed", SPEEDS.map(([k]) => k), "vitesse");
+  pick("line", LINES, "ligne");
+  pick("trajet", STUDENT_ROUTES.map(([k]) => k), "trajet");
+  if (P.has("exam")) {
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(P.get("exam"))) state.exam = P.get("exam");
+    else problems.push(`heure d'examen « ${P.get("exam")} » invalide`);
+  }
+  for (const key of ["play", "kiosk"]) {
+    if (P.has(key) && !["0", "1"].includes(P.get(key))) problems.push(`${key} doit valoir 0 ou 1`);
+  }
+  state.kiosk = P.get("kiosk") === "1";
+  if (P.has("operator")) {
+    if (/^https?:\/\/[^\s"'<>]+$/.test(P.get("operator"))) state.operatorUrl = P.get("operator");
+    else problems.push("adresse de l'Opérateur invalide");
+  }
+  if (P.has("seed") && !/^\d+$/.test(P.get("seed"))) problems.push(`graine « ${P.get("seed")} » invalide`);
+}
+
+function resolveRun(P, def, problems) {
+  const scenario = P.get("scenario");
+  const seed = P.has("seed") && /^\d+$/.test(P.get("seed")) ? Number(P.get("seed")) : null;
+  let run = def;
+  if (scenario != null || seed != null) {
+    const match = state.runs.filter((r) => (scenario == null || r.scenario === scenario || r.label === scenario) && (seed == null || r.seed === seed));
+    if (!match.length) {
+      problems.push(`aucun run pour ${scenario != null ? `le scénario « ${scenario} »` : "ce scénario"}${seed != null ? ` et la graine ${seed}` : ""}`);
+    } else {
+      run = match[0].run_id;
+    }
+  }
+  if (P.has("run")) {
+    const asked = P.get("run");
+    if (scenario == null && seed == null) {
+      if (state.runs.some((r) => r.run_id === asked)) run = asked;
+      else problems.push("run demandé introuvable");
+    } else if (asked !== run) {
+      problems.push("le run demandé ne correspond pas au scénario et à la graine");
+    }
+  }
+  return run;
+}
+
+async function init() {
+  loadChoices();
+  const P = new URLSearchParams(location.search);
+  const problems = [];
+  readDeepLink(P, problems);
+  playLabel();
+  const [h, s, ev] = await Promise.all([api("/health"), api("/scenarios"), api("/evaluation?family=main")]);
+  footer(h);
+  if (!ev.error && Array.isArray(ev.seeds)) state.evalSeeds = new Set(ev.seeds);
+  buildRuns(s);
+  const def = h.default_run ? h.default_run.run_id : (state.runs[0] ? state.runs[0].run_id : "");
+  state.run = resolveRun(P, def, problems);
+  fillRunSelect();
+
+  if (state.run || state.runs.length) {
+    const tq = P.has("t") ? `?t=${encodeURIComponent(P.get("t"))}` : "";
+    const rb = await api(`/replay/${encodeURIComponent(state.run || "default")}${tq}`);
+    if (rb.error && !transportFailure(rb) && P.has("t")) {
+      problems.push(`instant « ${P.get("t")} » invalide pour ce run`);
+    } else if (!rb.error) {
+      footer(rb);
+      if (rb.sim_t_s != null) state.t = rb.sim_t_s;
+      applyBounds(rb);
+    }
+  }
+  if (problems.length) {
+    state.view = "home";
+    state.kiosk = false;
+    state.flash = problems.join(" ; ");
+  }
+  $("t").value = String(Math.round(state.t));
+  await render();
+  if (P.get("play") === "1" && !problems.length) startPlay();
 }
 
 init();

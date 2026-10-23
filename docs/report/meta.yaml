@@ -1,0 +1,13 @@
+# Report and deck metadata (D113, D114). Read by `python -m traffic_twin.report facts`
+# into the meta.* facts; the deck's core properties use `date`, so a rebuild gives the
+# same XML. Authors, institution and supervisor are to be confirmed by the project owner
+# (plan Q43): a blank institution or supervisor prints "to be confirmed".
+title: "Urban Traffic Twin"
+subtitle: "A calibrated digital twin of one Paris junction: signal control for every user"
+version: "v1 — provisional (before the field visit)"
+date: "2026-10-23"
+authors: ["Motez Jerbi", "mrvolcon1"]
+institution: ""
+supervisor: ""
+field_visit: "3-5 Nov 2026"
+site: "Bd de l'Hôpital × Bd Saint-Marcel, next to the Pitié-Salpêtrière hospital, Paris 13e"

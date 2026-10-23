@@ -11,6 +11,8 @@ Run it with the project's interpreter, which every task reuses (sys.executable):
     python tasks.py provenance                               (are the published runs committed?)
     python tasks.py part5                                    (ETA dataset, model, A-07, API)
     python tasks.py part6                                    (RL timing, trainings, evaluation)
+    python tasks.py part8                                    (once: S0-S4 on seeds 1-10)
+    python tasks.py demo                                     (API + Operator for the demo)
 
 Several tasks run in order (`tasks.py net sim plots`); the run stops at the first
 failing command and exits with its code. `--dry-run` only prints the commands.
@@ -57,6 +59,23 @@ launched it (the OMP_/MKL_/OPENBLAS_ variables and validation pool its provenanc
 records), and requires the same policies,
 validation rows and episode returns, the same S3 golden and the same docs/rl_training.md
 (apart from its code-version lines); the rest of the campaign is not rerun.
+
+Parts 8-10 (D91-D120). `part8` is the single seed 1-10 run of S3 and S4, on the clean
+registration commit (the first commit adding `a06:` to configs/evaluation.yaml, D92):
+`part8-guard` refuses a dirty tree, a HEAD without the `a06` block, a HEAD part8 already
+ran from (`data/results/_rebaseline/<HEAD>/`) and existing runs of the new scenarios on
+the evaluation seeds; then `rebaseline` re-makes the 70 S0-S2 runs (identical, recorded in
+`_rebaseline/<HEAD>/verify.json`) while `evaluate --run-missing` makes the 40 S3 / S4 runs,
+then `plots-eval` and `provenance`. On a STOP (A-04 FAIL) it is resumed with
+`tasks.py plots-eval rebaseline-verify`. `sim` and `sim-gui` check the same run lock
+in-process before they launch a registered evaluation scenario on an evaluation seed;
+`compare` and `validate` (so `part3` and `rebaseline`) check it for every run their
+`--run-missing` would launch (compare.py and validation/report.py do not). Those frozen
+modules and sim/run_scenario.py, called directly, launch runs WITHOUT the lock: never
+call them on seeds 1-10 (one early S3 look is disclosed in configs/evaluation.yaml). The
+Part 9 and Part 10 tasks call `python -m traffic_twin.usertests`, `traffic_twin.report`
+and `traffic_twin.demo`; `--fixtures`, `--no-browser`, `--record` and
+`--allow-pending-s3` reach only them.
 """
 
 from __future__ import annotations
@@ -84,6 +103,7 @@ PITIE_S0 = "configs/pitie_fixed.yaml"  # S0: fixed time on the Pitié junction
 PITIE_S1 = "configs/pitie_actuated.yaml"  # S1: actuated, same demand
 PITIE_S2 = "configs/pitie_rules.yaml"  # S2: rule based (Part 4), same demand
 EVALUATION_CONFIG = "configs/evaluation.yaml"  # pre-registered S0/S1/S2 evaluation (D33)
+VALIDATION_CONFIG = "configs/validation.yaml"  # its evaluation seeds: compare and validate
 DEFAULT_SEEDS = ["1", "2", "3"]
 VALIDATION_DOC = "docs/validation.md"
 PITIE_FIGURES = "docs/figures/pitie"
@@ -117,7 +137,7 @@ RL_ALGOS = ("dqn", "ppo")
 RL_DEVTEST_SEEDS = tuple(str(s) for s in range(3020, 3030))  # Part 6 share of 3020-3049
 # `install`: every extra the tasks and the test suite use. PyTorch comes first from the CPU
 # index (a plain install pulls the CUDA toolkit on Linux), at the `rl` extra's pin.
-INSTALL_EXTRAS = ("dev", "db", "sim", "ml", "api", "rl")
+INSTALL_EXTRAS = ("dev", "db", "sim", "ml", "api", "rl", "app", "report")  # D118
 TORCH_PIN = "torch==2.14.1"
 TORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
 
@@ -188,6 +208,23 @@ RL7_VALIDATION_VOLATILE = frozenset({"eval_s", "wall_s"})  # timing columns of v
 RL7_GOLDEN_VOLATILE = frozenset({"created_at", "code_version", "dirty"})
 CODE_VERSION_LINE = re.compile(r"code[ -]version", re.IGNORECASE)  # masked in the page
 
+# -- Parts 8-10 (pre-registered D91-D120 in configs/evaluation.yaml) ------------------------
+PITIE_S2_NOP = "configs/pitie_rules_nopreempt.yaml"  # S2_noP, the preemption ablation
+PITIE_S4 = "configs/pitie_rl_s3_nopreempt.yaml"  # S4: the S3 policy, preemption off (D93)
+REGISTRATION_KEY = "a06"  # top-level key whose first commit is the registration (D92)
+VERIFY_FILE = "verify.json"  # REBASELINE_DIR/<HEAD>/verify.json: A-01 evidence (D97)
+PART8_STEPS = ("part8-guard", "rebaseline", "plots-eval", "provenance")  # D97
+# D109: the demo runs Part 9 adds at seed 4000 (S2_noP, S3, S4); `demo-runs` (S0-S2) and
+# `reproduce56` are unchanged
+DEMO_RUNS8_CONFIGS = (PITIE_S2_NOP, PITIE_RL_S3, PITIE_S4)
+OPERATOR_SCRIPT = "app.py"  # the Streamlit Operator (Motez's UI, D102)
+OPERATOR_HOST, OPERATOR_PORT = "127.0.0.1", "8501"
+DEMO = "traffic_twin.demo"  # D116: serve, check, rehearsal, clean, pack, bootstrap, readiness
+USERTESTS = "traffic_twin.usertests"  # D111: check, kit, links, serve, docs
+REPORT = "traffic_twin.report"  # D113-D115: facts, report, slides, shots, check
+PART9_STEPS = ("demo-runs8", "api-bench", "usertest-check", "usertest-docs")
+PART10_STEPS = ("report-facts", "app-shots", "report", "slides", "demo-pack", "demo-rehearsal")
+
 
 class Step:
     """An in-process step of a task (stdlib only), run and printed like a command. A
@@ -223,6 +260,10 @@ def _s0(o: argparse.Namespace) -> str:
 
 def _seeds(o: argparse.Namespace) -> list[str]:
     return o.seeds or DEFAULT_SEEDS
+
+
+def _no_browser(o: argparse.Namespace) -> list[str]:
+    return ["--no-browser"] if o.no_browser else []
 
 
 def _run_dirs(results: Path) -> list[str]:
@@ -366,7 +407,224 @@ def rebaseline_verify() -> int:
         print(f"rebaseline: {name}: {', '.join(what)}", file=sys.stderr)
     same = len(old_runs) - len(differing)
     print(f"rebaseline: {same} of {len(old_runs)} re-made runs identical to the moved ones")
+    if backup.is_dir():  # D97: the A-01 evidence, next to the moved runs
+        report = {
+            "head": head,
+            "identical": same,
+            "of": len(old_runs),
+            "differing": [{"run": n, "what": w} for n, w in sorted(differing.items())],
+        }
+        (backup / VERIFY_FILE).write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+        print(f"rebaseline: report {(REBASELINE_DIR / head / VERIFY_FILE).as_posix()}")
+    else:
+        print(f"rebaseline: nothing was moved aside for {head}: no {VERIFY_FILE} written")
     return 1 if differing else check_provenance()
+
+
+# -- Part 8: the single seed 1-10 run of S3 and S4 (D92, D97) -----------------------------
+def _git(*args: str) -> str | None:
+    """stdout of `git <args>` in ROOT, or None when git fails (no repo, unknown revision)."""
+    try:
+        return subprocess.run(
+            ["git", "--no-optional-locks", *args],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=True,
+        ).stdout  # fmt: skip
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def _scenario_name(config: str) -> str:
+    """The `scenario` key a run folder is named after (`<scenario>_seed<n>`): the config's
+    own key, else the file stem (every Pitie config sets it)."""
+    import yaml  # core dependency of the package
+
+    path = ROOT / config
+    doc = yaml.safe_load(path.read_text(encoding="utf-8")) if path.is_file() else None
+    name = doc.get("scenario") if isinstance(doc, dict) else None
+    return str(name) if name else Path(config).stem
+
+
+def part8_new_runs(ecfg: dict) -> list[str]:
+    """Run folders (relative to ROOT) that already exist on the evaluation seeds for a
+    scenario the evaluation `ecfg` registers but the last evaluation (its provenance.json)
+    did not run: the S3 and S4 runs Part 8 makes once (D97)."""
+    prov = _read_json(ROOT / EVAL_PROVENANCE)
+    done = (
+        {s["scenario"] for fam in prov["families"].values() for s in fam["scenarios"].values()}
+        if isinstance(prov, dict)
+        else set()
+    )
+    registered = {
+        _scenario_name(path)
+        for fam in (ecfg.get("families") or {}).values()
+        for path in (fam.get("scenarios") or {}).values()
+    }
+    seeds = (ecfg.get("seeds") or {}).get("evaluation") or []
+    return [
+        (RESULTS / f"{name}_seed{seed}").as_posix()
+        for name in sorted(registered - done)
+        for seed in seeds
+        if (ROOT / RESULTS / f"{name}_seed{seed}").exists()
+    ]
+
+
+def part8_guard() -> int:
+    """`part8` starts only on the registration (D92, D97): the tree is clean, HEAD's
+    configs/evaluation.yaml has the `a06` block, `data/results/_rebaseline/<HEAD>/` does
+    not exist (part8 runs once per commit) and no run of a scenario added since the last
+    evaluation exists on the evaluation seeds. 0 or 1, with every reason."""
+    import yaml  # core dependency of the package
+
+    head, dirty = git_head()
+    problems = []
+    if dirty:
+        problems.append("the tree has uncommitted changes: commit the registration first")
+    text = _git("show", f"HEAD:{EVALUATION_CONFIG}")
+    ecfg = yaml.safe_load(text) if text else None
+    if not isinstance(ecfg, dict) or REGISTRATION_KEY not in ecfg:
+        problems.append(
+            f"{EVALUATION_CONFIG} at HEAD {head} has no `{REGISTRATION_KEY}` block: the Part 8 "
+            "registration is not committed"
+        )
+        ecfg = {}
+    backup = REBASELINE_DIR / head
+    if (ROOT / backup).exists():
+        problems.append(
+            f"{backup.as_posix()} exists: part8 (its rebaseline) already ran from {head}; "
+            "inspect it, and resume with `tasks.py plots-eval rebaseline-verify` (D97)"
+        )
+    if not (ROOT / EVAL_PROVENANCE).is_file():
+        problems.append(f"no {EVAL_PROVENANCE.as_posix()}: the Part 4 evaluation is missing")
+    early = part8_new_runs(ecfg)
+    if early:
+        problems.append(
+            f"{len(early)} run(s) of the scenarios added since the last evaluation already "
+            f"exist on the evaluation seeds ({', '.join(early[:4])}"
+            f"{', ...' if len(early) > 4 else ''}): only part8 makes them (D97); STOP and "
+            "investigate"
+        )
+    for problem in problems:
+        print(f"part8: {problem}", file=sys.stderr)
+    if problems:
+        return 1
+    first = (_git("log", "--reverse", "--format=%h %cI", "-S", f"{REGISTRATION_KEY}:", "--",
+                  EVALUATION_CONFIG) or "").splitlines()  # fmt: skip
+    print(f"part8: registration committed ({first[0] if first else head}); HEAD {head}, clean")
+    return 0
+
+
+# -- the D92 run lock for `sim`, `compare` and `validate` ----------------------------------
+def sim_run_lock(scenario: str, seeds: list[str]) -> int:
+    """The D92 run lock for `sim` and `sim-gui` (sim/run_scenario.py is frozen and does
+    not check it). A run of a scenario registered in configs/evaluation.yaml on an
+    evaluation seed writes the very folder the evaluation reads (`<scenario>_seed<n>`
+    under data/results), so it is refused, with nothing launched, until the registration
+    is committed on a clean tree (`evaluation.evaluate.run_lock`). Other scenarios (the
+    grid) and other seeds pass. Imports the package, only when the task runs."""
+    from traffic_twin.config import ConfigError, load_scenario
+    from traffic_twin.evaluation import evaluate
+
+    try:
+        cfg = load_scenario(ROOT / scenario)
+    except (ConfigError, OSError):
+        return 0  # not loadable: run_scenario reports the config error itself
+    try:
+        ecfg = evaluate.load_evaluation(ROOT / EVALUATION_CONFIG)
+        registered = {
+            load_scenario(ROOT / path)["scenario"]
+            for fam in ecfg["families"].values()
+            for path in fam["scenarios"].values()
+        }
+    except (ConfigError, evaluate.EvaluationError, OSError, KeyError) as exc:
+        print(f"run lock: cannot read {EVALUATION_CONFIG}: {exc}; nothing was launched",
+              file=sys.stderr)  # fmt: skip
+        return 1
+    name = cfg["scenario"]
+    if name not in registered:
+        return 0
+    try:
+        evaluate.run_lock(ecfg, [(name, int(s)) for s in seeds], ROOT / cfg["outputs"]["dir"])
+    except evaluate.RunLockError as exc:
+        print(str(exc), file=sys.stderr)
+        return evaluate.RUN_LOCK_EXIT
+    return 0
+
+
+def _sim_lock(o: argparse.Namespace, seeds: list[str]) -> Step:
+    scenario = _grid(o)
+    return Step("run-lock", lambda: sim_run_lock(scenario, seeds))
+
+
+def _would_run(runs_mod, cfg: dict, seeds: list[int], results: Path) -> list[tuple[str, int]]:
+    """(scenario, seed) of every run `runs.run_missing(cfg, seeds, results)` would launch:
+    absent seeds and stale runs (its own test, nothing is run). A run whose freshness
+    cannot be read (hashes or run.json unreadable) counts as launched."""
+    try:
+        expected = runs_mod.expected_hashes(cfg)
+    except (OSError, ValueError, KeyError):
+        expected = None
+    out = []
+    for seed in seeds:
+        d = runs_mod.run_path(results, cfg["scenario"], seed)
+        try:
+            fresh = (
+                expected is not None
+                and runs_mod.is_complete(d)
+                and runs_mod.stale_reason(runs_mod.read_meta(d), expected) is None
+            )
+        except (OSError, ValueError, KeyError):
+            fresh = False
+        if not fresh:
+            out.append((cfg["scenario"], int(seed)))
+    return out
+
+
+def missing_run_lock(configs: list[str], results_of: str, every: bool = False) -> int:
+    """The D92 run lock for `compare` and `validate` (and so `part3` and `rebaseline`):
+    evaluation/compare.py and validation/report.py are frozen, and their `--run-missing`
+    calls `runs.run_missing` without the lock. The runs it would launch (the absent or
+    stale seeds of each of `configs` on configs/validation.yaml's evaluation seeds, into
+    the outputs.dir of `results_of`, the folder both modules write) go through
+    `evaluation.evaluate.run_lock`: on an evaluation seed (of configs/evaluation.yaml or
+    validation.yaml) into data/results they are refused, exit 2 and nothing launched,
+    until the registration is committed on a clean tree. Unlike `sim`, every controller
+    is locked, registered or not (D92). Fresh runs launch nothing, so re-making a page
+    from them still works on a dirty tree. `every` counts every evaluation seed of each
+    config as launched (`rebaseline` moves all runs aside before it re-makes them).
+    Imports the package only when the task runs."""
+    from traffic_twin.config import ConfigError, load_scenario
+    from traffic_twin.evaluation import evaluate, runs
+    from traffic_twin.validation import load_validation
+
+    try:
+        cfgs = [load_scenario(ROOT / path) for path in configs]
+        results = ROOT / load_scenario(ROOT / results_of)["outputs"]["dir"]
+    except (ConfigError, OSError, KeyError):
+        return 0  # not loadable: the module reports the config error before any run
+    try:
+        ecfg = evaluate.load_evaluation(ROOT / EVALUATION_CONFIG)
+        seeds = [int(s) for s in load_validation(ROOT / VALIDATION_CONFIG)["seeds"]["evaluation"]]
+    except (ConfigError, evaluate.EvaluationError, OSError, KeyError, TypeError) as exc:
+        print(f"run lock: cannot read the evaluation seeds ({EVALUATION_CONFIG}, "
+              f"{VALIDATION_CONFIG}): {exc}; nothing was launched", file=sys.stderr)  # fmt: skip
+        return 1
+    registered = [int(s) for s in (ecfg.get("seeds") or {}).get("evaluation") or []]
+    lock_cfg = {**ecfg, "seeds": {**(ecfg.get("seeds") or {}),
+                                  "evaluation": sorted({*registered, *seeds})}}  # fmt: skip
+    if every:
+        planned = [(cfg["scenario"], seed) for cfg in cfgs for seed in seeds]
+    else:
+        planned = [run for cfg in cfgs for run in _would_run(runs, cfg, seeds, results)]
+    try:
+        evaluate.run_lock(lock_cfg, planned, results)
+    except evaluate.RunLockError as exc:
+        print(str(exc), file=sys.stderr)
+        return evaluate.RUN_LOCK_EXIT
+    return 0
+
+
+def _missing_lock(configs: list[str], results_of: str, every: bool = False) -> Step:
+    return Step("run-lock", lambda: missing_run_lock(configs, results_of, every))
 
 
 # -- D65: reproduction of Parts 5 and 6 after a commit ------------------------------------
@@ -994,12 +1252,17 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
         lambda o: [_m("traffic_twin.sim.demand", "--config", _grid(o))],
     ),
     "sim": (
-        "run --scenario headless for --seeds (default 1 2 3)",
-        lambda o: [_m("traffic_twin.sim.run_scenario", "--config", _grid(o), "--seed", *_seeds(o))],
+        "run --scenario headless for --seeds (default 1 2 3); an evaluation scenario on "
+        "seeds 1-10 only after the registration commit (run lock, D92)",
+        lambda o: [
+            _sim_lock(o, _seeds(o)),
+            _m("traffic_twin.sim.run_scenario", "--config", _grid(o), "--seed", *_seeds(o)),
+        ],
     ),
     "sim-gui": (
-        "run --scenario in sumo-gui (first seed)",
+        "run --scenario in sumo-gui (first seed; run lock as for sim)",
         lambda o: [
+            _sim_lock(o, _seeds(o)[:1]),
             _m(
                 "traffic_twin.sim.run_scenario",
                 "--config",
@@ -1007,7 +1270,7 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
                 "--seed",
                 _seeds(o)[0],
                 "--gui",
-            )
+            ),
         ],  # fmt: skip
     ),
     "db-runs": (
@@ -1051,8 +1314,10 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
         ],
     ),
     "compare": (
-        "Pitie: paired --baseline (S0) vs --scenario (S1) on the evaluation seeds",
+        "Pitie: paired --baseline (S0) vs --scenario (S1) on the evaluation seeds (run "
+        "lock on the missing runs, D92)",
         lambda o: [
+            _missing_lock([o.baseline or PITIE_S0, o.scenario or PITIE_S1], o.baseline or PITIE_S0),
             _m(
                 "traffic_twin.evaluation.compare",
                 "--baseline-config",
@@ -1060,12 +1325,13 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
                 "--scenario-config",
                 o.scenario or PITIE_S1,
                 "--run-missing",
-            )
+            ),
         ],
     ),
     "validate": (
-        f"Pitie: sim vs reality tables and {VALIDATION_DOC} (runs missing seeds)",
+        f"Pitie: sim vs reality tables and {VALIDATION_DOC} (runs missing seeds; run lock, D92)",
         lambda o: [
+            _missing_lock([_s0(o)], _s0(o)),
             _m(
                 "traffic_twin.validation.report",
                 "--scenario",
@@ -1073,7 +1339,7 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
                 "--run-missing",
                 "--docs",
                 VALIDATION_DOC,
-            )
+            ),
         ],
     ),
     "plots-pitie": (
@@ -1091,7 +1357,8 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
     ),
     # -- Part 4: rule-based control (S2), Safety Guard, per-user evaluation ---------------
     "evaluate": (
-        f"Pitie: pre-registered S0/S1/S2 evaluation and {EVALUATION_DOC} (runs missing seeds)",
+        f"Pitie: pre-registered S0-S4 evaluation and {EVALUATION_DOC} (runs missing seeds; "
+        "run lock on seeds 1-10, D92)",
         lambda o: [
             _m(
                 "traffic_twin.evaluation.evaluate",
@@ -1104,7 +1371,7 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
         ],
     ),
     "plots-eval": (
-        f"Pitie: evaluation figures (S0/S1/S2, equity, A-04, A-05) into {EVAL_FIGURES}",
+        f"Pitie: evaluation figures (S0-S4, equity, A-04 to A-06) into {EVAL_FIGURES}",
         lambda o: [
             _m("traffic_twin.viz.evaluation", "--config", EVALUATION_CONFIG, "--out", EVAL_FIGURES)
         ],
@@ -1230,6 +1497,127 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
         f"RL7: {RL7_DOC} and its figures in {RL7_FIGURES}",
         lambda o: [_m("traffic_twin.rl.report7", "--docs", RL7_DOC, "--figures", RL7_FIGURES)],
     ),
+    # -- Part 8: final evaluation of S0 to S4 on seeds 1-10 (configs/evaluation.yaml) -----
+    "part8-guard": (
+        "Part 8: exit 1 unless HEAD is the clean registration commit (a06) and part8 has not "
+        "run from it",
+        lambda o: [Step("part8-guard", part8_guard)],
+    ),
+    "rebaseline-verify": (
+        "Pitie: compare the re-made evaluation runs with the moved ones, write "
+        f"{VERIFY_FILE}, then provenance (resumes part8 after a STOP)",
+        lambda o: [Step("rebaseline-verify", rebaseline_verify)],
+    ),
+    # -- Part 9: app on the final results, replay, user-test package --------------------
+    "demo-runs8": (
+        f"demo runs S2_noP/S3/S4 seed {' '.join(DEMO_SEEDS)} into data/demo (D109; S0-S2: "
+        "demo-runs)",
+        lambda o: [
+            _m(
+                "traffic_twin.ml.predict",
+                "demo",
+                "--seeds",
+                *DEMO_SEEDS,
+                "--configs",
+                *DEMO_RUNS8_CONFIGS,
+            )
+        ],  # fmt: skip
+    ),
+    "operator": (
+        f"the Streamlit Operator ({OPERATOR_SCRIPT}) on http://{OPERATOR_HOST}:{OPERATOR_PORT}, "
+        "through the API",
+        lambda o: [
+            _m(
+                "streamlit",
+                "run",
+                OPERATOR_SCRIPT,
+                "--server.address",
+                OPERATOR_HOST,
+                "--server.port",
+                OPERATOR_PORT,
+            )
+        ],  # fmt: skip
+    ),
+    "usertest-kit": (
+        "user tests: the printable kit docs/usertests/usertest_kit.pdf (--allow-pending-s3)",
+        lambda o: [_m(USERTESTS, "kit", *(["--allow-pending-s3"] if o.allow_pending_s3 else []))],
+    ),
+    "usertest-serve": (
+        "user tests: the frozen app for a session (--allow-dirty: from an uncommitted tree)",
+        lambda o: [_m(USERTESTS, "serve", *(["--allow-dirty"] if o.allow_dirty else []))],
+    ),
+    "usertest-check": (
+        "user tests: validate docs/usertests/results.yaml (schema, privacy, fix loop)",
+        lambda o: [_m(USERTESTS, "check")],
+    ),
+    "usertest-docs": (
+        "user tests: docs/usertests.md and synthesis.json (A-10 PENDING below 3 sessions)",
+        lambda o: [_m(USERTESTS, "docs")],
+    ),
+    "test-browser": (
+        "the headless-browser tests only (pytest -m browser)",
+        lambda o: [_m("pytest", "-q", "-m", "browser")],
+    ),
+    # -- Part 10: report, slides, rehearsed demo -----------------------------------------
+    "report-facts": (
+        "report: docs/report/facts.json from the local outputs (data/ and docs/)",
+        lambda o: [_m(REPORT, "facts")],
+    ),
+    "report": (
+        "report: docs/report/report.md and report.pdf from facts.json and the templates",
+        lambda o: [_m(REPORT, "report")],
+    ),
+    "slides": (
+        "report: the deck docs/slides/urban_traffic_twin.pptx from facts.json",
+        lambda o: [_m(REPORT, "slides")],
+    ),
+    "app-shots": (
+        "report: headless-browser screenshots of the demo steps into docs/figures/app",
+        lambda o: [_m(REPORT, "shots")],
+    ),
+    "report-check": (
+        "report: optional render of the PDF and the deck to data/report/_qa (LibreOffice)",
+        lambda o: [_m(REPORT, "check")],
+    ),
+    "demo": (
+        f"demo: the API ({API_HOST}:{API_PORT}) and the Operator ({OPERATOR_PORT}), checked, "
+        "until Ctrl+C (--no-browser)",
+        lambda o: [_m(DEMO, "serve", *_no_browser(o))],
+    ),
+    "demo-check": (
+        "demo: walk every configs/demo.yaml step against the API and the views (--no-browser)",
+        lambda o: [_m(DEMO, "check", *_no_browser(o))],
+    ),
+    "demo-rehearsal": (
+        "demo: headless rehearsal to data/demo_check (--fixtures, --no-browser; --record "
+        "writes docs/demo/rehearsal.json)",
+        lambda o: [
+            _m(
+                DEMO,
+                "rehearsal",
+                *(["--fixtures"] if o.fixtures else []),
+                *_no_browser(o),
+                *(["--record"] if o.record else []),
+            )
+        ],  # fmt: skip
+    ),
+    "demo-clean": (
+        "demo: stop leftover demo servers, remove old data/demo_check reports",
+        lambda o: [_m(DEMO, "clean")],
+    ),
+    "demo-pack": (
+        "demo: docs/demo/demo_pack.zip + MANIFEST.json (demo runs, evaluation outputs, ETA)",
+        lambda o: [_m(DEMO, "pack")],
+    ),
+    "bootstrap": (
+        "demo: restore the demo pack into data/ on a fresh clone (verifies hashes, never "
+        "overwrites; never rebuilds the evaluation)",
+        lambda o: [_m(DEMO, "bootstrap")],  # restores docs/demo/demo_pack.zip (--from-pack default)
+    ),
+    "demo-readiness": (
+        "demo: fresh local clone of HEAD + demo pack + recorded rehearsal (A-09)",
+        lambda o: [_m(DEMO, "readiness")],
+    ),
     # -- quality -------------------------------------------------------------------------
     "lint": (
         "ruff check and format check",
@@ -1257,7 +1645,9 @@ def _part3(o: argparse.Namespace) -> list[Command]:
     s1 = o.scenario or PITIE_S1
     on_s0 = argparse.Namespace(**{**vars(o), "scenario": s0})
     on_s1 = argparse.Namespace(**{**vars(o), "scenario": s1, "baseline": s0})
-    return [c for t in PART3_STEPS for c in TASKS[t][1](on_s1 if t == "compare" else on_s0)]
+    steps = [c for t in PART3_STEPS for c in TASKS[t][1](on_s1 if t == "compare" else on_s0)]
+    # fail fast: the run lock of compare and validate, before the calibration loop
+    return [_missing_lock([s0, s1], s0), *steps]
 
 
 PART4_STEPS = ("tls-check", "evaluate", "plots-eval")
@@ -1275,9 +1665,11 @@ REBASELINE_STEPS = ("compare", "validate", "part4")
 
 def _rebaseline(o: argparse.Namespace) -> list[Command]:
     """Move the runs aside, re-make the published pages with every default (`compare
-    validate part4`, which run the missing seeds), then compare the runs."""
+    validate part4`, which run the missing seeds), then compare the runs. The run lock
+    goes first: once the runs are moved aside, every seed 1-10 run is to be re-made."""
     defaults = argparse.Namespace(**{**vars(o), "scenario": None, "baseline": None})
     return [
+        _missing_lock([PITIE_S0], PITIE_S0, every=True),
         Step("rebaseline-backup", rebaseline_backup),
         *(c for t in REBASELINE_STEPS for c in TASKS[t][1](defaults)),
         Step("rebaseline-verify", rebaseline_verify),
@@ -1375,6 +1767,29 @@ TASKS["reproduce7"] = (
     f"{RL7_DOC} into data/rl7/_reproduce/<HEAD>/, require identical policies and results",
     _reproduce7,
 )
+
+
+def _part8(o: argparse.Namespace) -> list[Command]:
+    """D97: the single Part 8 run, on the clean registration commit. The guard, then
+    `rebaseline` with every default (the 70 S0-S2 runs moved aside and re-made, which
+    must be identical; `evaluate --run-missing` makes the 40 S3 / S4 runs, the final
+    table and the page), the figures and the provenance check."""
+    defaults = argparse.Namespace(**{**vars(o), "scenario": None, "baseline": None})
+    return [c for t in PART8_STEPS for c in TASKS[t][1](defaults)]
+
+
+TASKS["part8"] = (
+    f"Part 8, once, on the registration commit (D97): {' '.join(PART8_STEPS)}",
+    _part8,
+)
+TASKS["part9"] = (
+    f"Part 9 chain: {' '.join(PART9_STEPS)}",
+    lambda o: [c for t in PART9_STEPS for c in TASKS[t][1](o)],
+)
+TASKS["part10"] = (
+    f"Part 10 chain: {' '.join(PART10_STEPS)}",
+    lambda o: [c for t in PART10_STEPS for c in TASKS[t][1](o)],
+)
 TASKS["check"] = (
     "lint + test (what CI runs)",
     lambda o: [c for t in ("lint", "test") for c in TASKS[t][1](o)],
@@ -1435,8 +1850,25 @@ def parser() -> argparse.ArgumentParser:
         "--allow-dirty",
         action="store_true",
         help="eta-data, eta-data-test: build from an uncommitted tree (dataset id `-dev`); "
-        "rl7-campaign, part7: train from one, recorded in every run (D80) (ALLOW_DIRTY=1)",
+        "rl7-campaign, part7: train from one, recorded in every run (D80); usertest-serve: "
+        "serve one (ALLOW_DIRTY=1)",
     )
+    p.add_argument(
+        "--fixtures", action="store_true", help="demo-rehearsal, part10: on the synthetic "
+        "api.fixtures in a temporary folder, no real data (FIXTURES=1)",
+    )  # fmt: skip
+    p.add_argument(
+        "--no-browser", action="store_true", help="demo, demo-check, demo-rehearsal, part10: "
+        "open no browser, skip the headless-browser checks (NO_BROWSER=1)",
+    )  # fmt: skip
+    p.add_argument(
+        "--record", action="store_true", help="demo-rehearsal, part10: write the A-08/A-09 "
+        "evidence docs/demo/rehearsal.json (RECORD=1)",
+    )  # fmt: skip
+    p.add_argument(
+        "--allow-pending-s3", action="store_true", help="usertest-kit: build the kit while "
+        "S3 is not yet served by /kpi (Phase 2 gate only) (ALLOW_PENDING_S3=1)",
+    )  # fmt: skip
     p.add_argument(
         "--algo", choices=RL_ALGOS, help=f"rl-train: only this algorithm (ALGO); default all "
         f"of {RL_CONFIG} train.s6",

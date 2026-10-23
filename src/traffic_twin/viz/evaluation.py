@@ -1,17 +1,20 @@
-"""Figures of the Part 4 evaluation (configs/evaluation.yaml), in the project style
-(`viz.style`), drawn from the outputs of `evaluation.evaluate`
-(`<results>/<family>/{kpis.csv, equity.csv, a04.csv, pairs/*.csv}`, `<results>/a05.json`):
+"""Figures of the Parts 4 and 8 evaluation (configs/evaluation.yaml), in the project
+style (`viz.style`), drawn from the outputs of `evaluation.evaluate`
+(`<results>/<family>/{kpis.csv, equity.csv, a04.csv, pairs/*.csv}`,
+`<results>/{a05.json, a06.json}`):
 
-- `kpi_by_user.png`: S0 / S1 / S2 per user type (`viz.plots.plot_kpi_by_user`);
+- `kpi_by_user.png`: S0 / S1 / S2 / S3 per user type (`viz.plots.plot_kpi_by_user`);
 - `paired_vs_s0.png`: per-seed paired differences against the baseline, one column per
   scenario in its controller colour, mean ± 95 % t CI and p (Holm within each pair);
 - `equity_heatmap.png`: change vs the baseline of the primary, subgroup, rate and global
   KPIs (blue = better, red = worse; `*` p < α, `!` flagged, 13.3);
-- `a05_ambulance.png`: per-seed ambulance travel time S0 -> S2 (A-05 primary), plus the
-  ambulance-probe family;
+- `a05_ambulance.png`: per-seed ambulance travel time S0 -> S2 (A-05 primary), the
+  secondary tests of the same family (S0 -> S3), and the ambulance-probe family;
 - `ped_wait_by_crossing.png`: longest pedestrian curb wait (`ped_curb_wait_max`, creeps
   at the curb included) per crossing and scenario against the A-04 limit (the scenarios'
-  `safety.ped_max_wait_s`, 90 s at Pitié).
+  `safety.ped_max_wait_s`, 90 s at Pitié);
+- `a06_forest.png` (Part 8, when a06.json exists): A-06, S3 − reference on the person
+  delay per comparison, HL estimate and 95 % CI, raw and Holm p, the outcome.
 
     python -m traffic_twin.viz.evaluation --config configs/evaluation.yaml
         --out docs/figures/pitie/eval [--results data/results/evaluation]
@@ -40,9 +43,10 @@ log = logging.getLogger(__name__)
 
 FIGURES = (
     "kpi_by_user.png", "paired_vs_s0.png", "equity_heatmap.png", "a05_ambulance.png",
-    "ped_wait_by_crossing.png",
+    "ped_wait_by_crossing.png", "a06_forest.png",
 )  # fmt: skip
-OVERVIEW_LABELS = ("S0", "S1", "S2")  # the controllers of the deliverable (no ablation)
+A06_FIGURE = FIGURES[5]  # drawn only when the evaluation wrote a06.json (Part 8)
+OVERVIEW_LABELS = ("S0", "S1", "S2", "S3")  # the controllers of the deliverable (no ablation)
 EXTRA_PAIRED = [("all", "person_delay_mean")]  # shown after the headline KPIs
 # Diverging pair (13.3 heatmap): cool = better, warm = worse, grey midpoint; light poles
 # so the ink of the cell text stays readable on every cell.
@@ -71,11 +75,39 @@ def read_family(results: Path, family: str) -> dict:
             "pairs": pairs}  # fmt: skip
 
 
-def label_order(fam_cfg: dict) -> list[str]:
-    """The family's labels, baseline first and the scenario every pair leads to last
-    (S0, S2_noP, S2): the order an ablation reads in."""
+def _config_controllers(fam_cfg: dict) -> dict[str, str]:
+    """label -> controller of each scenario config ({} when one cannot be loaded)."""
+    from traffic_twin.config import load_scenario
+
+    try:
+        return {x: str(load_scenario(p)["controller"]) for x, p in fam_cfg["scenarios"].items()}
+    except (ConfigError, FileNotFoundError, OSError, KeyError):
+        return {}
+
+
+def label_order(fam_cfg: dict, controllers: dict[str, str] | None = None) -> list[str]:
+    """The family's labels in the order an ablation reads in: the baseline first, then
+    per controller (in the evaluation.yaml order) its variants before its main scenario,
+    the first one of the controller in the config (S0, S1, S2_noP, S2, S4, S3).
+    `controllers` (label -> controller; default from the scenario configs). Without
+    controllers: the baseline first and the scenario every pair leads to last."""
     labels = list(fam_cfg["scenarios"])
     base = fam_cfg["baseline"]
+    ctl = dict(controllers or {})
+    if not all(x in ctl for x in labels):
+        ctl = {**_config_controllers(fam_cfg), **ctl}
+    if all(x in ctl for x in labels):
+        groups: dict[str, list[str]] = {}
+        for x in labels:
+            groups.setdefault(ctl[x], []).append(x)
+        order = [base]
+        for members in groups.values():
+            rest = [x for x in members if x != base]
+            if members[0] == base:
+                order += rest
+            elif rest:
+                order += [*rest[1:], rest[0]]
+        return order
     pairs = fam_cfg.get("pairs") or []
     ends = {p["b"] for p in pairs} - {p["a"] for p in pairs}
     middle = [x for x in labels if x != base and x not in ends]
@@ -110,7 +142,7 @@ def values(kpis: pd.DataFrame, label: str, user: str, kpi: str) -> pd.Series:
 
 # -- 1. KPI per user -------------------------------------------------------------------
 def plot_overview(kpis: pd.DataFrame, labels: list[str], out: Path, ped_target: float) -> Path:
-    """`plot_kpi_by_user` over the deliverable's scenarios (S0, S1, S2)."""
+    """`plot_kpi_by_user` over the deliverable's scenarios (S0, S1, S2, S3)."""
     ctl = controllers(kpis)
     shown = [x for x in labels if x in OVERVIEW_LABELS] or labels
     scenarios = [
@@ -289,11 +321,16 @@ def _test_note(r: dict | None) -> str:
 def plot_a05(
     main: pd.DataFrame, probe: pd.DataFrame, a05: dict, probe_labels: list[str], out: Path
 ) -> Path:
-    """Left: the primary test's per-seed values (a -> b); right: the ambulance-probe
-    family (mean over its ambulances per run). Grey lines join one seed."""
+    """Left: the primary test's per-seed values (a -> b); then each secondary test of
+    the same family (Part 8: S0 -> S3); right: the ambulance-probe family (mean over its
+    ambulances per run). Grey lines join one seed."""
     p = a05.get("primary") or {}
     user, kpi = p.get("user", "ambulance"), p.get("kpi", "travel_time_total")
     panels = [(main, [p.get("a", "S0"), p.get("b", "S2")], p)]
+    for sec in a05.get("secondary") or []:
+        same = sec.get("family") == p.get("family") and sec.get("status") != "not evaluated"
+        if same and not main.empty and {sec["a"], sec["b"]} <= set(main["label"]):
+            panels.append((main, [sec["a"], sec["b"]], sec))
     if not probe.empty:
         sec = next(
             (s for s in a05.get("secondary") or [] if s.get("family") == "ambulance_probe"), None
@@ -304,7 +341,8 @@ def plot_a05(
         colors = colors_for(kp)
         _slope_panel(ax, kp, labels, user, kpi, colors)
         fam = kp["family"].iloc[0] if len(kp) else ""
-        ax.set_title(f"{fam}: {kpi}", fontsize=style.FONT_SIZE, pad=16)
+        role = "" if test is p else " · secondary"
+        ax.set_title(f"{fam}: {kpi}{role}", fontsize=style.FONT_SIZE, pad=16)
         ax.annotate(
             _test_note(test), (0.0, 1.0), xycoords="axes fraction", xytext=(0, 3),
             textcoords="offset points", va="bottom", fontsize=style.FONT_SIZE - 2,
@@ -317,6 +355,63 @@ def plot_a05(
         f"Ambulance travel time from its planned departure (A-05 {verdict})",
         "dots = seeds (probe family: mean of the run's ambulances), grey = one seed · "
         "label = mean over seeds",
+    )
+    return style.savefig(fig, out)
+
+
+# -- 6. A-06 forest (Part 8) -----------------------------------------------------------
+def plot_a06_forest(a06: dict, out: Path, colors: dict[str, str] | None = None) -> Path:
+    """One row per A-06 comparison: the HL estimate of S3 − reference on the person
+    delay with its 95 % CI, zero line, and the raw / Holm p and the pre-registered
+    outcome beside it. The status (PASS / INVALID) is in the title."""
+    comps = a06.get("comparisons") or []
+    cand = a06.get("candidate", "S3")
+    colors = colors or {}
+    fig, head, ax = style.figure(height=0.62 * max(len(comps), 1) + 0.9, header_in=0.75)
+    ax.axvline(0, color=style.AXIS, lw=1.2, zorder=1)
+    span = [0.0]
+    for i, c in enumerate(comps):
+        y = len(comps) - 1 - i
+        hl, lo, hi = c.get("hl"), c.get("ci_low"), c.get("ci_high")
+        color = colors.get(cand, style.CONTROLLER_COLORS["rl"])
+        if lo is not None and hi is not None:
+            ax.plot([lo, hi], [y, y], color=color, lw=2.4, solid_capstyle="round", zorder=2)
+            span += [lo, hi]
+        if hl is not None:
+            ax.scatter([hl], [y], s=46, color=color, edgecolor=style.SURFACE, lw=1.2, zorder=3)
+            span.append(hl)
+        p, ph = c.get("p"), c.get("p_holm")
+        text = (
+            f"p {p:.2g} · Holm {ph:.2g} · {c.get('outcome_text', c.get('outcome', ''))}"
+            if p is not None and ph is not None
+            else "not tested"
+        )
+        ax.annotate(
+            text, (1.0, y), xycoords=("axes fraction", "data"), xytext=(8, 0),
+            textcoords="offset points", ha="left", va="center", color=style.INK,
+            fontsize=style.FONT_SIZE - 1,
+        )  # fmt: skip
+    lo, hi = min(span), max(span)
+    pad = 0.15 * (hi - lo) if hi > lo else 1.0
+    ax.set_xlim(lo - pad, hi + pad)
+    ax.set_ylim(-0.6, len(comps) - 0.4)
+    labels = [
+        f"{cand} vs {c['reference']}"
+        + (" (primary)" if c["reference"] == a06.get("primary") else "")
+        for c in comps
+    ]
+    ax.set_yticks(range(len(comps)), labels[::-1])
+    ax.tick_params(axis="y", length=0)
+    ax.grid(axis="y", visible=False)
+    unit_ = unit(str(a06.get("kpi", "/person_delay_mean")).split("/", 1)[-1]) or "s"
+    ax.set_xlabel(f"{cand} − reference, {a06.get('kpi', '')} ({unit_}); below 0 = {cand} lower")
+    n = max((c.get("n") or 0 for c in comps), default=0)
+    style.header(
+        head,
+        f"A-06 {a06.get('status', '')}: {cand} against the baselines",
+        f"Hodges-Lehmann estimate (dot) and 95 % CI (bar) of the paired per-seed difference, "
+        f"n = {n} · exact {a06.get('alternative', 'two-sided')} Wilcoxon, Holm across "
+        f"{len(comps)} · procedural status, never FAIL on direction",
     )
     return style.savefig(fig, out)
 
@@ -383,7 +478,8 @@ def ped_limit(data: dict[str, dict]) -> float:
 
 
 def make_figures(ecfg: dict, results: Path, out_dir: Path) -> list[Path]:
-    """Every figure whose inputs exist (the main family is required)."""
+    """Every figure whose inputs exist (the main family is required; `a06_forest.png`
+    needs a06.json)."""
     out_dir = Path(out_dir)
     fams = ecfg["families"]
     data = {name: read_family(results, name) for name in fams}
@@ -395,7 +491,7 @@ def make_figures(ecfg: dict, results: Path, out_dir: Path) -> list[Path]:
             "traffic_twin.evaluation.evaluate` first"
         )
     limit = ped_limit(data)
-    main_labels = label_order(fams[main_name])
+    main_labels = label_order(fams[main_name], controllers(main["kpis"]) or None)
     written = [plot_overview(main["kpis"], main_labels, out_dir / FIGURES[0], limit)]
     written.append(
         plot_paired_vs_baseline(
@@ -412,12 +508,17 @@ def make_figures(ecfg: dict, results: Path, out_dir: Path) -> list[Path]:
     a05 = json.loads(a05_path.read_text(encoding="utf-8")) if a05_path.is_file() else {}
     probe_name = next((n for n in fams if n != main_name), None)
     probe = data[probe_name]["kpis"] if probe_name else pd.DataFrame()
-    probe_labels = label_order(fams[probe_name]) if probe_name else []
+    probe_ctl = controllers(probe) or None
+    probe_labels = label_order(fams[probe_name], probe_ctl) if probe_name else []
     written.append(plot_a05(main["kpis"], probe, a05, probe_labels, out_dir / FIGURES[3]))
     peds = {main_name: (main["kpis"], main_labels)}
     if probe_name and not probe.empty:
         peds[probe_name] = (probe, probe_labels)
     written.append(plot_ped_waits(peds, out_dir / FIGURES[4], limit))
+    a06_path = Path(results) / "a06.json"
+    if a06_path.is_file():
+        a06 = json.loads(a06_path.read_text(encoding="utf-8"))
+        written.append(plot_a06_forest(a06, out_dir / A06_FIGURE, colors_for(main["kpis"])))
     return written
 
 

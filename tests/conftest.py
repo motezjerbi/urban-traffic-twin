@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import functools
+import os
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +17,7 @@ from traffic_twin.config import load_config, load_scenario, merge
 from traffic_twin.paths import (
     CONFIG_DIR,
     ETA_CONFIG,
+    EVAL_A06,
     PITIE_FIXED_CONFIG,
     PITIE_RL_CONFIG,
     PITIE_RULES_CONFIG,
@@ -61,14 +63,40 @@ def sumo_available() -> bool:
     return True
 
 
+# Headless browsers for `@pytest.mark.browser` tests (D110): TT_BROWSER, then Chrome, then
+# Edge (the usual Windows install paths, then the PATH)
+BROWSER_CANDIDATES = (
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+)
+BROWSER_NAMES = ("google-chrome", "chrome", "chromium", "chromium-browser", "msedge")
+
+
+@functools.cache
+def browser_path() -> str | None:
+    """The headless browser the `browser` tests drive, or None when none is found."""
+    env = os.environ.get("TT_BROWSER")
+    if env:
+        return env if Path(env).is_file() or shutil.which(env) else None
+    for cand in BROWSER_CANDIDATES:
+        if Path(cand).is_file():
+            return cand
+    return next((p for p in map(shutil.which, BROWSER_NAMES) if p), None)
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Skip `@pytest.mark.sumo` tests when the SUMO binaries are not installed."""
-    if sumo_available():
-        return
-    skip = pytest.mark.skip(reason="SUMO not installed (pip install -e '.[sim]')")
+    """Skip `@pytest.mark.sumo` tests when the SUMO binaries are not installed, and
+    `@pytest.mark.browser` tests when no headless Chrome or Edge is found."""
+    sumo, browser = sumo_available(), browser_path() is not None
+    skip_sumo = pytest.mark.skip(reason="SUMO not installed (pip install -e '.[sim]')")
+    skip_browser = pytest.mark.skip(reason="no headless Chrome or Edge found (TT_BROWSER)")
     for item in items:
-        if "sumo" in item.keywords:
-            item.add_marker(skip)
+        if not sumo and "sumo" in item.keywords:
+            item.add_marker(skip_sumo)
+        if not browser and "browser" in item.keywords:
+            item.add_marker(skip_browser)
 
 
 @pytest.fixture(scope="session")
@@ -296,3 +324,40 @@ def write_file(tmp_path: Path):
 def sumo_outputs(write_file) -> tuple[Path, Path]:
     """(tripinfo.xml, stops.xml) written from TRIPINFO and STOPS."""
     return write_file("tripinfo.xml", TRIPINFO), write_file("stops.xml", STOPS)
+
+
+# -- Parts 8-10 (Phase 0) ----------------------------------------------------------------
+PART8_HEADING = "Final comparison table (Part 8)"  # D99 section 1, text after the number
+PART8_PAGE_SKIP = "docs/evaluation.md predates the Part 8 registration"
+
+
+@pytest.fixture
+def part8_page() -> str:
+    """docs/evaluation.md once it is the Part 8 page (D99). Skips while the committed page
+    predates the Part 8 registration (no "Final comparison table (Part 8)" heading), and
+    FAILS when the Part 8 outputs exist (data/results/evaluation/a06.json) but the page
+    was not regenerated."""
+    page = REPO_ROOT / "docs" / "evaluation.md"
+    text = page.read_text(encoding="utf-8") if page.is_file() else ""
+    if any(ln.startswith("## ") and ln.endswith(PART8_HEADING) for ln in text.splitlines()):
+        return text
+    if (REPO_ROOT / EVAL_A06).is_file():
+        pytest.fail(f"{EVAL_A06.as_posix()} exists but docs/evaluation.md lacks {PART8_HEADING!r}")
+    pytest.skip(PART8_PAGE_SKIP)
+
+
+@pytest.fixture
+def fake_api_config(tmp_path: Path) -> Path:
+    """`api.yaml` over FAKE data (`api.fixtures`: 3 runs with FAKE ETA files and a FAKE
+    reference bundle) under tmp_path: point `TT_API_CONFIG` at it (in-process clients,
+    uvicorn, Streamlit). Never data/results."""
+    from traffic_twin.api.fixtures import make_fake_eta, make_results, write_settings
+
+    root = tmp_path / "fake"
+    make_results(root, n_runs=3)
+    runs = sorted(p.parent for p in root.glob("*/run.json"))
+    for d in runs:
+        make_fake_eta(d)
+    models = root / "models" / "eta"
+    make_fake_eta(models)
+    return write_settings(root, runs, models)

@@ -95,13 +95,21 @@ class ScenarioRun(BaseModel):
     current: bool | None = None
     has_eta: bool = False
     dir: str
+    seed_role: Literal["demo", "evaluation", "other"] | None = Field(
+        None,
+        description="demo: api.yaml seeds.demo (4000-4009); evaluation: evaluation.yaml "
+        "seeds.evaluation (1-10); other: any other seed (D105 run selector)",
+    )
 
 
 class ScenarioGroup(BaseModel):
     scenario: str
-    label: str | None = Field(None, description="evaluation label (S0, S1, S2, S2_noP)")
+    label: str | None = Field(None, description="evaluation label (S0 ... S4, S2_noP)")
     family: str | None = None
     controller: str | None = None
+    role: Literal["main", "ablation", "exploratory"] | None = Field(
+        None, description="the label's role in the final comparison table (D103)"
+    )
     runs: list[ScenarioRun] = []
 
 
@@ -150,6 +158,23 @@ class ReplayStateResponse(Envelope):
     queues: dict[str, int] = {}
     counts: dict[str, int] = {}
     positions: list[Position] | None = None
+    # Part 9 (D103, D105): replay bounds (state log) and the signal heads at t
+    t_min_s: float | None = Field(None, description="first replayable instant of the run")
+    t_max_s: float | None = Field(None, description="last replayable instant of the run")
+    step_s: float | None = Field(None, description="state-log sampling step")
+    signals: dict | None = Field(
+        None,
+        description='{"N": "green|yellow|red", "S": ..., "W": ..., "NB": ..., "WB": ..., '
+        '"crossings": {"NB": "walk|flash|dont_walk", "S": ..., "WB": ..., "W": ...}} (null '
+        "for a run of another network)",
+    )
+
+
+class ReplayEventsResponse(Envelope):
+    """GET /replay/{run_id}/events?from=&to= (events.parquet; Part 9, D103)."""
+
+    type: str = "replay_events"
+    events: list[dict] = Field([], description="{t, source, rule, stage_from, stage_to, detail}")
 
 
 # -- /crossing -------------------------------------------------------------------------
@@ -226,3 +251,57 @@ class EtaResponse(Envelope):
     queue_beyond_zone: bool | None = None
     rest_of_trip_s: float = 0.0
     advice: EtaAdvice | None = None
+
+
+# -- Part 8-9 additions (D103; Phase 0 contract, WS2 implements the routes) -------------
+class EvaluationResponse(Envelope):
+    """GET /evaluation?family=main: the pre-registered evaluation outputs (summary.json,
+    a06.json, final_table.csv)."""
+
+    type: str = "evaluation"
+    family: str
+    preregistered: str | None = None
+    registration: dict | None = Field(None, description="{commit, committed_at} (D92)")
+    seeds: list[int] = []
+    labels: list[dict] = Field(
+        [],
+        description="{label, scenario, controller, role: main|ablation|exploratory, "
+        "evaluated: in the outputs}",
+    )
+    a03: dict = {}
+    a04: dict = {}
+    a05: dict = {}
+    a06: dict | None = None
+    replication_10_6: dict | None = None
+    hidden_degradation: list[dict] = []
+    final_table: list[dict] = Field([], description="rows of final_table.csv")
+
+
+class KpiPairResponse(Envelope):
+    """GET /compare?a=S1&b=S3&family=main: the rows of pairs/<a>__vs__<b>.csv."""
+
+    type: str = "kpi_pair"
+    a: str
+    b: str
+    family: str
+    role: str | None = None
+    rows: list[dict] = []
+
+
+class KpiSeriesResponse(Envelope):
+    """GET /series?family=&metric=halting_veh&approach=all&labels=S0,S2,S3 (series.csv)."""
+
+    type: str = "kpi_series"
+    metric: str
+    approach: str
+    step_s: int | None = None
+    points: list[dict] = Field([], description="{label, t_s, mean, p10, p90, n}")
+
+
+class SensitivityResponse(Envelope):
+    """GET /sensitivity: the Part 7 weight-sensitivity table (docs/figures/rl7/
+    sensitivity.csv, committed)."""
+
+    type: str = "sensitivity"
+    rows: list[dict] = []
+    source: str | None = None

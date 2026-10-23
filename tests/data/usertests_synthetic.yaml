@@ -1,0 +1,86 @@
+# SYNTHETIC user-test results for tests/test_usertests.py ONLY. These sessions never took
+# place: they are invented to test the checks and the synthesis arithmetic, and must never be
+# copied into docs/usertests/results.yaml (the CLI refuses `synthetic: true` there).
+schema_version: 1
+synthetic: true
+sessions:
+  - id: P1
+    date: 2026-11-10
+    round: 1
+    profile: pedestrian
+    profile_match: proxy
+    app_version: 0123abc
+    device: laptop
+    consent: oral
+    simulated_understood: true
+    sus: [4, 2, 5, 1, 4, 2, 5, 1, 4, 2]
+    comments: ["Le verdict est très lisible."]
+    tasks:
+      - {task: T-PED, order: 1, time_s: 3.2, clicks: 1, answer: "oui", outcome: success, errors: [], seq: 7, notes: ""}
+      - {task: T-PMR, order: 2, time_s: 6.0, clicks: 2, answer: "non", outcome: success, errors: [], seq: 6}
+      - {task: T-STU, order: 3, time_s: 20.5, clicks: 2, hint: true, answer: "maintenant", outcome: partial, errors: [term], seq: 4, notes: "cherche le mot marge"}
+      - {task: T-BUS, order: 4, time_s: 15.0, clicks: 1, answer: "oui, priorité", outcome: success, errors: [], seq: 6}
+      - {task: T-AMB, order: 5, time_s: 2.0, clicks: 0, answer: "onde verte", outcome: success, errors: [], seq: 7}
+      - {task: T-OP, order: 6, time_s: 40.0, clicks: 3, answer: "S2", outcome: partial, errors: [wrong_view], seq: 3}
+      - {task: T-REPLAY, order: 7, time_s: ~, clicks: ~, answer: "", outcome: skipped, errors: [], seq: ~}
+  - id: P2
+    date: 2026-11-10
+    round: 1
+    profile: student
+    profile_match: real
+    app_version: 0123abc
+    device: laptop
+    consent: oral
+    simulated_understood: true
+    sus: ~
+    comments: []
+    tasks:
+      - {task: T-PED, order: 1, time_s: 4.6, clicks: 1, answer: "oui", outcome: success, errors: [], seq: 6}
+      - {task: T-STU, order: 2, time_s: 30.0, clicks: 2, answer: "tout de suite", outcome: success, errors: [], seq: 5}
+      - {task: T-BUS, order: 3, time_s: 60.0, clicks: 2, answer: "", outcome: fail, errors: [gave_up], seq: 2}
+      - {task: T-AMB, order: 4, time_s: 2.5, clicks: 0, answer: "vert", outcome: success, errors: [], seq: 6}
+      - {task: T-OP, order: 5, time_s: 25.0, clicks: 2, answer: "S2", outcome: success, errors: [], seq: 5}
+      - {task: T-PMR, order: 6, time_s: 8.0, clicks: 2, answer: "non", outcome: success, errors: [], seq: 6}
+      - {task: T-REPLAY, order: 7, outcome: skipped}
+  - id: P3
+    date: 2026-11-12
+    round: 1
+    profile: bus
+    profile_match: proxy
+    app_version: 0123abc
+    device: phone
+    consent: written
+    simulated_understood: false
+    sus: ~
+    comments: []
+    tasks:
+      - {task: T-PED, order: 1, time_s: 6.1, clicks: 2, answer: "oui", outcome: success, errors: [hesitation], seq: 5}
+      - {task: T-BUS, order: 2, time_s: 18.0, clicks: 1, answer: "+80 s, priorité active", outcome: success, errors: [], seq: 6}
+      - {task: T-AMB, order: 3, time_s: 3.0, clicks: 0, answer: "bloqué", outcome: fail, errors: [misread], seq: 4}
+      - {task: T-OP, order: 4, time_s: 35.0, clicks: 2, answer: "S2", outcome: success, errors: [], seq: 5}
+      - {task: T-PMR, order: 5, time_s: 9.5, clicks: 2, answer: "non", outcome: success, errors: [], seq: 5}
+      - {task: T-STU, order: 6, time_s: 45.0, clicks: 2, answer: "partir maintenant", outcome: success, errors: [], seq: 4}
+      - {task: T-REPLAY, order: 7, time_s: 70.0, clicks: 4, answer: "18", outcome: partial, errors: [slider], seq: 3}
+issues:
+  - id: U01
+    found_by: test
+    tasks: [T-STU]
+    sessions: [P1]
+    severity: 3
+    kind: term
+    description: "Le terme 'marge' n'est pas compris sans explication."
+    fix: "Texte d'aide sous le conseil."
+    status: fixed
+    commit: abcdef1
+    verified: tests/test_usertests.py::test_synthetic_rates_and_medians
+  - id: U02
+    found_by: walkthrough
+    tasks: [T-OP]
+    sessions: []
+    severity: 2
+    kind: layout
+    description: "Le tableau opérateur est en bas de page."
+    fix: ""
+    status: open
+    commit: ~
+    verified: ~

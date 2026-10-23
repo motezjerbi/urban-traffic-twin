@@ -2,7 +2,8 @@
 N-scenario pairing refusals, A-04 (danger count, a 91 s pedestrian, one actuated
 intervention), A-05 (exact one-sided p), the 13.3 hidden-degradation and rate rules, the
 person-weighted delay, the S0-S1 pair being `compare()` itself, and the CLI writing
-every output (exit 1 on an A-04 failure)."""
+every output (exit 1 on an A-04 failure), the Part 8 ones included (D98; the Part 8
+rules themselves are in test_evaluate_part8)."""
 
 from __future__ import annotations
 
@@ -413,11 +414,12 @@ def test_the_danger_keys_resolve_from_the_audit(ecfg):
 def test_config_cross_references_are_checked(tmp_path):
     raw = yaml.safe_load(EVAL_CONFIG.read_text(encoding="utf-8"))
     raw["families"]["main"]["pairs"].append({"a": "S0", "b": "S9", "role": "confirmatory"})
+    last = len(raw["families"]["main"]["pairs"]) - 1  # the appended pair
     raw["a05"]["primary"]["alternative"] = "smaller"
     raw["changes"] = [{"date": "2026-10-13", "what": "x"}]
     bad = tmp_path / "evaluation.yaml"
     bad.write_text(yaml.safe_dump(raw), encoding="utf-8")
-    with pytest.raises(ConfigError, match=r"pairs\[4\].*alternative.*changes\[0\] needs why"):
+    with pytest.raises(ConfigError, match=rf"pairs\[{last}\].*alternative.*changes\[0\] needs why"):
         load_evaluation(bad)
 
 
@@ -482,6 +484,9 @@ EFFECTS = {  # label -> (KPI scale, trip delay factor)
     "S1": ({("car", "time_loss_mean"): 0.9}, 0.95),
     "S2": ({("car", "time_loss_mean"): 0.8, ("ambulance", "travel_time_total"): 0.6}, 0.8),
     "S2_noP": ({("car", "time_loss_mean"): 0.78}, 0.85),
+    # Part 8 (registered 2026-10-23): synthetic S3/S4 so the copied config's families run
+    "S3": ({("car", "time_loss_mean"): 0.75, ("ambulance", "travel_time_total"): 0.65}, 0.78),
+    "S4": ({("car", "time_loss_mean"): 0.74}, 0.82),
 }
 
 
@@ -529,8 +534,11 @@ def test_cli_writes_every_output(tmp_path, capsys):
     docs = tmp_path / "evaluation.md"
     main(["--config", str(config), "--results", str(results), "--docs", str(docs)])
     out = results / "evaluation"
-    for fam, pairs in (("main", ["S0__vs__S1", "S0__vs__S2", "S1__vs__S2", "S2_noP__vs__S2"]),
-                       ("ambulance_probe", ["S0__vs__S2", "S2_noP__vs__S2"])):  # fmt: skip
+    for fam, pairs in (("main", ["S0__vs__S1", "S0__vs__S2", "S1__vs__S2", "S2_noP__vs__S2",
+                                 "S0__vs__S3", "S1__vs__S3", "S2__vs__S3", "S4__vs__S3",
+                                 "S2_noP__vs__S4"]),
+                       ("ambulance_probe", ["S0__vs__S2", "S2_noP__vs__S2", "S0__vs__S3",
+                                            "S4__vs__S3", "S2__vs__S3"])):  # fmt: skip
         for p in pairs:
             t = pd.read_csv(out / fam / "pairs" / f"{p}.csv")
             assert t["n_pairs"].eq(10).all() and set(t["family"]) == {fam}
@@ -538,7 +546,7 @@ def test_cli_writes_every_output(tmp_path, capsys):
         for name in ("equity.csv", "a04.csv", "kpis.csv"):
             assert (out / fam / name).is_file(), name
     a04 = pd.read_csv(out / "main" / "a04.csv")
-    assert len(a04) == 40 and a04["pass"].all()
+    assert len(a04) == 60 and a04["pass"].all()  # S0, S1, S2, S2_noP, S3, S4 x 10 seeds
     kp = pd.read_csv(out / "main" / "kpis.csv")
     assert {"person_delay_mean", "person_delay_mean__occ_bus_20"} <= set(kp["kpi"])
     s01 = pd.read_csv(out / "main" / "pairs" / "S0__vs__S1.csv")
@@ -547,9 +555,9 @@ def test_cli_writes_every_output(tmp_path, capsys):
     a05 = json.loads((out / "a05.json").read_text(encoding="utf-8"))
     assert a05["verdict"] == "PASS"
     assert a05["primary"]["p_one_sided"] == pytest.approx(1 / 1024)
-    assert [s["status"] for s in a05["secondary"]] == ["PASS", "PASS"]
+    assert [s["status"] for s in a05["secondary"]] == ["PASS"] * 5  # 3 Part 8 tests (S3)
     summ = json.loads((out / "summary.json").read_text(encoding="utf-8"))
-    assert summ["a04"]["pass"] and summ["a03"]["text"] == "3/4, RL in Parts 6-7"
+    assert summ["a04"]["pass"] and summ["a03"]["text"] == "4/4"
     assert summ["preregistered_before_runs"] is True
     assert set(summ["person_delay"]["main"]["S0"]) == {
         "person_delay_mean", "person_delay_mean__occ_bus_20", "person_delay_mean__occ_bus_30",
@@ -562,12 +570,28 @@ def test_cli_writes_every_output(tmp_path, capsys):
         != prov["families"]["ambulance_probe"]["demand_hash"]
     )
 
+    for name in ("final_table.csv", "a06.json", "series.csv", "digest.json"):  # D98
+        assert (out / name).is_file(), name
+    a06 = json.loads((out / "a06.json").read_text(encoding="utf-8"))
+    assert a06["status"] == "PASS" and [c["reference"] for c in a06["comparisons"]] == [
+        "S1", "S2", "S0",
+    ]  # fmt: skip
+    assert summ["a06"]["status"] == "PASS" and summ["final_available"] is True
+    assert summ["registration"]["order"] == "n/a"  # tmp config: no registration commit
+    assert set(prov["model_inputs"]) == set(raw_pins())
+
     page = docs.read_text(encoding="utf-8")
-    for word in ("## 1. Runs", "A-03", "A-04 PASS", "A-05", "ASSUMED", "NOT_MEASURED",
-                 "## 12. Limitations", "S2_noP", "ped_protect"):  # fmt: skip
+    for word in ("## 4. Runs", "A-03", "A-04 PASS", "A-05", "A-06 PASS", "ASSUMED",
+                 "NOT_MEASURED", "## 15. Limitations", "S2_noP", "ped_protect"):  # fmt: skip
         assert word in page, word
     printed = capsys.readouterr().out
     assert "A-04 PASS" in printed and "A-05 PASS" in printed
+
+
+def raw_pins() -> dict:
+    """The D100 pins of the registered config (a06.model.inputs_text_sha8)."""
+    raw = yaml.safe_load(EVAL_CONFIG.read_text(encoding="utf-8"))
+    return raw["a06"]["model"]["inputs_text_sha8"]
 
 
 def test_cli_exits_1_on_an_a04_failure_after_writing(tmp_path, capsys):
@@ -615,6 +639,17 @@ def test_run_missing_reruns_old_kpi_versions(tmp_path, monkeypatch):
         write_run(Path(out_root), c, seed, kp, 0.95)
 
     monkeypatch.setattr(rs, "run", fake_run)
+    # seed 5 is a pre-registered evaluation seed: the D92 run lock refuses it into every
+    # results folder until the registration is committed, so the test stands in for the
+    # clean registration commit (the runner is faked: nothing is launched)
+    import traffic_twin.evaluation.evaluate as evaluate_mod
+
+    monkeypatch.setattr(evaluate_mod, "git_head", lambda: ("abc1234", False))
+    monkeypatch.setattr(
+        evaluate_mod,
+        "registration_commit",
+        lambda path=None: {"commit": "abc1234", "committed_at": "2026-10-23T18:00:00+02:00"},
+    )
     main(["--config", str(config), "--results", str(results), "--family", "main",
           "--run-missing"])  # fmt: skip
     assert rerun == [("pitie_actuated", 5)]
@@ -736,17 +771,17 @@ def test_page_sections_follow_the_preregistered_roles_and_config(tmp_path):
     docs = tmp_path / "evaluation.md"
     main(["--config", str(config), "--results", str(results), "--docs", str(docs)])
     page = docs.read_text(encoding="utf-8")
-    s7, s8 = _section(page, 7), _section(page, 8)
+    s7, s8 = _section(page, 10), _section(page, 11)
     assert "Other confirmatory pairs" in s7 and "role *secondary*" not in s7
     assert "role *confirmatory*" in s7
     assert "**S2_noP** (`pitie_amb_rules_nopreempt`) vs **S2**" in s8  # probe attribution
     assert "role *secondary*" in s8 and "role *exploratory*" in s8
 
-    prereg = _section(page, 2)
+    prereg = _section(page, 5)
     assert "`served_share` by more than 1 pp (no run produces this KPI: not applied)" in prereg
     assert "`crossing_complete_rate` by more than 1 pp, " in prereg  # produced: not marked
 
-    assumed = _section(page, 3)
+    assumed = _section(page, 6)
     s0 = cfgs[("main", "S0")]
     assert f"`main` 1 ambulance per run ({ambulance_plan(s0)[1]})" in assumed
     assert "`ambulance_probe` 7 ambulances per run" in assumed
@@ -758,14 +793,14 @@ def test_page_sections_follow_the_preregistered_roles_and_config(tmp_path):
     a04 = [x for x in prereg.splitlines() if x.startswith("- **A-04**")][0]
     assert "`ped_curb_wait_max` ≤ `safety.ped_max_wait_s` (90 s)" in a04
     assert "`ped_wait_single_max` ≤ 90 s, now reported alongside" in a04
-    defs = _section(page, 4)
+    defs = _section(page, 7)
     for kpi in ("ped_curb_wait_mean", "ped_curb_wait_max"):
         assert f"| `{kpi}` | pedestrian | TraCI per step: curb clock" in defs
     assert "`rules.tsp.enabled` in main/S2, main/S2_noP" in assumed
     assert "exit blocking for box clearing" in assumed and "no bluelight device" in assumed
     assert f"the signal program ({program_text(s0)})" in assumed
     assert "Accès Pitié" not in page
-    limits = _section(page, 12)
+    limits = _section(page, 15)
     assert f"a single ambulance per run ({ambulance_plan(s0)[1]})" in limits
 
 
@@ -821,5 +856,5 @@ def test_preregistration_on_the_day_of_the_runs_is_not_reported_as_before(tmp_pa
     assert summ["preregistration_order"] == "same day"
     assert summ["preregistered_before_runs"] is None
     assert summ["first_run_started_at"] == "2026-10-12T12:00:00+00:00"
-    prereg = _section(docs.read_text(encoding="utf-8"), 2)
+    prereg = _section(docs.read_text(encoding="utf-8"), 5)
     assert "same day as the pre-registration" in prereg and "(before the runs)" not in prereg

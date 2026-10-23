@@ -29,13 +29,17 @@ CALIB_SEEDS ?=
 .PHONY: rl-timing rl-train rl-select rl-eval part6 reproduce56
 .PHONY: rl7-campaign rl7-holdout rl7-select rl7-publish rl7-stress rl7-sens rl7-devtest rl7-docs
 .PHONY: part7 reproduce7
-.PHONY: lint format test test-fast check train eval app
+.PHONY: part8-guard rebaseline-verify part8
+.PHONY: demo-runs8 operator usertest-kit usertest-serve usertest-check usertest-docs test-browser part9
+.PHONY: report-facts report slides app-shots report-check part10
+.PHONY: demo demo-check demo-rehearsal demo-clean demo-pack bootstrap demo-readiness
+.PHONY: lint format test test-fast check
 
 ## Every extra the tasks and the tests use; PyTorch first from the CPU index (a plain
 ## install pulls the CUDA toolkit on Linux)
 install:
 	$(PY) -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
-	$(PY) -m pip install -e ".[dev,db,sim,ml,api,rl]"
+	$(PY) -m pip install -e ".[dev,db,sim,ml,api,rl,app,report]"
 
 ## Part 1: download Paris sensors near the candidate zones, clean them, plot hourly profiles
 data:
@@ -64,11 +68,13 @@ net:
 demand:
 	$(PY) -m traffic_twin.sim.demand --config $(SCENARIO)
 
+## sim and sim-gui go through tasks.py: its in-process run lock (D92) refuses an evaluation
+## scenario on seeds 1-10 before the Part 8 registration commit
 sim:
-	$(PY) -m traffic_twin.sim.run_scenario --config $(SCENARIO) --seed $(SEEDS)
+	$(PY) tasks.py sim$(if $(SCENARIO), --scenario $(SCENARIO))$(if $(SEEDS), --seeds $(SEEDS))
 
 sim-gui:
-	$(PY) -m traffic_twin.sim.run_scenario --config $(SCENARIO) --seed 1 --gui
+	$(PY) tasks.py sim-gui$(if $(SCENARIO), --scenario $(SCENARIO))$(if $(SEEDS), --seeds $(SEEDS))
 
 ## Load finished runs into Supabase (tables + state logs in Storage)
 db-runs:
@@ -78,8 +84,10 @@ db-runs:
 plots:
 	$(PY) -m traffic_twin.viz.plots
 
-## Rebuild the fixed-time baseline: network, every seed, figures
-baseline: net sim plots
+## Rebuild the fixed-time baseline: network, every seed, figures (through tasks.py, for
+## the run lock of sim)
+baseline:
+	$(PY) tasks.py baseline$(if $(SCENARIO), --scenario $(SCENARIO))$(if $(SEEDS), --seeds $(SEEDS))
 
 ## Part 3: Pitié-Salpêtrière junction (S0 fixed time, S1 actuated)
 ## OSM extract -> curated plain XML under sumo/network/pitie
@@ -105,20 +113,24 @@ field-sheets:
 calibrate:
 	$(PY) -m traffic_twin.validation.calibration_loop --scenario $(P3_S0)$(if $(CALIB_SEEDS), --seeds $(CALIB_SEEDS))
 
-## Paired S0 (BASELINE) vs S1 on the evaluation seeds, running the missing ones
+## Paired S0 (BASELINE) vs S1 on the evaluation seeds, running the missing ones. compare,
+## validate and part3 go through tasks.py: its in-process run lock (D92) refuses the runs
+## they would launch on seeds 1-10 into data/results before the Part 8 registration commit.
+## The frozen modules (evaluation.compare, validation.report, sim.run_scenario) have no lock
+## of their own: never call them directly on seeds 1-10 (README, Run lock).
 compare:
-	$(PY) -m traffic_twin.evaluation.compare --baseline-config $(BASELINE) --scenario-config $(P3_S1) --run-missing
+	$(PY) tasks.py compare$(if $(BASELINE), --baseline $(BASELINE))$(if $(P3_S1), --scenario $(P3_S1))
 
 ## Sim vs reality tables and docs/validation.md, running the missing seeds
 validate:
-	$(PY) -m traffic_twin.validation.report --scenario $(P3_S0) --run-missing --docs docs/validation.md
+	$(PY) tasks.py validate$(if $(P3_S0), --scenario $(P3_S0))
 
 plots-pitie:
 	$(PY) -m traffic_twin.viz.plots --scenario pitie_fixed pitie_actuated --out docs/figures/pitie
 
 ## The whole Part 3 chain: S0 = BASELINE, S1 = SCENARIO (default configs/pitie_actuated.yaml)
-part3: P3_S0 = $(BASELINE)
-part3: tls-check field-check calibrate compare validate plots-pitie
+part3:
+	$(PY) tasks.py part3$(if $(BASELINE), --baseline $(BASELINE))$(if $(P3_S1), --scenario $(P3_S1))$(if $(CALIB_SEEDS), --seeds $(CALIB_SEEDS))
 
 ## Part 4: rule-based control (S2), Safety Guard, per-user evaluation of S0, S1 and S2
 ## Pre-registered evaluation (configs/evaluation.yaml) and docs/evaluation.md, running the
@@ -251,6 +263,99 @@ part7:
 reproduce7:
 	$(PY) tasks.py reproduce7
 
+## Part 8: final evaluation of S0 to S4 on seeds 1-10, once, on the clean registration
+## commit (configs/evaluation.yaml a06, D92/D97). In-process steps: tasks.py
+part8-guard:
+	$(PY) tasks.py part8-guard
+
+## Compare the re-made evaluation runs with the moved ones, write verify.json, then the
+## provenance check; resumes part8 after a STOP (`make plots-eval rebaseline-verify`)
+rebaseline-verify:
+	$(PY) tasks.py rebaseline-verify
+
+## part8-guard rebaseline plots-eval provenance
+part8:
+	$(PY) tasks.py part8
+
+## Part 9: the app on the final results, replay, user-test package
+## Demo runs S2_noP, S3 and S4 on seed 4000 into data/demo (D109; S0-S2: demo-runs)
+demo-runs8:
+	$(PY) -m traffic_twin.ml.predict demo --seeds 4000 --configs configs/pitie_rules_nopreempt.yaml configs/pitie_rl_s3.yaml configs/pitie_rl_s3_nopreempt.yaml
+
+## The Streamlit Operator, through the API (start `make api` first)
+operator:
+	$(PY) -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
+
+## User tests (configs/usertests.yaml, D111). ALLOW_PENDING_S3=1 builds the kit before S3
+## is served (Phase 2 gate only); ALLOW_DIRTY=1 serves an uncommitted tree
+ALLOW_PENDING_S3 ?=
+
+usertest-kit:
+	$(PY) -m traffic_twin.usertests kit$(if $(ALLOW_PENDING_S3), --allow-pending-s3)
+
+usertest-serve:
+	$(PY) -m traffic_twin.usertests serve$(if $(ALLOW_DIRTY), --allow-dirty)
+
+usertest-check:
+	$(PY) -m traffic_twin.usertests check
+
+usertest-docs:
+	$(PY) -m traffic_twin.usertests docs
+
+## Headless-browser tests only (Chrome, else Edge; TT_BROWSER overrides)
+test-browser:
+	$(PY) -m pytest -q -m browser
+
+part9: demo-runs8 api-bench usertest-check usertest-docs
+
+## Part 10: report and slides from docs/report/facts.json (D113-D115)
+report-facts:
+	$(PY) -m traffic_twin.report facts
+
+report:
+	$(PY) -m traffic_twin.report report
+
+slides:
+	$(PY) -m traffic_twin.report slides
+
+app-shots:
+	$(PY) -m traffic_twin.report shots
+
+## Optional render of the PDF and the deck to data/report/_qa (LibreOffice)
+report-check:
+	$(PY) -m traffic_twin.report check
+
+## Demo (configs/demo.yaml, D116); no simulation runs during the demo. NO_BROWSER=1 opens
+## no browser; FIXTURES=1 rehearses on the synthetic fixtures; RECORD=1 writes
+## docs/demo/rehearsal.json
+FIXTURES ?=
+NO_BROWSER ?=
+RECORD ?=
+
+demo:
+	$(PY) -m traffic_twin.demo serve$(if $(NO_BROWSER), --no-browser)
+
+demo-check:
+	$(PY) -m traffic_twin.demo check$(if $(NO_BROWSER), --no-browser)
+
+demo-rehearsal:
+	$(PY) -m traffic_twin.demo rehearsal$(if $(FIXTURES), --fixtures)$(if $(NO_BROWSER), --no-browser)$(if $(RECORD), --record)
+
+demo-clean:
+	$(PY) -m traffic_twin.demo clean
+
+demo-pack:
+	$(PY) -m traffic_twin.demo pack
+
+## Fresh clone: restore the demo pack into data/ (never rebuilds the evaluation)
+bootstrap:
+	$(PY) -m traffic_twin.demo bootstrap
+
+demo-readiness:
+	$(PY) -m traffic_twin.demo readiness
+
+part10: report-facts app-shots report slides demo-pack demo-rehearsal
+
 lint:
 	$(PY) -m ruff check .
 	$(PY) -m ruff format --check .
@@ -268,7 +373,3 @@ test-fast:
 
 ## What CI runs
 check: lint test
-
-# Later parts of the roadmap
-train eval app:
-	@echo "'make $@' arrives in a later part of the roadmap"; exit 1

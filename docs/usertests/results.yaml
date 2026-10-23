@@ -1,0 +1,209 @@
+# User-test results (spec 12.2, A-10). Versioned; `sessions` stays EMPTY until real
+# participants are tested: nobody writes a session that did not happen. Protocol:
+# docs/usertest_protocol.md; tasks and targets: configs/usertests.yaml; printable kit:
+# docs/usertests/usertest_kit.pdf. After every edit: `tasks.py usertest-check`, then
+# `tasks.py usertest-docs` (docs/usertests.md, docs/usertests/synthesis.json).
+#
+# PRIVACY (ENF-07): participants are P1..P5 only. No name, contact, employer, age or health
+# information anywhere (unknown keys and contact-like text are refused by the check).
+# Reduced mobility is never recorded: only the role played and profile_match. Notes describe
+# what happened ON THE SCREEN, never who the person is. Paper consent, if any, stays with
+# the facilitator and is never scanned into the repo.
+schema_version: 1
+sessions: []
+#  - id: P1
+#    date: 2026-11-__
+#    round: 1                    # 1 = before the fixes, 2 = on the fixed app
+#    profile: pedestrian         # pedestrian | student | bus | ambulance | operator
+#    profile_match: proxy        # real (holds the role) | proxy (plays it)
+#    app_version: 0000000        # clean git sha printed by `tasks.py usertest-serve`
+#    device: laptop              # laptop | phone | tablet
+#    consent: oral               # oral | written (paper kept by the facilitator)
+#    simulated_understood: ~     # true when the transparency answer was 'simulated'
+#    sus: ~                      # optional: 10 answers 1-5, in questionnaire order
+#    comments: []                # remarks about the screens, in the participant's words
+#    tasks:                      # every required task, `outcome: skipped` if not run
+#      - {task: T-PED, order: 1, time_s: ~, clicks: ~, hint: false, answer: "", outcome: ~,
+#         errors: [], seq: ~, notes: ""}
+#
+# Issues: U01, U02, ... `found_by: walkthrough` = the expert walkthrough before P1 (no
+# session); `found_by: test` names the session(s). A fixed issue names its commit
+# (checked with git) and is verified by a later session whose app_version contains the fix,
+# or by an automated test node (tests/test_x.py::test_name).
+issues:
+  - id: U01
+    found_by: walkthrough
+    tasks: [T-AMB, T-BUS, T-OP, T-REPLAY]
+    sessions: []
+    severity: 4
+    kind: trust
+    description: >-
+      The run selector lists invented S3 runs (s3_rl_dqn, including the reserved seeds 1
+      and 2); choosing one silently shows the S2 run's data under an S3 label.
+    fix: >-
+      Run list from /scenarios only, resolved by scenario and seed (D105, D106); no
+      hard-coded run options.
+    status: open
+    commit: ~
+    verified: ~
+  - id: U02
+    found_by: walkthrough
+    tasks: [T-OP]
+    sessions: []
+    severity: 4
+    kind: trust
+    description: >-
+      The operator view shows S3 results written into the page (S3_DATA) instead of values
+      read from the API; S3 has not been evaluated on seeds 1-10 yet.
+    fix: >-
+      Operator card reads /kpi for every registered label (D102, D107); S3 appears only
+      from the Part 8 outputs.
+    status: open
+    commit: ~
+    verified: ~
+  - id: U03
+    found_by: walkthrough
+    tasks: [T-AMB]
+    sessions: []
+    severity: 3
+    kind: trust
+    description: >-
+      The ambulance view shows a fixed countdown ('00:28') that no data supports.
+    fix: >-
+      Junction status from /ambulance/next-intersections only; 'ETA destination : non
+      modélisé' (§4.4, D107).
+    status: open
+    commit: ~
+    verified: ~
+  - id: U04
+    found_by: walkthrough
+    tasks: [T-BUS]
+    sessions: []
+    severity: 3
+    kind: trust
+    description: >-
+      The bus view fills missing fields with invented values (a fixed headway, a fixed
+      vehicle id, a next-arrival text) and a 'live telematics' label.
+    fix: >-
+      No `b.<field> || <literal>` fallbacks; absent values say 'non disponible' (D107).
+    status: open
+    commit: ~
+    verified: ~
+  - id: U05
+    found_by: walkthrough
+    tasks: [T-STU]
+    sessions: []
+    severity: 3
+    kind: term
+    description: >-
+      The student view shows raw LaTeX ('$p_{50}$') and a broken arrow ('ightarrow'): a
+      backslash-r in the template literal became a carriage return.
+    fix: >-
+      Plain French labels ('intervalle à 80 %'); no backslash-r escapes in the script
+      (§4.4, D107).
+    status: open
+    commit: ~
+    verified: ~
+  - id: U06
+    found_by: walkthrough
+    tasks: [T-REPLAY]
+    sessions: []
+    severity: 3
+    kind: trust
+    description: >-
+      The landing map is a browser-side random animation labelled 'S3 RL DQN' and 'SUMO 60
+      FPS', not data from a simulated run.
+    fix: >-
+      The map becomes the EF-21 replay of a run read from /replay (positions, signals,
+      events); no Math.random in the page (D105).
+    status: open
+    commit: ~
+    verified: ~
+  - id: U07
+    found_by: walkthrough
+    tasks: [T-PED, T-PMR, T-STU, T-BUS, T-OP]
+    sessions: []
+    severity: 3
+    kind: layout
+    description: >-
+      The page opens on the map with seven buttons, not on a home screen with one card per
+      user profile (spec 12).
+    fix: >-
+      Home screen with the 5 profile cards, Relecture and Opérateur (D102, §4.4).
+    status: open
+    commit: ~
+    verified: ~
+  - id: U08
+    found_by: walkthrough
+    tasks: [T-PMR]
+    sessions: []
+    severity: 2
+    kind: layout
+    description: >-
+      A pedestrian at a crossing other than S with the reduced speed needs 3 clicks (view,
+      crossing, speed), over the ENF-06 limit of 2. T-PMR uses crossing S, so the tests
+      would not show it.
+    fix: >-
+      Speed buttons on the Piéton home card and the last choice remembered (§4.4).
+    status: open
+    commit: ~
+    verified: ~
+  - id: U09
+    found_by: walkthrough
+    tasks: [T-PED, T-PMR, T-STU, T-BUS, T-AMB, T-OP, T-REPLAY]
+    sessions: []
+    severity: 3
+    kind: other
+    description: >-
+      No deep links: the facilitator cannot set the run and the instant of a task, so the
+      start state of each task cannot be reproduced.
+    fix: >-
+      Deep links view, scenario, seed, t, kiosk (D106), applied after the run list is built.
+    status: open
+    commit: ~
+    verified: ~
+  - id: U10
+    found_by: walkthrough
+    tasks: [T-PED, T-STU, T-BUS, T-AMB]
+    sessions: []
+    severity: 3
+    kind: trust
+    description: >-
+      Labels overstate the data ('en direct', 'certifié', 'Garantie', real-sensor wording)
+      while the data are simulated and the signal program is provisional (ENF-05).
+    fix: >-
+      Footer in every view with 'données simulées', the calibration date and 'programme de
+      feux provisoire'; the overstated labels removed (D104, D107).
+    status: open
+    commit: ~
+    verified: ~
+  - id: U11
+    found_by: walkthrough
+    tasks: [T-PED, T-PMR, T-STU, T-BUS, T-AMB, T-OP]
+    sessions: []
+    severity: 2
+    kind: other
+    description: >-
+      Views have no loading, unavailable or error state: a slow or failed API call leaves
+      old or empty values on the screen without saying so (spec 12.1).
+    fix: >-
+      data-view-state on every view (loading, ok, degraded, stale, unavailable, error), a
+      4 s fetch timeout and a last-good value with its time (D104).
+    status: open
+    commit: ~
+    verified: ~
+  - id: U12
+    found_by: walkthrough
+    tasks: [T-OP]
+    sessions: []
+    severity: 2
+    kind: other
+    description: >-
+      The Streamlit Operator reads docs/evaluation.md directly instead of the API (spec 8.6),
+      so it can show results that the API does not serve.
+    fix: >-
+      Operator through traffic_twin.app.client and the /evaluation, /compare, /series and
+      /sensitivity endpoints (D102, D108).
+    status: open
+    commit: ~
+    verified: ~

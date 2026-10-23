@@ -8,3 +8,9 @@ font = "sans serif"
 
 [browser]
 gatherUsageStats = false
+
+# Parts 9-10 (D102): the Streamlit Operator listens on localhost only, headless.
+[server]
+address = "127.0.0.1"
+port = 8501
+headless = true

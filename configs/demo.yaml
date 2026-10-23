@@ -1,0 +1,48 @@
+# Demo script (Part 10, D116; plan §4.5): ports, the scripted runs, the prerequisites, the
+# steps of the walkthrough and the degraded cases. Read by `python -m traffic_twin.demo`
+# (serve, check, rehearsal, pack, bootstrap, readiness) and by `report.shots`.
+#
+# - Runs are named by (scenario, seed), never by run_id (a uuid4 that changes on every
+#   rerun); `demo check` resolves them through /scenarios. Seed 4000 only (D101).
+# - `t` is the replay time in seconds since the scenario start (07:30): 1805 = 08:00:05,
+#   2700 = 08:15:00. The instants were verified on pitie_rules seed 4000 (critic check):
+#   bus 91 priority active at 1305, the ambulance's green wave at 2440.
+# - No simulation runs during the demo (spec 7.1).
+api: {host: 127.0.0.1, port: 8000, title: "Urban Traffic Twin API"}
+operator: {host: 127.0.0.1, port: 8501, script: app.py}
+runs: {main: {scenario: pitie_rules, seed: 4000}, s3: {scenario: pitie_rl_s3, seed: 4000}}
+prerequisites: [demo_runs, evaluation_outputs, eta_reference, s3_model_sha, evaluation_page]
+steps:
+  - {id: home,       view: home}
+  - {id: pedestrian, view: pedestrian, run: main, t: 1805, crossing: S, speed: normal}
+  - {id: student,    view: student,    run: main, t: 2700, trajet: N_S, exam: "08:18"}
+  - {id: bus,        view: bus,        run: main, t: 1305, line: "91"}
+  - {id: ambulance,  view: ambulance,  run: main, t: 2440, kiosk: 1}
+  - {id: replay,     view: replay,     run: s3,   t: 2440}
+  - {id: operator,   view: operator}
+  - {id: streamlit,  front: streamlit}
+degraded: [no_eta_bundle, no_evaluation, no_runs, api_down]
+
+# -- WS7 settings (the keys above are the plan's §4.5 text) ------------------------------
+# Scenarios made only by the Part 8/9 integration (`tasks.py demo-runs8`, step I3) and
+# labels evaluated only by `tasks.py part8` (step I2): until then a missing run or an
+# `unavailable` "pas encore évalué" answer is reported PENDING, not FAIL.
+part8_scenarios: [pitie_rules_nopreempt, pitie_rl_s3, pitie_rl_s3_nopreempt]
+part8_labels: [S3, S4]
+operator_pair: {a: S1, b: S3}                 # the Streamlit "Tests et paires" default pair
+series_labels: [S0, S1, S2, S3]               # the Streamlit "Courbes" default selection
+budgets: {api_ms: 500, api_start_s: 60, operator_start_s: 90, browser_wait_ms: 8000, stop_s: 10}
+# Demo pack (`demo pack`, Q38: committed once at the freeze): the demo runs without their
+# SUMO XML (the API never reads it), every evaluation output, and the ETA bundle files the
+# API reads (never the 244 MB model). `bootstrap --from-pack` restores them at the same
+# repo-relative paths and never rebuilds the evaluation.
+pack:
+  runs_dir: data/demo
+  runs: [pitie_fixed, pitie_actuated, pitie_rules, pitie_rules_nopreempt, pitie_rl_s3,
+         pitie_rl_s3_nopreempt]
+  seed: 4000
+  run_suffixes: [.parquet, .csv, .json]
+  evaluation_dir: data/results/evaluation
+  eta_dir: data/models/eta
+  eta_files: [LATEST, freeze.json]             # plus <LATEST>/{reference.parquet, meta.json, eval.json}
+  eta_bundle_files: [reference.parquet, meta.json, eval.json]

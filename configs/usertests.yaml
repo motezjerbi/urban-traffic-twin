@@ -1,0 +1,122 @@
+# User-test protocol (Part 9, spec 12.2 / A-10; D111, D112). Pre-registered: written and
+# committed BEFORE the first participant. After that nobody edits the keys above `changes`;
+# a later change goes in `changes` with a date, what and why (same rule as
+# configs/evaluation.yaml), never silently. Narrative protocol: docs/usertest_protocol.md.
+# Participant-facing text (cards, consent, questions) is French, like the app; facilitator
+# notes are English. Checked by `tasks.py usertest-check` (traffic_twin.usertests.protocol).
+schema_version: 1
+preregistered: 2026-10-23    # before any session (no participant tested yet)
+participants: {min: 3, max: 5}                              # spec 12.2: 3 to 5 users
+profiles: [pedestrian, student, bus, ambulance, operator]   # one per participant, ideally
+run: {scenario: pitie_rules, seed: 4000}   # S2 demo run (D109); resolved by (scenario, seed)
+app_url: "http://127.0.0.1:8000/mock"      # `tasks.py usertest-serve`
+session_minutes: 27                        # plan 30-minute slots
+targets:
+  pedestrian_time_s: 5      # ENF-06: pedestrian view usable in < 5 s (T-PED, first exposure)
+  max_clicks: 2             # ENF-06: at most 2 clicks for any user (every task)
+  ambulance_glance_s: 3     # ENF-06: readable at a glance (screen shown 3 s, then covered)
+order: {first: T-PED, rest: rotate}   # T-PED first for everyone; the others rotate by P index
+# T-OP: the answer is the label with the lowest value among `labels`, read through /kpi when
+# the kit is built. `required` must be served by /kpi, so the tests cannot start before
+# Part 8 has connected S3 (the kit refuses otherwise).
+operator: {family: main, user: all, kpi: person_delay_mean, labels: [S0, S1, S2, S3],
+           required: [S3]}
+# Instants `t` are seconds since 07:30 (the simulated morning). `start` is the deep link the
+# facilitator opens with the screen turned away (D106): it sets the run and the instant, never
+# the view, except the ambulance screen, which needs no interaction (spec 12). `check` is the
+# view that shows the answer (automated tests and the facilitator's answer key only).
+tasks:
+  - id: T-PED
+    view: pedestrian
+    start: {view: home, t: 1805}           # 08:00:05
+    check: {view: pedestrian, params: {crossing: S, speed: normal}}
+    card_fr: "Vous êtes à pied au passage piéton S. Dites-moi si vous pouvez traverser maintenant."
+    card_en: "You are on foot at crossing S. Tell me whether you can cross now."
+    expect:
+      - {endpoint: /crossing/S, query: {speed: normal}, field: can_cross, equals: true}
+    answer_fr: "Oui, je peux traverser (vert, assez de temps)"
+    time_limit_s: 30
+  - id: T-PMR
+    view: pedestrian
+    start: {view: home, t: 1805}
+    check: {view: pedestrian, params: {crossing: S, speed: reduced}}
+    card_fr: "Vous marchez lentement, avec une canne, au passage S. Pouvez-vous traverser maintenant ?"
+    card_en: "You walk slowly, with a cane, at crossing S. Can you cross now?"
+    expect:
+      - {endpoint: /crossing/S, query: {speed: reduced}, field: can_cross, equals: false}
+    answer_fr: "Non, attendre le prochain vert (temps restant insuffisant à vitesse réduite)"
+    time_limit_s: 30
+  - id: T-STU
+    view: student
+    start: {view: home, t: 2700}           # 08:15:00
+    check: {view: student, params: {trajet: N_S, exam: "08:18"}}
+    card_fr: >-
+      Vous êtes étudiant à la gare d'Austerlitz, votre examen à la Pitié commence à 08:18.
+      Dites-moi quand partir.
+    card_en: "You are a student at Austerlitz station; your exam at the Pitié starts at 08:18. Tell me when to leave."
+    expect:
+      - {endpoint: /eta, query: {trajet: N_S, student: "true", deadline: "08:18"},
+         field: advice.code, equals: small_margin}
+    answer_fr: "Maintenant : la marge est faible"
+    time_limit_s: 60
+  - id: T-BUS
+    view: bus
+    start: {view: home, t: 1305}           # 07:51:45
+    check: {view: bus, params: {line: "91"}}
+    card_fr: >-
+      Vous conduisez le bus 91. Votre bus est-il en retard au carrefour, et la priorité aux
+      feux est-elle active ?
+    card_en: "You drive bus 91. Is your bus late at the junction, and is signal priority active?"
+    expect:
+      - {endpoint: /bus/91/status, field: priority_active, equals: true}
+      - {endpoint: /bus/91/status, field: delay_s, not_null: true, tolerance: 20, unit: s}
+    answer_fr: "Oui, en retard (valeur de la clé, à ± 20 s près) ; priorité active"
+    time_limit_s: 60
+  - id: T-AMB
+    view: ambulance
+    start: {view: ambulance, t: 2440, kiosk: 1}   # 08:10:40; opened directly, no interaction
+    check: {view: ambulance, params: {kiosk: 1}}
+    card_fr: >-
+      Vous conduisez l'ambulance. Je vous montre l'écran 3 secondes. Quel est l'état du
+      prochain carrefour ?
+    card_en: "You drive the ambulance. I show you the screen for 3 seconds. What is the state of the next junction?"
+    expect:
+      - {endpoint: /ambulance/next-intersections, field: "intersections[0].status",
+         equals: green_wave}
+    answer_fr: "Onde verte (le feu passe au vert pour moi)"
+    glance: true
+    time_limit_s: 20
+  - id: T-OP
+    view: operator
+    start: {view: home}                    # no instant: the Operator card reads /kpi
+    check: {view: operator, params: {}}
+    card_fr: >-
+      Vous êtes opérateur. D'après l'application, quel scénario a le plus faible retard moyen
+      par personne ?
+    card_en: "You are the operator. According to the app, which scenario has the lowest mean delay per person?"
+    expect:
+      - {endpoint: /kpi, field: argmin, computed: operator}
+    answer_fr: "Le scénario indiqué par la clé (calculé depuis /kpi à la génération du kit)"
+    time_limit_s: 90
+  - id: T-REPLAY            # EF-21; optional, always last
+    view: replay
+    optional: true
+    start: {view: home}
+    check: {view: replay, params: {t: "08:40"}}
+    card_fr: >-
+      Rejouez la situation de 08:40 avec les règles (S2) et dites-moi combien de véhicules
+      attendent sur l'approche Nord.
+    card_en: "Replay the 08:40 situation under the rules (S2) and tell me how many vehicles queue on the North approach."
+    expect:
+      - {endpoint: "/replay/{run_id}", query: {t: "08:40"}, field: queues.N, not_null: true,
+         tolerance: 2, unit: véhicules}
+    answer_fr: "La valeur de la clé, à ± 2 véhicules près"
+    time_limit_s: 120
+after_tasks:
+  transparency_fr: "D'après vous, les données affichées sont-elles réelles, simulées, ou vous ne savez pas ?"
+  expected: simulated       # ENF-05: recorded as simulated_understood
+questionnaire: {seq_per_task: true, sus: optional}   # SEQ 1-7 after each task; SUS-10 indicative
+error_codes: [wrong_view, wrong_answer, misread, term, hesitation, help, slider, gave_up, bug, other]
+outcomes: [success, partial, fail, skipped]   # partial = correct after the hint or over the click limit
+issue_kinds: [wrong_view, misread, term, layout, trust, bug, other]
+changes: []

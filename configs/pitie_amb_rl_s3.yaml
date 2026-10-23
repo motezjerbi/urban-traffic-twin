@@ -1,0 +1,3 @@
+# Ambulance-probe family, S3 (Part 8, D93): pitie_rl_s3 with the 7 probe ambulances.
+extends: [pitie_rl_s3.yaml, pitie/emergency_probe.yaml]
+scenario: pitie_amb_rl_s3
