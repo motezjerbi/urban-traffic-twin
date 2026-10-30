@@ -47,6 +47,7 @@ API_PREFIXES = (
     "/compare",
     "/series",
     "/sensitivity",
+    "/admin",  # the local admin sign-in of the admin cockpit (/admin/session, login, logout)
     "/three.min.js",
     "/mock",
 )

@@ -302,7 +302,8 @@ TASK_TABLES = {
     PART8: ("### Part 8 tasks", "part8", "PART8_STEPS",
             lambda n: n in {"part8-guard", "rebaseline-verify"}),
     PART9: ("### Part 9 tasks", "part9", "PART9_STEPS",
-            lambda n: n.startswith("usertest-") or n in {"demo-runs8", "operator", "test-browser"}),
+            lambda n: n.startswith("usertest-")
+            or n in {"demo-runs8", "operator", "test-browser", "admin-set-password"}),
     PART10: ("### Part 10 tasks", "part10", "PART10_STEPS",
              lambda n: n in PART10_DEMO or n.startswith("report") or n in {"slides", "app-shots"}),
 }  # fmt: skip

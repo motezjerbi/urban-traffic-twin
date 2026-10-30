@@ -1899,6 +1899,37 @@ What was checked in the integration (2026-10-23, real data):
 - Privacy (ENF-07): participants are `P1` to `P5`, with no name, contact or health
   information; reduced mobility is never recorded, and consent on paper stays offline.
 
+### Admin cockpit (local-only addition)
+
+A deliberate, local-only addition to the user app, not a user account system: the five
+public profiles stay account-free (ENF-07) and every public endpoint answers as before.
+The data it shows is the public API v1 (simulated runs on the ASSUMED, provisional program,
+until the field visit), only arranged for the project team.
+
+- **Set the password** on the machine that runs the API:
+  `python tasks.py admin-set-password` (`--email`, default `admin@urban-traffic-twin.local`;
+  `make admin-set-password ADMIN_EMAIL=...`). It asks the password (getpass, or one line of
+  a piped stdin) and writes `TT_ADMIN_EMAIL`, `TT_ADMIN_PASSWORD_HASH` (PBKDF2-SHA256,
+  random salt, 600 000 iterations) and, when missing, `TT_ADMIN_SECRET` (the session
+  signing key) into the gitignored `.env`. The same variables in the environment win over
+  `.env`. The password and its hash are never committed, logged or sent back.
+- **Open it:** `python tasks.py api`, then http://127.0.0.1:8000/mock and "Se connecter en
+  admin" on the home screen (or `/mock?view=admin`, `&tab=sync` for the second tab). Without
+  a password the entry says "admin non configuré" and `POST /admin/login` answers 503.
+- **Sessions:** an HMAC-signed, HttpOnly, SameSite=Strict cookie of 30 min; logging out or a
+  new password ends it; 5 failed logins per minute and per client give 429. Endpoints in
+  [docs/api.md](docs/api.md).
+- **Tab 1, "Tableau comparatif des scénarios":** the 33 rows of `final_table` (S0, S1, S2,
+  S3 and the ablations S2_noP, S4; means over the evaluation seeds 1-10), filters by user
+  group, search, CSV export, the change vs S0, the best value, the equity flags of `/kpi`
+  and the Holm p-values of A-06 (`/evaluation`) and `/compare`.
+- **Tab 2, "Comparaison synchronisée":** the seed-4000 demo runs of S1-S4 at a shared
+  instant t set by key moments of the ambulance's preemption (events and `/ambulance`):
+  phase timelines from `/replay`, the raw `/replay` fields, the controller events with a
+  generated sentence, four mini replay maps, and identity cards with a radar of five KPIs
+  (seeds 1-10). One demo run per scenario illustrates; it proves nothing. A scenario
+  without a demo run is shown as "run indisponible".
+
 ### Part 9 tasks
 
 | Task | What it does |
@@ -1910,6 +1941,7 @@ What was checked in the integration (2026-10-23, real data):
 | `usertest-check` | validate `docs/usertests/results.yaml` (schema, privacy, issue fixes) |
 | `usertest-docs` | `docs/usertests.md` and `synthesis.json` |
 | `test-browser` | the headless-browser view tests only (`pytest -m browser`) |
+| `admin-set-password` | the local admin password of the admin cockpit, hashed into the gitignored `.env` (asks it; `--email`) |
 | `part9` | `demo-runs8 api-bench usertest-check usertest-docs` |
 
 ## Report, slides and demo (Part 10)

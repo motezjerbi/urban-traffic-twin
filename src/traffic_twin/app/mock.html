@@ -1220,6 +1220,136 @@
   .ticker-row { display: flex; gap: 12px; flex-wrap: wrap; }
   .ticker-t { font-family: var(--mono); color: var(--accent); }
   body.kiosk nav, body.kiosk .run-box, body.kiosk .slider-box, body.kiosk #play, body.kiosk .play-speeds { display: none; }
+
+  /* -------------------------------------------------------------
+     Admin cockpit (local-only sign-in; every figure from API v1)
+  ------------------------------------------------------------- */
+  .home-admin-row { margin-top: 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .home-admin-btn {
+    display: inline-flex; align-items: center; gap: 8px; font-family: var(--font); font-weight: 800; font-size: 14px;
+    color: #E9D5FF; background: rgba(139, 92, 246, 0.16); border: 1px solid rgba(139, 92, 246, 0.55);
+    border-radius: 999px; padding: 10px 18px; cursor: pointer;
+  }
+  .home-admin-btn:hover { background: rgba(139, 92, 246, 0.28); }
+  .home-admin-btn.off { color: var(--fg-muted); border-color: var(--border); background: rgba(255, 255, 255, 0.03); }
+  .adm-shell {
+    background: linear-gradient(160deg, rgba(17, 14, 38, 0.92), rgba(11, 17, 30, 0.96));
+    border: 1px solid rgba(139, 92, 246, 0.45); border-radius: var(--radius-lg); padding: 26px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 34px rgba(139, 92, 246, 0.12);
+  }
+  .adm-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .adm-badges { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .adm-badge { font-size: 12px; font-weight: 800; padding: 6px 12px; border-radius: 999px; }
+  .adm-badge.admin { background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(167, 139, 250, 0.6); color: #EDE9FE; }
+  .adm-badge.session { background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.45); color: #6EE7B7; }
+  .adm-logout { font-family: var(--font); font-weight: 800; font-size: 13px; color: #FCA5A5; background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 10px; padding: 10px 18px; cursor: pointer; }
+  .adm-logout:hover { background: rgba(239, 68, 68, 0.26); }
+  .adm-titlebar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin: 22px 0 18px; }
+  .adm-title { font-size: 26px; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+  .adm-title span { color: #C4B5FD; }
+  .adm-sub { color: var(--fg-muted); font-size: 13px; margin-top: 4px; }
+  .adm-tabs { display: flex; gap: 6px; padding: 5px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); flex-wrap: wrap; }
+  .adm-tabs button { font-family: var(--font); font-weight: 700; font-size: 13px; color: var(--fg-muted); background: transparent; border: 0; border-radius: 10px; padding: 10px 18px; cursor: pointer; }
+  .adm-tabs button.on { color: #fff; background: linear-gradient(135deg, #7C3AED, #8B5CF6); box-shadow: 0 0 18px rgba(139, 92, 246, 0.45); }
+  .adm-panel { border: 1px solid var(--border); border-radius: var(--radius-md); background: rgba(8, 12, 22, 0.55); padding: 16px; margin-bottom: 16px; }
+  .adm-chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .adm-chip { font-family: var(--font); font-size: 12.5px; font-weight: 700; color: #CBD5E1; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  .adm-chip:hover { border-color: rgba(167, 139, 250, 0.5); }
+  .adm-chip.on { color: #fff; background: rgba(139, 92, 246, 0.25); border-color: rgba(167, 139, 250, 0.85); }
+  .adm-tools { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .adm-search { flex: 1 1 260px; max-width: 320px; font-family: var(--font); font-size: 13px; color: var(--fg); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; }
+  .adm-export { font-family: var(--font); font-weight: 800; font-size: 13px; color: #6EE7B7; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.45); border-radius: 8px; padding: 9px 16px; cursor: pointer; }
+  .adm-legend { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--fg-muted); }
+  .adm-legend strong { color: #E2E8F0; }
+  .adm-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+  .adm-flag { font-family: var(--mono); font-size: 10.5px; font-weight: 800; color: #FCA5A5; background: rgba(239, 68, 68, 0.18); border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
+  .adm-table th { text-align: left; vertical-align: bottom; }
+  .adm-table td { text-align: left; font-family: var(--mono); font-size: 13px; font-weight: 700; }
+  .adm-table td.kpi { font-family: var(--font); font-weight: 600; font-size: 13px; color: #E2E8F0; max-width: 240px; }
+  .adm-table td.unit { color: var(--fg-muted); text-align: center; }
+  .adm-table td.best { background: rgba(16, 185, 129, 0.12); color: #34D399; }
+  .adm-table th.main-sol { background: rgba(6, 78, 59, 0.75); color: #A7F3D0; }
+  .adm-table .th-sub { display: block; font-size: 10px; font-weight: 600; color: var(--fg-muted); margin-top: 3px; }
+  .adm-tag { white-space: nowrap; display: inline-block; font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 6px; letter-spacing: 0.05em; }
+  .adm-tag.sol { background: #10B981; color: #022C22; }
+  .adm-tag.abl { background: rgba(148, 163, 184, 0.25); color: #CBD5E1; }
+  .adm-yes { font-family: var(--mono); font-size: 11px; color: #FCA5A5; background: rgba(239, 68, 68, 0.16); border: 1px solid rgba(239, 68, 68, 0.45); border-radius: 4px; padding: 1px 6px; }
+  .adm-no { font-family: var(--mono); font-size: 11px; color: #6EE7B7; background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 4px; padding: 1px 6px; }
+  .adm-holm { font-family: var(--mono); font-size: 11px; color: #C4B5FD; background: rgba(139, 92, 246, 0.16); border: 1px solid rgba(139, 92, 246, 0.5); border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
+  .adm-badge-pct { font-family: var(--mono); font-size: 10.5px; font-weight: 700; padding: 2px 5px; border-radius: 4px; margin-left: 6px; border: 1px solid transparent; }
+  .adm-badge-pct.gain { background: rgba(16, 185, 129, 0.14); color: #34D399; border-color: rgba(16, 185, 129, 0.45); }
+  .adm-badge-pct.loss { background: rgba(239, 68, 68, 0.14); color: #F87171; border-color: rgba(239, 68, 68, 0.45); }
+  .adm-badge-pct.flat { background: rgba(148, 163, 184, 0.12); color: #CBD5E1; }
+  .adm-h { font-size: 15px; font-weight: 800; margin: 0 0 4px; }
+  .adm-hsub { font-size: 12px; font-style: italic; color: var(--fg-muted); margin-bottom: 12px; }
+  .adm-moments { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .adm-moments .lbl { font-size: 12px; font-weight: 800; color: var(--fg-muted); }
+  .adm-tl { border: 1px solid var(--border); border-radius: var(--radius-md); background: rgba(3, 7, 18, 0.6); padding: 12px 14px; }
+  .adm-tl-axis { position: relative; height: 18px; margin-left: 110px; font-family: var(--mono); font-size: 10px; color: #64748B; }
+  .adm-tl-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .adm-tl-axis span.first { transform: none; }
+  .adm-tl-axis span.last { transform: translateX(-100%); }
+  .adm-tl-row { display: flex; align-items: center; margin-top: 10px; }
+  .adm-tl-name { width: 110px; flex: none; font-size: 12px; font-weight: 800; }
+  .adm-tl-bar { position: relative; flex: 1; height: 22px; display: flex; }
+  .adm-seg { height: 100%; border-radius: 4px; font-size: 9.5px; font-weight: 800; color: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; min-width: 0; box-shadow: inset -2px 0 0 rgba(3, 7, 18, 0.9); }
+  .adm-seg.green { background: #059669; }
+  .adm-seg.clear { background: repeating-linear-gradient(45deg, #B45309, #B45309 4px, #D97706 4px, #D97706 8px); }
+  .adm-seg.yellow { background: #EAB308; color: #1C1917; }
+  .adm-seg.allred { background: #DC2626; }
+  .adm-seg.gap { background: #334155; color: var(--fg-muted); }
+  .adm-mark { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 1px; }
+  .adm-mark.pre { background: #F87171; box-shadow: 0 0 6px #EF4444; }
+  .adm-mark.bus { background: #34D399; }
+  .adm-mark.cur { background: #C4B5FD; width: 2px; box-shadow: 0 0 8px #8B5CF6; }
+  .adm-tl-na { flex: 1; font-size: 12px; color: var(--fg-muted); font-style: italic; }
+  .adm-raw { margin-top: 14px; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: var(--radius-md); padding: 12px 14px; background: rgba(8, 47, 73, 0.18); }
+  .adm-raw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+  .adm-raw-cell { display: flex; justify-content: space-between; gap: 8px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--fg-muted); }
+  .adm-raw-cell strong { font-family: var(--mono); color: #F8FAFC; }
+  .adm-raw-foot { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 11px; color: #64748B; margin-top: 10px; }
+  .adm-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+  @media (max-width: 600px) { .adm-grid2 { grid-template-columns: 1fr; } .adm-tl-name { width: 74px; } .adm-tl-axis { margin-left: 74px; } }
+  .adm-evlist { max-height: 430px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; margin-top: 10px; }
+  .adm-ev { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: rgba(255, 255, 255, 0.02); }
+  .adm-ev.cur { border-color: rgba(56, 189, 248, 0.6); background: rgba(56, 189, 248, 0.07); }
+  .adm-ev-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .adm-ev-t { font-family: var(--mono); font-size: 12px; font-weight: 800; color: #38BDF8; }
+  .adm-ev-kind { font-size: 10.5px; font-weight: 800; color: #E2E8F0; background: rgba(148, 163, 184, 0.16); border-radius: 4px; padding: 2px 7px; }
+  .adm-ev-txt { font-size: 13px; margin: 6px 0; color: #E2E8F0; }
+  .adm-ev-raw { font-family: var(--mono); font-size: 11px; color: #94A3B8; background: rgba(0, 0, 0, 0.35); border-radius: 6px; padding: 6px 8px; overflow-wrap: anywhere; }
+  .adm-ev-raw b { color: #A78BFA; }
+  .adm-jump { display: flex; justify-content: space-between; width: 100%; margin-top: 6px; font-family: var(--font); font-size: 11.5px; color: var(--fg-muted); background: transparent; border: 0; padding: 0; cursor: pointer; }
+  .adm-jump:hover { color: #38BDF8; }
+  .adm-maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .adm-map { border: 1px solid var(--border); border-radius: var(--radius-md); background: rgba(8, 12, 22, 0.7); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .adm-map.sol { border-color: rgba(16, 185, 129, 0.65); box-shadow: 0 0 18px rgba(16, 185, 129, 0.15); }
+  .adm-map-head { display: flex; justify-content: space-between; gap: 6px; align-items: flex-start; }
+  .adm-map-title { font-size: 13px; font-weight: 800; }
+  .adm-map-sub { font-size: 11px; color: var(--fg-muted); }
+  .adm-map-tag { font-size: 10px; font-weight: 800; color: #FCA5A5; background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.45); border-radius: 6px; padding: 3px 6px; text-align: center; }
+  .adm-map canvas { width: 100%; height: auto; border-radius: 8px; background: #050912; }
+  .adm-map-meta { font-family: var(--mono); font-size: 10.5px; color: #94A3B8; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; }
+  .adm-map-meta span:nth-child(2n) { color: #38BDF8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .adm-map-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .adm-stat-v { font-family: var(--mono); font-size: 17px; font-weight: 800; }
+  .adm-stat-l { font-size: 10px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .adm-na { padding: 30px 10px; text-align: center; color: var(--fg-muted); font-style: italic; border: 1px dashed var(--border); border-radius: 8px; }
+  .adm-note { font-size: 13px; color: #CBD5E1; margin-top: 12px; line-height: 1.5; }
+  .adm-id { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 12.5px; color: #CBD5E1; }
+  .adm-id b { color: #F8FAFC; }
+  .adm-id .adm-lab { flex: none; font-family: var(--mono); font-size: 11px; font-weight: 800; border-radius: 4px; padding: 2px 6px; }
+  .adm-radar { border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }
+  .adm-radar svg { width: 100%; max-width: 380px; height: auto; }
+  .adm-radar-legend { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; font-size: 11.5px; color: #CBD5E1; }
+  .adm-login { max-width: 440px; margin: 10px auto; }
+  .adm-login label { display: block; font-size: 12px; font-weight: 700; color: var(--fg-muted); margin: 14px 0 6px; }
+  .adm-login input { width: 100%; font-family: var(--font); font-size: 14px; color: var(--fg); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }
+  .adm-login button[type="submit"] { margin-top: 18px; width: 100%; font-family: var(--font); font-weight: 800; font-size: 14px; color: #fff; background: linear-gradient(135deg, #7C3AED, #8B5CF6); border: 0; border-radius: 10px; padding: 12px; cursor: pointer; }
+  .adm-login button[disabled] { opacity: 0.6; cursor: wait; }
+  .adm-login-msg { margin-top: 12px; font-size: 13px; min-height: 18px; }
+  .adm-login-msg.bad { color: #FCA5A5; }
+  .adm-loading { padding: 40px; text-align: center; color: var(--fg-muted); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -1320,7 +1450,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 }
 
 // -------------------------------------------------------------
-// Views (spec 12 home screen + 4 user views, EF-21 replay, Operator card; plan 4.4)
+// Views (spec 12 home screen + 4 user views, EF-21 replay, Operator card; plan 4.4; the
+// admin cockpit behind the local admin sign-in)
 // Every figure shown comes from API v1 (D107): nothing below is a result.
 // -------------------------------------------------------------
 const VIEWS = {
@@ -1330,7 +1461,8 @@ const VIEWS = {
   bus: { label: "Bus", icon: "🚌" },
   ambulance: { label: "Ambulance", icon: "🚑" },
   replay: { label: "Relecture", icon: "🗺️" },
-  operator: { label: "Opérateur", icon: "📊" }
+  operator: { label: "Opérateur", icon: "📊" },
+  admin: { label: "Admin", icon: "🔐" }
 };
 
 const CROSSINGS = ["S", "W", "WB", "NB"];
@@ -1379,6 +1511,7 @@ const state = {
   showPeds: true,
   kiosk: false,
   operatorUrl: OPERATOR_URL,
+  adminTab: "table",
   flash: null
 };
 
@@ -1424,12 +1557,21 @@ function busy(delta) {
   if (el) el.classList.toggle("on", inflight > 0);
 }
 
-async function api(path, quiet = false) {
+// `init` ({ method, body }) only for the admin sign-in (POST /admin/login, /admin/logout)
+async function api(path, quiet = false, init = null) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   if (!quiet) busy(1);
   try {
-    const r = await fetch(path, { headers: { Accept: "application/json" }, cache: "no-store", signal: ctrl.signal });
+    const opts = { headers: { Accept: "application/json" }, cache: "no-store", signal: ctrl.signal, credentials: "same-origin" };
+    if (init) {
+      opts.method = init.method;
+      if (init.body !== undefined) {
+        opts.body = JSON.stringify(init.body);
+        opts.headers["Content-Type"] = "application/json";
+      }
+    }
+    const r = await fetch(path, opts);
     const b = await r.json();
     return { http: r.status, ...b };
   } catch (e) {
@@ -3381,7 +3523,16 @@ async function updateTicker(k0) {
 // VIEW: HOME (spec 12: five profiles in one click, no account)
 // -------------------------------------------------------------
 async function home() {
-  const b = await api("/health");
+  const [b, sess] = await Promise.all([api("/health"), api("/admin/session", true)]);
+  let adminState = "error";
+  if (!sess.error) adminState = sess.authenticated ? "authenticated" : (sess.configured ? "configured" : "not_configured");
+  const adminText = adminState === "authenticated" ? "🔐 Cockpit admin (session active)" : "🔐 Se connecter en admin";
+  const adminNote = {
+    authenticated: "Session admin ouverte sur ce navigateur.",
+    configured: "Accès local réservé au cockpit de comparaison ; les profils ci-dessus restent sans compte.",
+    not_configured: "Admin non configuré : <code>python tasks.py admin-set-password</code> sur cette machine.",
+    error: "État de l'admin inconnu (API injoignable)."
+  }[adminState];
   const flash = state.flash
     ? `<div class="banner bad" data-field="deeplink-error">⚠️ <strong>Lien invalide :</strong> ${esc(state.flash)}. Choisissez un profil.</div>`
     : "";
@@ -3410,6 +3561,10 @@ async function home() {
       ${card("ambulance", "🚑", "Ambulance", "État des 3 prochains carrefours")}
       ${card("operator", "📊", "Opérateur", "Comparer les scénarios")}
       ${card("replay", "🗺️", "Relecture", "Rejouer une simulation en 2D / 3D")}
+    </div>
+    <div class="home-admin-row">
+      <button class="home-admin-btn ${adminState === "not_configured" ? "off" : ""}" data-go="admin" data-field="home-admin" data-value="${adminState}">${adminText}</button>
+      <span class="muted">${adminNote}</span>
     </div>
   `];
 }
@@ -3819,9 +3974,1018 @@ async function operator() {
 }
 
 // -------------------------------------------------------------
+// VIEW: ADMIN COCKPIT (local-only sign-in through /admin/*, a deliberate addition that is not
+// a user account system: the five public profiles stay account-free, ENF-07). Every figure
+// comes from API v1: /evaluation (final_table, a06, replication_10_6), /kpi (equity flags),
+// /compare (Holm), /scenarios (demo runs), /replay, /replay/{run}/events and /ambulance.
+// -------------------------------------------------------------
+const ADMIN_LABELS = ["S1", "S2", "S3", "S4"];   // the synchronized comparison (display only)
+const ADMIN_POOL = 6;                             // concurrent requests of the cockpit
+const ADMIN_TTL_MS = 60000;                       // cockpit data are re-read after this
+const ADMIN_WINDOW = [150, 30];                   // phase timeline: seconds before / after t
+const ADMIN_COLORS = { S1: "#94A3B8", S2: "#10B981", S3: "#A855F7", S4: "#F59E0B" };
+const CTRL_TEXT = { fixed: "Référence fixe", actuated: "Actuated standard", rules: "Règles + bus + préemption", rl: "IA DQN" };
+const CTRL_SHORT = { fixed: "Fixe", actuated: "Actuated", rules: "Règles", rl: "IA DQN" };
+const USER_FR = { car: "voitures", bus: "bus", pedestrian: "piétons", ambulance: "ambulance", all: "tous usagers" };
+const ADMIN_GROUPS = [
+  ["every", "Tous"], ["car", "Voitures"], ["bus", `Bus lignes ${LINES.join(", ")}`], ["pedestrian", "Piétons"],
+  ["ambulance", "Ambulance"], ["safety", "Sécurité & Garde-fous"], ["users", "Tous usagers"]
+];
+const KPI_FR = {
+  "car/time_loss_mean": "Temps perdu moyen",
+  "car/wait_mean": "Attente moyenne",
+  "car/wait_p95": "Attente (95e centile)",
+  "car/throughput_vph": "Débit écoulé",
+  "bus/delay_mean": "Retard moyen au carrefour",
+  "bus/headway_std": "Irrégularité des intervalles (écart-type)",
+  "bus/dwell_mean": "Temps d'arrêt moyen en station",
+  "pedestrian/ped_curb_wait_mean": "Attente moyenne au trottoir",
+  "pedestrian/ped_curb_wait_p95": "Attente au trottoir (95e centile)",
+  "pedestrian/ped_curb_wait_max": "Attente maximale au trottoir",
+  "pedestrian/crossing_complete_rate": "Taux de traversées achevées",
+  "pedestrian/ped_curb_wait_max_worst": "Pire attente au trottoir (sur les graines)",
+  "ambulance/travel_time_total": "Temps de trajet ambulance",
+  "ambulance/stops": "Arrêts de l'ambulance",
+  "ambulance/stop_duration_mean": "Durée moyenne d'arrêt de l'ambulance",
+  "ambulance/preemption_requests": "Requêtes de préemption",
+  "ambulance/preemption_served": "Préemptions servies",
+  "ambulance/preemption_timeouts": "Préemptions expirées",
+  "all/person_delay_mean": "Retard pondéré par voyageur",
+  "all/person_delay_mean__occ_bus_20": "Retard voyageur (pondération bus 20)",
+  "all/person_delay_mean__occ_bus_30": "Retard voyageur (pondération bus 30)",
+  "all/equity_flags_vs_S0": "Drapeaux de rupture d'équité",
+  "all/worse_kpis_vs_S0": "Nombre de KPIs dégradés vs S0",
+  "all/hidden_degradation": "Dégradations cachées sous-jacentes",
+  "all/a04_pass": "A-04 : sécurité validée",
+  "all/danger_total": "Situations dangereuses",
+  "all/collisions": "Collisions",
+  "all/interventions_per_run": "Interventions du garde-fou par run",
+  "all/interventions_per_run__min_green": "Interventions : vert minimum",
+  "all/interventions_per_run__order": "Interventions : ordre des phases",
+  "all/interventions_per_run__max_green": "Interventions : vert maximum",
+  "all/interventions_per_run__starvation": "Interventions : famine d'une approche",
+  "all/interventions_per_run__ped_wait": "Interventions : attente piéton"
+};
+const BINARY_KPIS = { hidden_degradation: "bad", a04_pass: "good" };  // 1 = Oui
+const RADAR_AXES = [
+  ["car/time_loss_mean", "Voiture"], ["bus/delay_mean", `Bus (lignes ${LINES.join(", ")})`],
+  ["pedestrian/ped_curb_wait_mean", "Piétons"], ["ambulance/travel_time_total", "Ambulance"],
+  ["all/person_delay_mean", "Tous usagers"]
+];
+const EV_KINDS = [["all", "Tous"], ["amb", "Préemption ambulance"], ["bus", "Priorité bus"], ["ped", "Bouclier piéton"]];
+const RULE_FR = {
+  request: "Demande préemption", served: "Préemption servie", timeout: "Préemption expirée",
+  tsp_extend: "Priorité bus", ped_protect: "Protection piétons", ped_wait: "Bouclier piéton",
+  ped_yield: "Bouclier piéton", box_gapout: "Dégagement du carrefour", max_green: "Vert maximum"
+};
+
+const ADMIN = {
+  data: null,          // { at, ev, labels, cols, kpis, cmp, mainSol }
+  sync: null,          // { at, runs, events, moments, ref }
+  cache: new Map(),    // API path -> answer (cockpit only; cleared at logout)
+  t: null,             // shared instant of the synchronized comparison (s since the run start)
+  group: "every",
+  search: "",
+  evFilter: "all",
+  rawLabel: "S1",
+  maps: [],            // mini maps to draw after the render
+  expiry: null,
+  wasIn: false,
+  msg: null
+};
+
+function adminForget() {
+  ADMIN.data = null;
+  ADMIN.sync = null;
+  ADMIN.cache.clear();
+  ADMIN.t = null;
+  ADMIN.maps = [];
+  clearTimeout(ADMIN.expiry);
+}
+
+// Requests of the cockpit, at most ADMIN_POOL at a time (each one keeps its 4 s timeout)
+async function pooled(paths) {
+  const out = new Array(paths.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < paths.length) {
+      const i = next++;
+      out[i] = await api(paths[i], true);
+    }
+  };
+  busy(1);
+  try {
+    await Promise.all(Array.from({ length: Math.min(ADMIN_POOL, paths.length) }, worker));
+  } finally {
+    busy(-1);
+  }
+  return out;
+}
+
+async function cachedGet(paths) {
+  const miss = [...new Set(paths.filter((p) => !ADMIN.cache.has(p)))];
+  const got = await pooled(miss);
+  const fresh = new Map();
+  miss.forEach((p, i) => {
+    fresh.set(p, got[i]);
+    if (!transportFailure(got[i])) ADMIN.cache.set(p, got[i]);
+  });
+  return paths.map((p) => (ADMIN.cache.has(p) ? ADMIN.cache.get(p) : fresh.get(p)));
+}
+
+const fmtP = (p) => (p == null ? "--" : p.toFixed(4));
+const pctTxt = (v) => (v == null ? "--" : `${v > 0 ? "+" : (v < 0 ? "−" : "")}${Math.abs(v).toFixed(1)}%`);
+const atTxt = (begin, t) => `${begin != null ? hhmm(begin + t) : "--:--:--"} (t=${Math.round(t)} s)`;
+const seedsTxt = (seeds) => (Array.isArray(seeds) && seeds.length ? `${Math.min(...seeds)} à ${Math.max(...seeds)}` : "non indiquées");
+
+function beginOf(fb) {
+  if (!fb || fb.error || typeof fb.timestamp !== "string" || fb.sim_t_s == null) return null;
+  const tod = fb.timestamp.slice(11, 19).split(":").map(Number);
+  if (tod.length !== 3 || tod.some((x) => isNaN(x))) return null;
+  const tick = fb.sim_t_s - (fb.data_age_s != null ? fb.data_age_s : 0);
+  return tod[0] * 3600 + tod[1] * 60 + tod[2] - tick;
+}
+
+// -- data ----------------------------------------------------------------------------------
+async function adminData() {
+  if (ADMIN.data && Date.now() - ADMIN.data.at < ADMIN_TTL_MS) return ADMIN.data;
+  const ev = await api("/evaluation?family=main");
+  const evLabels = !ev.error && Array.isArray(ev.labels) ? ev.labels : [];
+  const roleRank = { main: 0, ablation: 1, exploratory: 2 };
+  const cols = evLabels.filter((x) => x && x.label).map((x) => ({ label: x.label, role: x.role, controller: x.controller, scenario: x.scenario }));
+  cols.sort((x, y) => ((roleRank[x.role] ?? 3) - (roleRank[y.role] ?? 3)) || (labelRank(x.label) - labelRank(y.label)));
+  const rep = !ev.error && ev.replication_10_6 ? ev.replication_10_6 : null;
+  const mainSol = rep && rep.main_solution ? rep.main_solution : null;
+  const kpiAnswers = await pooled(cols.map((c) => `/kpi?scenario=${encodeURIComponent(c.label)}&family=main`));
+  const kpis = {};
+  cols.forEach((c, i) => { kpis[c.label] = kpiAnswers[i]; });
+  let cmp = null;
+  if (mainSol && cols.some((c) => c.label === "S0")) {
+    cmp = await api(`/compare?a=S0&b=${encodeURIComponent(mainSol)}&family=main`, true);
+  }
+  ADMIN.data = { at: Date.now(), ev, cols, kpis, cmp, mainSol };
+  return ADMIN.data;
+}
+
+function adminRows(d) {
+  const ft = !d.ev.error && Array.isArray(d.ev.final_table) ? d.ev.final_table : [];
+  const rows = new Map();
+  for (const ftr of ft) {
+    if (!ftr || ftr.section === "probe" || String(ftr.kpi).endsWith("__probe")) continue;
+    const key = `${ftr.user}/${ftr.kpi}`;
+    if (!rows.has(key)) {
+      rows.set(key, { key, user: ftr.user, kpi: ftr.kpi, section: ftr.section, unit: ftr.unit, better: ftr.better_if, cells: {} });
+    }
+    rows.get(key).cells[ftr.label] = { mean: ftr.mean, rel: ftr.rel_vs_s0_pct, n: ftr.n };
+  }
+  return [...rows.values()].map((r) => {
+    let group = r.user;
+    if (r.section === "safety" || r.section === "activity") group = "safety";
+    else if (r.user === "all") group = "users";
+    return { ...r, group };
+  });
+}
+
+function ftValue(d, key, label) {
+  const ft = !d.ev.error && Array.isArray(d.ev.final_table) ? d.ev.final_table : [];
+  const ftr = ft.find((x) => x && x.section === "main" && `${x.user}/${x.kpi}` === key && x.label === label);
+  return ftr ? { mean: ftr.mean, rel: ftr.rel_vs_s0_pct, n: ftr.n } : null;
+}
+
+function equityLimit(d) {
+  const rep = !d.ev.error ? d.ev.replication_10_6 : null;
+  const lim = rep && rep.c2 ? rep.c2.limit_pct : null;
+  return typeof lim === "number" ? lim : null;
+}
+
+function kpiLabel(r, d) {
+  let name = KPI_FR[r.key] || r.kpi;
+  const lim = equityLimit(d);
+  if (r.kpi === "equity_flags_vs_S0" && lim != null) name += ` (> ${lim}% pire)`;
+  return name;
+}
+
+function holmOf(r, d) {
+  const a06 = !d.ev.error ? d.ev.a06 : null;
+  if (a06 && a06.kpi === r.key && Array.isArray(a06.comparisons)) {
+    const c = a06.comparisons.find((x) => x && x.reference === a06.primary);
+    if (c && c.p_holm != null) return { text: `p=${fmtP(c.p_holm)} (${a06.candidate} vs ${c.reference})`, title: c.sentence || "" };
+  }
+  const cmp = d.cmp;
+  if (cmp && !cmp.error && Array.isArray(cmp.rows)) {
+    const cr = cmp.rows.find((x) => x && x.user_type === r.user && x.kpi === r.kpi);
+    if (cr && cr.p_holm != null) return { text: `p=${fmtP(cr.p_holm)} (${cmp.b} vs ${cmp.a})`, title: `/compare?a=${cmp.a}&b=${cmp.b} : Holm sur les KPIs principaux` };
+  }
+  return null;
+}
+
+function flagOf(d, label, r) {
+  const k = d.kpis[label];
+  if (!k || k.error || !Array.isArray(k.rows)) return false;
+  const kr = k.rows.find((x) => x.user === r.user && x.kpi === r.kpi);
+  return !!(kr && kr.worse_flag);
+}
+
+function valueTxt(r, v) {
+  if (v == null || !isFinite(v)) return "--";
+  const bin = BINARY_KPIS[r.kpi];
+  if (bin && (v === 0 || v === 1)) {
+    const bad = (v === 1) === (bin === "bad");
+    return `<span class="${bad ? "adm-yes" : "adm-no"}">${v === 1 ? "Oui" : "Non"}</span>`;
+  }
+  if (r.unit) return v.toFixed(1);
+  if (Number.isInteger(v)) return String(v);
+  return String(Number(v.toPrecision(4)));
+}
+
+function bestOf(r, cols) {
+  if (r.better !== "lower" && r.better !== "higher") return new Set();
+  const vals = cols.map((c) => r.cells[c.label]).filter((x) => x && x.mean != null && isFinite(x.mean)).map((x) => x.mean);
+  if (vals.length < 2 || Math.min(...vals) === Math.max(...vals)) return new Set();
+  const best = r.better === "lower" ? Math.min(...vals) : Math.max(...vals);
+  return new Set(cols.filter((c) => r.cells[c.label] && r.cells[c.label].mean === best).map((c) => c.label));
+}
+
+function groupRows(d) {
+  return adminRows(d).filter((r) => ADMIN.group === "every" || r.group === ADMIN.group);
+}
+
+function visibleRows(d) {
+  const q = ADMIN.search.trim().toLowerCase();
+  return groupRows(d).filter((r) => !q || `${kpiLabel(r, d)} ${r.key} ${USER_FR[r.user] || ""}`.toLowerCase().includes(q));
+}
+
+function adminTable(d) {
+  const ev = d.ev;
+  if (ev.error || ev.status === "unavailable") {
+    return [ev, `<div class="adm-na" data-field="admin-table" data-value="0">Évaluation indisponible${ev.notice ? ` : ${esc(ev.notice)}` : ""}.</div>`];
+  }
+  const all = adminRows(d);
+  const counts = {};
+  for (const r of all) counts[r.group] = (counts[r.group] || 0) + 1;
+  counts.every = all.length;
+  const chips = ADMIN_GROUPS.map(([k, l]) =>
+    `<button class="adm-chip ${ADMIN.group === k ? "on" : ""}" data-admin-group="${k}">${esc(l)} (${counts[k] || 0})</button>`).join("");
+  const cols = d.cols;
+  const lim = equityLimit(d);
+  const head = cols.map((c) => {
+    const sol = c.label === d.mainSol;
+    const tag = sol ? `<span class="adm-tag sol">SOLUTION PRINCIPALE</span>` : (c.role === "ablation" ? `<span class="adm-tag abl">ABLATION</span>` : "");
+    const a06 = ev.a06;
+    let sub = sol || c.role === "ablation" ? "" : (CTRL_TEXT[c.controller] || c.controller || "");
+    if (sub && a06 && a06.candidate === c.label) sub += " (étude)";
+    return `<th class="${sol ? "main-sol" : ""}">${esc(c.label)}${tag}<span class="th-sub">${esc(sub)}</span></th>`;
+  }).join("");
+  const shown = groupRows(d);
+  const body = shown.map((r) => {
+    const best = bestOf(r, cols);
+    const cells = cols.map((c) => {
+      const cell = r.cells[c.label];
+      const v = cell ? cell.mean : null;
+      let pct = "";
+      if (cell && cell.rel != null && c.label !== "S0" && v != null) {
+        const good = r.better === "lower" ? cell.rel < 0 : (r.better === "higher" ? cell.rel > 0 : null);
+        const cls = cell.rel === 0 || good == null ? "flat" : (good ? "gain" : "loss");
+        pct = `<span class="adm-badge-pct ${cls}">${pctTxt(cell.rel)}</span>`;
+      }
+      const flag = flagOf(d, c.label, r) && lim != null ? `<span class="adm-flag" title="drapeau d'équité (equity.csv)">&gt;${lim}%</span>` : "";
+      return `<td class="${best.has(c.label) ? "best" : ""}">${valueTxt(r, v)}${pct}${flag}</td>`;
+    }).join("");
+    const holm = holmOf(r, d);
+    return `<tr data-key="${esc(r.key)}"><td class="kpi">${esc(kpiLabel(r, d))}</td><td class="unit">${esc(r.unit || "-")}</td>${cells}
+      <td>${holm ? `<span class="adm-holm" title="${esc(holm.title)}">${esc(holm.text)}</span>` : "--"}</td></tr>`;
+  }).join("");
+  const seeds = Array.isArray(ev.seeds) ? ev.seeds : [];
+  const html = `
+    <div class="adm-panel">
+      <div class="adm-chips" role="group" aria-label="Usagers">${chips}</div>
+      <div class="adm-tools">
+        <input id="admin-search" class="adm-search" type="search" placeholder="Filtrer un indicateur ou usager..." value="${esc(ADMIN.search)}" aria-label="Filtrer">
+        <button id="admin-export" class="adm-export">Exporter CSV</button>
+      </div>
+    </div>
+    <div class="adm-panel adm-legend">
+      <span><span class="adm-dot" style="background:#10B981"></span><strong>Meilleure performance</strong> (surbrillance émeraude)</span>
+      <span>${lim != null ? `<span class="adm-flag" style="margin-left:0">&gt;${lim}%</span> <strong>Drapeau d'équité</strong> (&gt; ${lim}% pire vs S0, equity.csv)` : "Seuil d'équité non fourni par /evaluation"}</span>
+      <span>Moyennes sur ${seeds.length} graines d'évaluation (${seedsTxt(seeds)})</span>
+    </div>
+    <div class="table-box">
+      <table class="adm-table" data-field="admin-table" data-value="${shown.length}">
+        <thead><tr><th>Indicateur clé (KPI)</th><th>Unité</th>${head}<th>Test Holm</th></tr></thead>
+        <tbody>${body || `<tr><td colspan="${cols.length + 3}" class="muted">aucun indicateur pour ce filtre</td></tr>`}</tbody>
+      </table>
+    </div>
+    <div class="muted" style="margin-top:10px">Source : /evaluation (final_table, ${seeds.length} graines), drapeaux d'équité de /kpi, tests de Holm de /evaluation (A-06) et /compare. Lignes de la sonde ambulance non reprises.</div>`;
+  // root state (12.1): the evaluation, folded with the /kpi answers that failed
+  const bad = cols.filter((c) => d.kpis[c.label] && (d.kpis[c.label].error || d.kpis[c.label].status === "unavailable")).map((c) => c.label);
+  let b = ev;
+  if (bad.length && ev.status === "ok") b = { ...ev, status: "degraded", notice: `drapeaux d'équité indisponibles pour ${bad.join(", ")}` };
+  return [b, html];
+}
+
+function adminCsv() {
+  const d = ADMIN.data;
+  if (!d) return;
+  const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
+  const head = ["indicateur", "cle", "unite"];
+  for (const c of d.cols) head.push(c.label, `${c.label}_vs_S0_pct`, `${c.label}_drapeau_equite`);
+  head.push("test_holm");
+  const lines = [head.map(q).join(";")];
+  for (const r of visibleRows(d)) {
+    const cells = [kpiLabel(r, d), r.key, r.unit || ""];
+    for (const c of d.cols) {
+      const cell = r.cells[c.label];
+      cells.push(cell && cell.mean != null ? cell.mean : "", cell && cell.rel != null ? cell.rel : "", flagOf(d, c.label, r) ? "oui" : "");
+    }
+    const holm = holmOf(r, d);
+    cells.push(holm ? holm.text : "");
+    lines.push(cells.map(q).join(";"));
+  }
+  const blob = new Blob(["﻿" + lines.join("\n") + "\n"], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "cockpit_comparaison_scenarios.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function applyAdminSearch() {
+  const el = $("admin-search");
+  if (!el || !ADMIN.data) return;
+  ADMIN.search = el.value;
+  const d = ADMIN.data;
+  const keep = new Set(visibleRows(d).map((r) => r.key));
+  document.querySelectorAll(".adm-table tbody tr[data-key]").forEach((tr) => { tr.style.display = keep.has(tr.dataset.key) ? "" : "none"; });
+  const table = document.querySelector(".adm-table");
+  if (table) table.dataset.value = String(keep.size);
+}
+
+// -- synchronized comparison ----------------------------------------------------------------
+function preemptionOf(b) {
+  const evs = b && !b.error && Array.isArray(b.events) ? b.events : [];
+  const req = evs.find((evt) => evt.source === "preemption" && evt.rule === "request");
+  const served = req ? evs.find((evt) => evt.source === "preemption" && evt.rule === "served" && evt.t >= req.t) : null;
+  return { request: req ? req.t : null, served: served ? served.t : null };
+}
+
+async function adminSyncData(d) {
+  if (ADMIN.sync && Date.now() - ADMIN.sync.at < ADMIN_TTL_MS) return ADMIN.sync;
+  const sc = await api("/scenarios", true);
+  const groups = !sc.error && Array.isArray(sc.scenarios) ? sc.scenarios : [];
+  const runs = {};
+  for (const L of ADMIN_LABELS) {
+    const grp = groups.find((g) => g.family === "main" && g.label === L);
+    const demo = grp ? grp.runs.filter((sr) => sr.seed_role === "demo").sort((x, y) => x.seed - y.seed) : [];
+    runs[L] = {
+      label: L, scenario: grp ? grp.scenario : null, controller: grp ? grp.controller : null, role: grp ? grp.role : null,
+      run_id: demo.length ? demo[0].run_id : null, seed: demo.length ? demo[0].seed : null
+    };
+  }
+  const avail = ADMIN_LABELS.filter((L) => runs[L].run_id);
+  const evAnswers = await pooled(avail.map((L) => `/replay/${encodeURIComponent(runs[L].run_id)}/events?limit=10000`));
+  const events = {};
+  avail.forEach((L, i) => { events[L] = evAnswers[i]; });
+  // Key moments: the preemption of the main solution's demo run (else the first run with
+  // one), the ambulance's first replay frame, its green wave and its passage (/ambulance),
+  // and the end of the green that served it (/replay)
+  const ref = [d.mainSol, ...ADMIN_LABELS].find((L) => L && events[L] && preemptionOf(events[L]).request != null) || null;
+  const moments = [];
+  let begin = null;
+  if (ref) {
+    const run = encodeURIComponent(runs[ref].run_id);
+    const { request, served } = preemptionOf(events[ref]);
+    const [fb] = await cachedGet([`/replay/${run}?t=${Math.round(request)}`]);
+    begin = beginOf(fb);
+    const step = fb && !fb.error && fb.step_s > 0 ? fb.step_s : null;
+    if (step) {
+      const k0 = Math.max(fb.t_min_s != null ? fb.t_min_s : 0, Math.floor(request / step) * step - 2 * step);
+      const kEnd = Math.min(fb.t_max_s != null ? fb.t_max_s : Infinity, (served != null ? served : request + 300) + 150);
+      const ks = [];
+      for (let k = k0; k <= kEnd; k += step) ks.push(k);
+      const ambs = await cachedGet(ks.map((k) => `/ambulance/next-intersections?run_id=${run}&t=${k}`));
+      const frames = await cachedGet(ks.map((k) => `/replay/${run}?t=${k}`));
+      const junction = (b) => (b && !b.error && Array.isArray(b.intersections) ? b.intersections.find((jn) => jn.modelled) : null);
+      const first = (pred) => { const i = ks.findIndex((k, j) => pred(j)); return i < 0 ? null : ks[i]; };
+      const detect = first((j) => ambs[j] && !ambs[j].error && ambs[j].vehicle_id != null);
+      const wave = first((j) => { const jn = junction(ambs[j]); return !!(jn && jn.status === "green_wave"); });
+      const passed = first((j) => { const jn = junction(ambs[j]); return !!(jn && jn.passed === true); });
+      if (detect != null) moments.push({ t: detect, label: "Détection ambulance", src: "première trame /replay avec l'ambulance (/ambulance vehicle_id)" });
+      moments.push({ t: request, label: "Requête préemption", src: "/replay/{run_id}/events preemption request" });
+      if (wave != null) moments.push({ t: wave, label: "Approche carrefour (onde verte)", src: "/ambulance status green_wave" });
+      if (served != null) moments.push({ t: served, label: "Préemption servie", src: "/replay/{run_id}/events preemption served" });
+      if (passed != null) moments.push({ t: passed, label: "Franchissement", src: "/ambulance passed" });
+      const from = served != null ? served : passed;
+      if (from != null) {
+        const j0 = ks.findIndex((k) => k >= Math.floor(from / step) * step);
+        const s0 = j0 >= 0 && frames[j0] && !frames[j0].error ? frames[j0].stage : null;
+        let cycle = null;
+        for (let j = j0 + 1; j0 >= 0 && j < ks.length; j++) {
+          const fr = frames[j];
+          if (fr && !fr.error && (fr.in_clearance || fr.stage !== s0)) { cycle = ks[j]; break; }
+        }
+        if (cycle != null) moments.push({ t: cycle, label: "Fin de cycle", src: "/replay : fin du vert qui a servi l'ambulance" });
+      }
+    } else {
+      moments.push({ t: request, label: "Requête préemption", src: "/replay/{run_id}/events" });
+    }
+    moments.sort((x, y) => x.t - y.t);
+  }
+  ADMIN.sync = { at: Date.now(), runs, events, moments, ref, begin };
+  return ADMIN.sync;
+}
+
+function frameKind(fb) {
+  if (!fb || fb.error || fb.status === "unavailable" || fb.stage_name == null) return ["gap", ""];
+  if (!fb.in_clearance) return ["green", fb.stage_name];
+  const heads = fb.signals ? ["N", "S", "W", "NB", "WB"].map((a) => fb.signals[a]).filter(Boolean) : [];
+  if (heads.includes("yellow")) return ["yellow", fb.stage_name];
+  if (heads.length && heads.every((h) => h === "red")) return ["allred", fb.stage_name];
+  return ["clear", fb.stage_name];
+}
+
+function segmentsOf(frames, ks, step) {
+  const segs = [];
+  frames.forEach((fb, i) => {
+    const [kind, name] = frameKind(fb);
+    const last = segs[segs.length - 1];
+    if (last && last.kind === kind && last.name === name) last.n += 1;
+    else segs.push({ kind, name, n: 1, k: ks[i] });
+  });
+  for (const sg of segs) {
+    const dur = Math.round(sg.n * step);
+    sg.text = sg.kind === "green" ? `${sg.name} Vert ${dur}s` : (sg.kind === "clear" ? `${sg.name} ${dur}s` : (sg.kind === "gap" ? "n/d" : `${dur}s`));
+    sg.title = { green: "vert", clear: "dégagement (piétons)", yellow: "jaune", allred: "tout-rouge", gap: "trame indisponible" }[sg.kind];
+  }
+  return segs;
+}
+
+function evKind(evt) {
+  if (evt.source === "preemption") return "amb";
+  if (evt.rule === "tsp_extend") return "bus";
+  if (["ped_protect", "ped_wait", "ped_yield"].includes(evt.rule)) return "ped";
+  return "other";
+}
+
+function kv(detail) {
+  const o = {};
+  String(detail == null ? "" : detail).split(/[,\s]+/).forEach((p) => {
+    const i = p.indexOf("=");
+    if (i > 0) o[p.slice(0, i)] = p.slice(i + 1);
+  });
+  return o;
+}
+
+function evSentence(evt) {
+  if (evt.detail == null || String(evt.detail).trim() === "") return null;
+  const d = kv(evt.detail);
+  const veh = d.vid ? d.vid : "véhicule non indiqué";
+  const stages = evt.stage_from != null || evt.stage_to != null ? `stage ${evt.stage_from != null ? evt.stage_from : "?"} → ${evt.stage_to != null ? evt.stage_to : "?"}` : "";
+  switch (evt.rule) {
+    case "request":
+      return `Demande de préemption émise pour ${veh} sur le lien ${d.link != null ? d.link : "?"}${d.dist === "inf" ? " (distance non mesurée à la détection)" : (d.dist ? ` à ${d.dist} m` : "")}.`;
+    case "served":
+      return `Préemption servie pour ${veh} sur le lien ${d.link != null ? d.link : "?"}${d.dist ? ` (à ${d.dist} m au service)` : ""}.`;
+    case "timeout":
+      return `Préemption expirée sans service pour ${veh}.`;
+    case "tsp_extend":
+      return `Vert prolongé pour le bus ${veh} de la ligne ${d.line != null ? d.line : "?"} (arrivée estimée ${d.eta != null ? d.eta : "?"} s, prolongation permise ${d.allow != null ? d.allow : "?"} s).`;
+    case "ped_protect":
+      return `Protection des piétons sur le stage ${d.stage != null ? d.stage : "?"} (marge ${d.slack != null ? d.slack : "?"} s), ${stages}.`;
+    case "ped_wait":
+      return `Bouclier piéton : attente au passage ${d.crossing != null ? d.crossing : "?"} dépassée (${d.over != null ? d.over : "?"}), ${stages}.`;
+    case "ped_yield":
+      return `Bouclier piéton : cession au passage ${d.crossing != null ? d.crossing : "?"} (dépassement ${d.over != null ? d.over : "?"}), ${stages}.`;
+    case "box_gapout":
+      return `Fin anticipée du stage ${d.stage != null ? d.stage : "?"} pour dégager le carrefour, ${stages}.`;
+    case "max_green":
+      return `Garde-fou : vert maximum atteint (${d.green != null ? d.green : "?"}), ${stages}.`;
+    default:
+      return `${evt.source} · ${evt.rule}${stages ? `, ${stages}` : ""}.`;
+  }
+}
+
+function adminRadar(d) {
+  const vals = RADAR_AXES.map(([key]) => ADMIN_LABELS.map((L) => { const v = ftValue(d, key, L); return v ? v.mean : null; }));
+  const scores = vals.map((arr) => {
+    const ok = arr.filter((v) => v != null && v > 0);
+    const best = ok.length ? Math.min(...ok) : null;
+    return arr.map((v) => (best != null && v != null && v > 0 ? best / v : null));
+  });
+  const cx = 190, cy = 150, R = 100, n = RADAR_AXES.length;
+  const pt = (i, r) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + Math.cos(a) * R * r, cy + Math.sin(a) * R * r]; };
+  let svg = `<svg viewBox="0 0 380 300" role="img" aria-label="Radar des compromis">`;
+  for (const ring of [0.25, 0.5, 0.75, 1]) {
+    svg += `<polygon points="${RADAR_AXES.map((_, i) => pt(i, ring).join(",")).join(" ")}" fill="none" stroke="rgba(148,163,184,0.18)"/>`;
+  }
+  RADAR_AXES.forEach(([, name], i) => {
+    const [x, y] = pt(i, 1);
+    const [lx, ly] = pt(i, 1.2);
+    svg += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="rgba(148,163,184,0.18)"/>`;
+    svg += `<text x="${lx}" y="${ly}" fill="#CBD5E1" font-size="10" text-anchor="middle" dominant-baseline="middle">${esc(name)}</text>`;
+  });
+  ADMIN_LABELS.forEach((L, j) => {
+    const pts = RADAR_AXES.map((_, i) => pt(i, scores[i][j] != null ? scores[i][j] : 0).join(",")).join(" ");
+    const tip = RADAR_AXES.map(([, name], i) => `${name} : ${vals[i][j] != null ? vals[i][j].toFixed(1) : "n/d"} (score ${scores[i][j] != null ? scores[i][j].toFixed(2) : "n/d"})`).join(" · ");
+    svg += `<polygon points="${pts}" fill="${ADMIN_COLORS[L]}" fill-opacity="0.12" stroke="${ADMIN_COLORS[L]}" stroke-width="2"><title>${esc(L)} : ${esc(tip)}</title></polygon>`;
+  });
+  svg += `</svg>`;
+  const have = scores.every((row) => row.some((v) => v != null));
+  return [svg, have];
+}
+
+function identityText(L, run, d) {
+  const ev = d.ev;
+  if (!run.controller) return "scénario non enregistré dans /scenarios";
+  if (run.controller === "actuated") return "<b>Actuated standard :</b> détection locale par boucles, cycle adaptatif sans priorité bus ni préemption.";
+  if (run.controller === "fixed") return "<b>Référence fixe :</b> programme de feux à temps fixe.";
+  const noPre = /nopreempt/.test(String(run.scenario));
+  if (run.controller === "rules") {
+    const sol = L === d.mainSol ? " Solution principale retenue pour l'étude (main_solution de /evaluation)." : "";
+    return `<b>Règles expertes + bus (lignes ${esc(LINES.join(", "))})${noPre ? " sans préemption" : " + ambulance"} :</b>${sol || " variante du contrôleur à règles."}`;
+  }
+  if (noPre) return "<b>IA DQN sans préemption :</b> ablation scientifique mesurant l'apport direct de la priorité d'urgence.";
+  const facts = [];
+  const a06 = !ev.error ? ev.a06 : null;
+  if (a06 && a06.candidate === L && Array.isArray(a06.comparisons)) {
+    const c = a06.comparisons.find((x) => x && x.reference === a06.primary);
+    const out = { better: "meilleur", worse: "moins bon", none: "pas de différence significative" };
+    if (c) facts.push(`A-06 vs ${esc(c.reference)} : ${esc(out[c.outcome] || c.outcome)}, Holm p=${fmtP(c.p_holm)}`);
+  }
+  const rep = !ev.error ? ev.replication_10_6 : null;
+  const worse = rep && rep.c2 && Array.isArray(rep.c2.rows) ? rep.c2.rows.filter((x) => x && x.worse) : [];
+  for (const w of worse) {
+    const user = String(w.kpi).split("/")[0];
+    facts.push(`dégradation ${esc(USER_FR[user] || user)} de ${pctTxt(w.rel_pct)} vs ${esc(rep.c2.reference)} (§10.6 C2)`);
+  }
+  return `<b>IA DQN avec bouclier piétons :</b> étude exploratoire${facts.length ? ` (${facts.join(" ; ")})` : ""}.`;
+}
+
+async function adminSync(d) {
+  const ev = d.ev;
+  const sy = await adminSyncData(d);
+  const served = sy.moments.find((m) => m.label === "Préemption servie");
+  if (ADMIN.t == null) ADMIN.t = served ? served.t : (sy.moments.length ? sy.moments[0].t : Math.round(state.t));
+  const t = ADMIN.t;
+  const avail = ADMIN_LABELS.filter((L) => sy.runs[L].run_id);
+  const enc = (L) => encodeURIComponent(sy.runs[L].run_id);
+  const atT = await cachedGet(avail.map((L) => `/replay/${enc(L)}?t=${Math.round(t)}&positions=true`));
+  const now = {};
+  avail.forEach((L, i) => { now[L] = atT[i]; });
+  let begin = sy.begin;
+  for (const L of avail) if (begin == null) begin = beginOf(now[L]);
+  // phase timeline frames of every run over the window around t
+  const plan = {};
+  const paths = [];
+  for (const L of avail) {
+    const fb = now[L];
+    const step = fb && !fb.error && fb.step_s > 0 ? fb.step_s : null;
+    if (!step) continue;
+    const lo = fb.t_min_s != null ? fb.t_min_s : 0;
+    const hi = fb.t_max_s != null ? fb.t_max_s : t + ADMIN_WINDOW[1];
+    const k0 = Math.max(lo, Math.floor((t - ADMIN_WINDOW[0]) / step) * step);
+    const k1 = Math.min(hi, Math.floor((t + ADMIN_WINDOW[1]) / step) * step);
+    const ks = [];
+    for (let k = k0; k <= k1; k += step) ks.push(k);
+    plan[L] = { step, ks, from: paths.length };
+    for (const k of ks) paths.push(`/replay/${enc(L)}?t=${k}`);
+  }
+  const got = await cachedGet(paths);
+  const problems = [];
+  const missing = ADMIN_LABELS.filter((L) => !sy.runs[L].run_id);
+  if (missing.length) problems.push(`${missing.join(", ")} : run de démonstration indisponible`);
+  const failed = avail.filter((L) => !now[L] || now[L].error || now[L].status === "unavailable");
+  if (failed.length) problems.push(`${failed.join(", ")} : état à t indisponible`);
+
+  // moments
+  const momentChips = sy.moments.length
+    ? sy.moments.map((m) => `<button class="adm-chip ${Math.abs(m.t - t) < 0.5 ? "on" : ""}" data-admin-t="${Math.round(m.t)}" title="${esc(m.src)}">${atTxt(begin, m.t)} ${esc(m.label)}</button>`).join("")
+    : `<span class="muted">aucune préemption ambulance journalisée dans les runs de démonstration : instant ${atTxt(begin, t)}</span>`;
+  const refTxt = sy.ref ? `moments lus dans le run ${esc(sy.ref)} (graine ${esc(sy.runs[sy.ref].seed)})` : "";
+
+  // module 1: timelines
+  let tl0 = null, tl1 = null;
+  for (const L of Object.keys(plan)) {
+    const p = plan[L];
+    tl0 = tl0 == null ? p.ks[0] : Math.min(tl0, p.ks[0]);
+    tl1 = tl1 == null ? p.ks[p.ks.length - 1] + p.step : Math.max(tl1, p.ks[p.ks.length - 1] + p.step);
+  }
+  const span = tl0 != null && tl1 > tl0 ? tl1 - tl0 : null;
+  const pos = (x) => (span ? Math.max(0, Math.min(100, (x - tl0) / span * 100)) : 0);
+  let axis = "";
+  if (span) {
+    const ticks = 5;
+    for (let i = 0; i <= ticks; i++) {
+      const x = tl0 + span * i / ticks;
+      const edge = i === 0 ? "first" : (i === ticks ? "last" : "");
+      axis += `<span class="${edge}" style="left:${(i / ticks * 100).toFixed(1)}%">${begin != null ? hhmm(begin + x) : ""} (t=${Math.round(x)} s)</span>`;
+    }
+  }
+  const segInfo = {};
+  const stageNames = new Set();
+  const rowsTl = ADMIN_LABELS.map((L) => {
+    const run = sy.runs[L];
+    const name = `${L} (${run.role === "ablation" ? "Ablation" : (CTRL_SHORT[run.controller] || "?")})`;
+    const color = ADMIN_COLORS[L];
+    if (!run.run_id) return `<div class="adm-tl-row"><div class="adm-tl-name" style="color:${color}">${esc(name)}</div><div class="adm-tl-na" data-field="admin-run-${L}" data-value="missing">run indisponible (aucun run de démonstration pour ${esc(L)})</div></div>`;
+    const p = plan[L];
+    if (!p) return `<div class="adm-tl-row"><div class="adm-tl-name" style="color:${color}">${esc(name)}</div><div class="adm-tl-na" data-field="admin-run-${L}" data-value="error">état indisponible à cet instant</div></div>`;
+    const frames = got.slice(p.from, p.from + p.ks.length);
+    const segs = segmentsOf(frames, p.ks, p.step);
+    segs.forEach((sg) => { if (sg.kind !== "gap" && sg.name) stageNames.add(sg.name); });
+    const cur = segs.slice().reverse().find((sg) => sg.k <= t);
+    segInfo[L] = { cur, step: p.step };
+    const lead = (p.ks[0] - tl0) / span * 100;
+    const segHtml = segs.map((sg) => `<div class="adm-seg ${sg.kind}" style="flex:${sg.n}" title="${esc(sg.title)} · ${atTxt(begin, sg.k)} · ${sg.n} trame(s) de ${p.step} s">${esc(sg.text)}</div>`).join("");
+    const evs = sy.events[L] && !sy.events[L].error && Array.isArray(sy.events[L].events) ? sy.events[L].events : [];
+    const marks = evs.filter((evt) => evt.t >= tl0 && evt.t <= tl1 && (evt.source === "preemption" || evt.rule === "tsp_extend")).map((evt) => {
+      const kind = evt.source === "preemption" ? "pre" : "bus";
+      const d0 = kv(evt.detail);
+      const what = kind === "pre" ? `préemption ${evt.rule}` : `extension bus TSP ligne ${d0.line != null ? d0.line : "?"}`;
+      return `<div class="adm-mark ${kind}" style="left:${pos(evt.t).toFixed(2)}%" title="${esc(what)} à ${atTxt(begin, evt.t)}"></div>`;
+    }).join("");
+    return `<div class="adm-tl-row"><div class="adm-tl-name" style="color:${color}">${esc(name)}</div>
+      <div class="adm-tl-bar" data-field="admin-run-${L}" data-value="ok"><div style="flex:none; width:${lead.toFixed(2)}%"></div>${segHtml}${marks}
+      <div class="adm-mark cur" style="left:${pos(t).toFixed(2)}%" title="instant t"></div></div></div>`;
+  }).join("");
+  // raw /replay fields at t
+  const rawL = avail.includes(ADMIN.rawLabel) ? ADMIN.rawLabel : (avail[0] || null);
+  let raw = `<div class="muted">aucun run disponible</div>`;
+  if (rawL) {
+    const fb = now[rawL];
+    const chips = avail.map((L) => `<button class="adm-chip ${L === rawL ? "on" : ""}" data-admin-raw="${L}">${L}</button>`).join("");
+    const cell = (k, v) => `<div class="adm-raw-cell"><span>${k}</span><strong>${esc(v)}</strong></div>`;
+    const ok = fb && !fb.error && fb.status !== "unavailable";
+    const info = segInfo[rawL] && segInfo[rawL].cur;
+    const kindFr = info ? { green: "en vert", clear: "en dégagement", yellow: "au jaune", allred: "au tout-rouge", gap: "inconnu" }[info.kind] : null;
+    const since = info ? Math.round(t - info.k) : null;
+    raw = `
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center">
+        <div style="font-size:12.5px; font-weight:800; color:#7DD3FC">Données brutes réelles issues de l'API (/replay/{run_id}?t=${Math.round(t)}) · ${esc(rawL)}</div>
+        <div class="adm-chips">${chips}</div>
+      </div>
+      ${ok ? `<div class="adm-raw-grid" data-field="admin-raw" data-value="${dv(fb.sim_t_s)}">
+        ${cell("sim_t_s", fb.sim_t_s != null ? fb.sim_t_s.toFixed(1) : "--")}
+        ${cell("phase", fb.phase != null ? fb.phase : "--")}
+        ${cell("stage_name", fb.stage_name != null ? fb.stage_name : "--")}
+        ${cell("in_clearance", fb.in_clearance == null ? "--" : (fb.in_clearance ? "oui" : "non"))}
+        ${cell("queue_total", fb.queue_total != null ? `${Math.round(fb.queue_total)} veh` : "--")}
+      </div>` : `<div class="muted" style="margin-top:8px">${esc(fb && fb.notice ? fb.notice : "état indisponible à cet instant")}</div>`}
+      <div class="adm-raw-foot">
+        <span>${info && kindFr ? `Contrôleur ${esc(rawL)} : ${esc(info.name)} ${kindFr} depuis ${since} s au moins (trames du journal d'état au pas de ${segInfo[rawL].step} s)` : ""}</span>
+        <span>Source : GET /replay/${esc(sy.runs[rawL].run_id)}?t=${Math.round(t)}</span>
+      </div>`;
+  }
+  const module1 = `
+    <div class="adm-panel" data-field="admin-timeline" data-value="${Object.keys(plan).length}">
+      <h3 class="adm-h">Module 1 · Frise temporelle des phases réelles issues de /replay (${esc([...stageNames].join(", ") || "aucun stage lu")})</h3>
+      <div class="adm-hsub">Séries réelles de chaque contrôleur (journal d'état, une trame toutes les ${esc(Object.values(plan).map((p) => p.step)[0] || "--")} s) · Vert, dégagement, jaune et tout-rouge étiquetés · Préemption et priorité bus marquées depuis les événements</div>
+      <div class="adm-tl">
+        <div class="adm-tl-axis">${axis}</div>
+        ${rowsTl}
+      </div>
+      <div class="adm-legend" style="margin-top:10px">
+        <span><span class="adm-dot" style="background:#059669"></span>Vert</span>
+        <span><span class="adm-dot" style="background:#D97706"></span>Dégagement piéton</span>
+        <span><span class="adm-dot" style="background:#EAB308"></span>Jaune</span>
+        <span><span class="adm-dot" style="background:#DC2626"></span>Tout-rouge</span>
+        <span><span class="adm-dot" style="background:#34D399; width:3px"></span>Marqueur extension bus (TSP)</span>
+        <span><span class="adm-dot" style="background:#F87171; width:3px"></span>Marqueur ponctuel préemption (requête / service)</span>
+        <span><span class="adm-dot" style="background:#C4B5FD; width:3px"></span>Instant t</span>
+      </div>
+      <div class="adm-raw">${raw}</div>
+    </div>`;
+
+  // module 2: events
+  const all = [];
+  for (const L of avail) {
+    const b = sy.events[L];
+    if (b && !b.error && Array.isArray(b.events)) for (const evt of b.events) all.push({ L, evt, kind: evKind(evt) });
+  }
+  all.sort((x, y) => x.evt.t - y.evt.t || x.L.localeCompare(y.L));
+  const counts = { all: all.length, amb: 0, bus: 0, ped: 0 };
+  for (const x of all) if (counts[x.kind] != null) counts[x.kind] += 1;
+  const shownEv = all.filter((x) => ADMIN.evFilter === "all" || x.kind === ADMIN.evFilter);
+  let curIdx = -1;
+  shownEv.forEach((x, i) => { if (x.evt.t <= t) curIdx = i; });
+  const evChips = EV_KINDS.map(([k, l]) => `<button class="adm-chip ${ADMIN.evFilter === k ? "on" : ""}" data-admin-ev="${k}">${esc(l)} (${counts[k]})</button>`).join("");
+  const quiet = avail.filter((L) => sy.events[L] && !sy.events[L].error && Array.isArray(sy.events[L].events) && !sy.events[L].events.length)
+    .map((L) => `${L} : ${sy.events[L].notice ? sy.events[L].notice : "aucun événement"}`);
+  const evErr = avail.filter((L) => !sy.events[L] || sy.events[L].error || sy.events[L].status === "unavailable");
+  if (evErr.length) problems.push(`${evErr.join(", ")} : événements indisponibles`);
+  const evHtml = shownEv.map((x, i) => {
+    const evt = x.evt;
+    const sentence = evSentence(evt);
+    const rawLine = `t=${evt.t}s | run=${x.L} | source=${evt.source} | rule=${evt.rule}${evt.stage_from != null || evt.stage_to != null ? ` | stage ${evt.stage_from != null ? evt.stage_from : "?"}→${evt.stage_to != null ? evt.stage_to : "?"}` : ""} | ${evt.detail != null && String(evt.detail).trim() ? evt.detail : "donnée indisponible"}`;
+    return `<div class="adm-ev ${i === curIdx ? "cur" : ""}" ${i === curIdx ? 'id="adm-ev-cur"' : ""}>
+      <div class="adm-ev-head"><span class="adm-ev-t">${atTxt(begin, evt.t)} · <span style="color:${ADMIN_COLORS[x.L]}">${esc(x.L)}</span></span><span class="adm-ev-kind">${esc(RULE_FR[evt.rule] || evt.rule)}</span></div>
+      <div class="adm-ev-txt">${sentence ? esc(sentence) : '<em style="color:#FCA5A5">donnée indisponible</em>'}</div>
+      <div class="adm-ev-raw"><b>Brut :</b> ${esc(rawLine)}</div>
+      <button class="adm-jump" data-admin-t="${Math.round(evt.t)}"><span>Sauter à ${atTxt(begin, evt.t)}</span><span>→</span></button>
+    </div>`;
+  }).join("");
+  const module2 = `
+    <div class="adm-panel" data-field="admin-events" data-value="${shownEv.length}">
+      <h3 class="adm-h">Module 2 · Pourquoi ça diverge ? (Événements réels)</h3>
+      <div class="adm-hsub">Chaque phrase est générée à partir des champs de /replay/{run_id}/events (t, source, règle, stages, détail) des runs de démonstration</div>
+      <div class="adm-chips">${evChips}</div>
+      <div class="adm-evlist" id="adm-evlist">${evHtml || '<div class="muted">aucun événement pour ce filtre</div>'}</div>
+      ${quiet.length ? `<div class="muted" style="margin-top:8px">${esc(quiet.join(" · "))}</div>` : ""}
+    </div>`;
+
+  // module 3: four synchronized mini maps
+  ADMIN.maps = [];
+  const seeds = Array.isArray(ev.seeds) ? ev.seeds : [];
+  const s0amb = ftValue(d, "ambulance/travel_time_total", "S0");
+  const cards = ADMIN_LABELS.map((L) => {
+    const run = sy.runs[L];
+    const sol = L === d.mainSol;
+    const noPre = run.controller === "actuated" || run.controller === "fixed" ? "Feux ordinaires (sans préemption)" : (/nopreempt/.test(String(run.scenario)) ? "Sans préemption" : "");
+    const title = `${L} · ${run.controller === "rules" ? (sol ? "Règles + Bus + Préemption" : "Règles") : (run.controller === "rl" ? (noPre ? "IA sans préemption" : "Intelligence Artificielle (DQN)") : (CTRL_TEXT[run.controller] || "scénario"))}`;
+    const sub = sol ? "Solution principale retenue pour l'étude" : (run.role === "ablation" ? "Ablation scientifique" : (run.controller === "rl" ? "Étude exploratoire (bouclier piéton)" : (run.controller === "actuated" ? "Détection boucles sans priorités" : "")));
+    const amb = ftValue(d, "ambulance/travel_time_total", L);
+    const stats = `<div class="adm-map-stats">
+        <div><div class="adm-stat-v" style="color:${ADMIN_COLORS[L]}">${amb && amb.mean != null ? `${amb.mean.toFixed(1)} s` : "--"}</div><div class="adm-stat-l">Temps de trajet ambulance</div></div>
+        <div><div class="adm-stat-v" style="color:${amb && amb.rel != null && amb.rel < 0 ? "#34D399" : "#F87171"}">${amb ? pctTxt(amb.rel) : "--"}</div><div class="adm-stat-l">${amb && amb.rel != null && amb.rel < 0 ? "Gain" : "Écart"} vs S0${s0amb && s0amb.mean != null ? ` (${s0amb.mean.toFixed(1)} s)` : ""}</div></div>
+      </div>`;
+    let body;
+    if (!run.run_id) {
+      body = `<div class="adm-na" data-field="admin-map-${L}" data-value="missing">run indisponible : aucun run de démonstration de ${esc(L)} dans /scenarios</div>`;
+    } else {
+      const fb = now[L];
+      if (!fb || fb.error || fb.status === "unavailable") {
+        body = `<div class="adm-na" data-field="admin-map-${L}" data-value="error">état indisponible à cet instant${fb && fb.notice ? ` : ${esc(fb.notice)}` : ""}</div>`;
+      } else {
+        const ambPos = Array.isArray(fb.positions) ? fb.positions.find((pp) => pp.entity === "ambulance") : null;
+        ADMIN.maps.push({ id: `adm-map-${L}`, fb, label: L });
+        body = `<canvas id="adm-map-${L}" width="440" height="330" data-field="admin-map-${L}" data-value="${dv(fb.sim_t_s)}"></canvas>
+          <div class="adm-map-meta">
+            <span>RUN_ID :</span><span title="${esc(run.run_id)}">${esc(run.run_id)}</span>
+            <span>AMBULANCE :</span><span>${ambPos ? `x = ${ambPos.x} m, y = ${ambPos.y} m (${ambPos.speed != null ? `${ambPos.speed} m/s` : "vitesse n/d"})` : "aucune ambulance à cet instant"}</span>
+          </div>`;
+      }
+    }
+    return `<div class="adm-map ${sol ? "sol" : ""}">
+      <div class="adm-map-head"><div><div class="adm-map-title">${esc(title)}</div><div class="adm-map-sub">${esc(sub)}</div></div>${noPre ? `<span class="adm-map-tag">${esc(noPre)}</span>` : ""}</div>
+      ${body}${stats}</div>`;
+  }).join("");
+  const demoSeeds = [...new Set(avail.map((L) => sy.runs[L].seed))].join(", ");
+  const module3 = `
+    <div class="adm-panel" data-field="admin-maps" data-value="${ADMIN.maps.length}">
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:baseline">
+        <h3 class="adm-h">Module 3 · Visualisation synchronisée à l'instant t (${atTxt(begin, t)}) : ${ADMIN_LABELS.length} cartes replay</h3>
+        <span class="adm-hsub" style="margin:0">Positions des véhicules, feux et ambulance lus depuis /replay/{run_id}?t=${Math.round(t)}&amp;positions=true</span>
+      </div>
+      <div class="adm-maps">${cards}</div>
+      <div class="adm-note"><strong>Honnêteté statistique :</strong> les cartes montrent un seul run de démonstration par scénario (graine ${esc(demoSeeds || "--")}) à l'instant t ; elles illustrent, elles ne prouvent rien. Le plan est le schéma 2D de la relecture (projection affine du réseau SUMO), pas une carte calée au mètre. Les temps de trajet et les gains vs S0 proviennent de /evaluation (final_table, moyenne des graines ${seedsTxt(seeds)}), pas de ces runs.</div>
+    </div>`;
+
+  // module 4: identity cards and radar
+  const ids = ADMIN_LABELS.map((L) => `<div class="adm-id"><span class="adm-lab" style="background:${ADMIN_COLORS[L]}33; color:${ADMIN_COLORS[L]}">${esc(L)}</span><span>${identityText(L, sy.runs[L], d)}</span></div>`).join("");
+  const [radar, haveRadar] = adminRadar(d);
+  const legend = ADMIN_LABELS.map((L) => `<span><span class="adm-dot" style="background:${ADMIN_COLORS[L]}; border-radius:50%"></span>${esc(L)}${L === d.mainSol ? " (Principal)" : (sy.runs[L].role === "ablation" ? " (Ablation)" : (sy.runs[L].controller === "rl" ? " (IA)" : ""))}</span>`).join("");
+  const module4 = `
+    <div class="adm-panel" data-field="admin-radar" data-value="${haveRadar ? RADAR_AXES.length : 0}">
+      <h3 class="adm-h">Module 4 · Cartes d'identité &amp; radar des compromis</h3>
+      <div class="adm-hsub">Normalisation des ${RADAR_AXES.length} indicateurs clés (moyennes graines ${seedsTxt(seeds)})</div>
+      ${ids}
+      <div class="adm-radar">${haveRadar ? radar : '<div class="adm-na">indicateurs indisponibles dans /evaluation</div>'}
+        <div class="adm-radar-legend">${legend}</div>
+        <div class="muted" style="font-size:11px; margin-top:6px; font-style:italic">Score = meilleure valeur des ${ADMIN_LABELS.length} / valeur du scénario (1 = meilleur ; retards, plus bas = mieux) · moyenne graines ${seedsTxt(seeds)}, pas ce run</div>
+      </div>
+    </div>`;
+
+  const html = `
+    <div class="adm-panel adm-moments" data-field="admin-moments" data-value="${sy.moments.length}">
+      <span class="lbl">Moments clés :</span>${momentChips}
+      ${refTxt ? `<span class="muted" style="font-size:11px">${refTxt}</span>` : ""}
+    </div>
+    ${module1}
+    ${module3}
+    <div class="adm-grid2">${module2}${module4}</div>`;
+  let b = ev;
+  if (!ev.error && problems.length) b = { ...ev, status: "degraded", notice: [ev.status === "degraded" ? ev.notice : null, ...problems].filter(Boolean).join(" · ") };
+  setTimeout(adminAfterRender, 0);
+  return [b, html];
+}
+
+const MINI_BOX = [95, 35, 765, 595];  // extent of MAP_EDGES (canvas coordinates of the replay map)
+
+// Mini replay map: the replay view's network geometry (MAP_EDGES, ROAD_BRANCHES), projection
+// (projX, projY) and signal colours (lightColor), with the positions of /replay at t
+function drawAdminMap(canvas, fb, label) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const [x0, y0, x1, y1] = MINI_BOX;
+  const sc = Math.min(W / (x1 - x0), H / (y1 - y0));
+  const ox = (W - (x1 - x0) * sc) / 2, oy = (H - (y1 - y0) * sc) / 2;
+  const P = (x, y) => [ox + (x - x0) * sc, oy + (y - y0) * sc];
+  ctx.fillStyle = "#050912";
+  ctx.fillRect(0, 0, W, H);
+  const line = (pts, width, color, dash) => {
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => { const [a, c] = P(x, y); if (i) ctx.lineTo(a, c); else ctx.moveTo(a, c); });
+    ctx.setLineDash(dash || []);
+    ctx.lineWidth = width;
+    ctx.strokeStyle = color;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  for (const pts of Object.values(MAP_EDGES)) line(pts, Math.max(8, 30 * sc), "rgba(51, 65, 85, 0.55)");
+  for (const pts of Object.values(MAP_EDGES)) line(pts, 1, "rgba(148, 163, 184, 0.35)", [4, 5]);
+  ctx.font = "10px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillStyle = "#64748B";
+  for (const [x, y, txt] of [[690, 70, "Hôpital (N)"], [150, 520, "St-Marcel (W)"], [470, 585, "Italie (S)"]]) {
+    const [a, c] = P(x, y);
+    ctx.fillText(txt, a, c);
+  }
+  if (fb.signals) {
+    for (const [a, br] of [["N", ROAD_BRANCHES.n], ["S", ROAD_BRANCHES.s], ["W", ROAD_BRANCHES.w]]) {
+      const p = samplePos(br, br.total - 26);
+      const [cx, cy] = P(p.x, p.y);
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = lightColor(fb.signals[a]);
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#0F172A";
+      ctx.stroke();
+    }
+  }
+  const pts = Array.isArray(fb.positions) ? fb.positions : [];
+  let ambXY = null;
+  for (const pp of pts) {
+    if (pp.x == null || pp.y == null) continue;
+    const [cx, cy] = P(projX(pp.x), projY(pp.y));
+    if (pp.entity === "pedestrian") {
+      ctx.fillStyle = "#F8FAFC";
+      ctx.beginPath();
+      ctx.arc(cx, cy, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (pp.entity === "bus") {
+      ctx.fillStyle = "#059669";
+      ctx.fillRect(cx - 5, cy - 3, 10, 6);
+      ctx.fillStyle = "#ECFDF5";
+      ctx.font = "bold 7px 'JetBrains Mono', monospace";
+      ctx.fillText(busLine(pp.id), cx + 6, cy + 3);
+    } else if (pp.entity === "ambulance") {
+      ambXY = [cx, cy];
+    } else {
+      ctx.fillStyle = CAR_COLORS[hashId(pp.id) % CAR_COLORS.length].light;
+      ctx.fillRect(cx - 2.5, cy - 2.5, 5, 5);
+    }
+  }
+  if (ambXY) {
+    const [cx, cy] = ambXY;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(cx - 4, cy - 4, 8, 8);
+    ctx.strokeStyle = "#EF4444";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cx - 5, cy - 5, 10, 10);
+    ctx.font = "bold 9px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText("ambulance", cx + 8, cy - 6);
+  }
+  const tag = `${label} · ${fb.stage_name != null ? fb.stage_name : "stage n/d"}${fb.in_clearance ? " (dégagement)" : ""}`;
+  ctx.font = "bold 11px 'JetBrains Mono', monospace";
+  const w = ctx.measureText(tag).width + 14;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+  ctx.fillRect(6, 6, w, 20);
+  ctx.fillStyle = "#34D399";
+  ctx.fillText(tag, 13, 20);
+}
+
+function adminAfterRender() {
+  if (state.view !== "admin") return;
+  for (const m of ADMIN.maps) {
+    const c = $(m.id);
+    if (c) drawAdminMap(c, m.fb, m.label);
+  }
+  const list = $("adm-evlist");
+  const cur = $("adm-ev-cur");
+  if (list && cur) list.scrollTop = Math.max(0, cur.offsetTop - list.offsetTop - 12);
+  applyAdminSearch();
+}
+
+// -- the view ----------------------------------------------------------------------------------
+function adminExpiry(remaining) {
+  clearTimeout(ADMIN.expiry);
+  if (remaining == null) return;
+  ADMIN.expiry = setTimeout(() => { if (state.view === "admin") render(); }, Math.max(1000, remaining * 1000 + 500));
+}
+
+function adminLogin(sess, alerts) {
+  const msg = ADMIN.msg;
+  ADMIN.msg = null;
+  let inner, st;
+  if (sess.error) {
+    st = "error";
+    inner = `<div class="muted" style="margin-top:14px">Impossible de vérifier la session admin. Réessayez dans un instant.</div>`;
+  } else if (!sess.configured) {
+    st = "not_configured";
+    inner = `<div class="banner warn" style="margin-top:16px">🔒 <strong>Admin non configuré.</strong> Définissez le mot de passe sur cette machine : <code>python tasks.py admin-set-password</code> (hash PBKDF2 et secret de session écrits dans le fichier .env, jamais versionné), puis rechargez la page.</div>`;
+  } else {
+    st = "login";
+    inner = `<form id="admin-login" class="adm-login" autocomplete="on">
+        <label for="admin-email">Adresse e-mail</label>
+        <input id="admin-email" name="email" type="email" autocomplete="username" required placeholder="adresse e-mail de l'admin">
+        <label for="admin-password">Mot de passe</label>
+        <input id="admin-password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit" id="admin-submit">Se connecter</button>
+        <div id="admin-login-msg" class="adm-login-msg ${msg && msg[1] ? msg[1] : ""}" role="alert">${msg ? esc(msg[0]) : ""}</div>
+      </form>`;
+  }
+  return `<div class="adm-shell" data-field="admin-state" data-value="${st}">
+      ${alerts}
+      <div class="adm-top"><div class="adm-badges"><span class="adm-badge admin">👑 Espace administrateur</span></div></div>
+      <h2 class="adm-title" style="margin-top:18px">Se connecter en admin</h2>
+      <div class="adm-sub">Accès local réservé au cockpit de comparaison (session de ${sess.ttl_s != null ? Math.round(sess.ttl_s / 60) : "--"} min). Les cinq profils publics restent sans compte.</div>
+      ${inner}
+    </div>`;
+}
+
+function adminShell(sess, alerts, body) {
+  const tab = state.adminTab;
+  const ttl = sess.ttl_s != null ? Math.round(sess.ttl_s / 60) : "--";
+  const left = sess.remaining_s != null ? Math.ceil(sess.remaining_s / 60) : "--";
+  return `<div class="adm-shell" data-field="admin-state" data-value="cockpit">
+      <div class="adm-top">
+        <div class="adm-badges">
+          <span class="adm-badge admin">👑 Administrateur</span>
+          <span class="adm-badge session" data-field="admin-session" data-value="${dv(sess.remaining_s)}" title="${esc(sess.email)}">🔒 Session Active (${ttl} min)</span>
+          <span class="muted" style="font-size:12px">expire à ${stampOf(sess.expires_at)} (reste ${left} min)</span>
+        </div>
+        <button id="admin-logout" class="adm-logout">Déconnexion</button>
+      </div>
+      <div class="adm-titlebar">
+        <div>
+          <h2 class="adm-title">Cockpit d'administration <span>et comparaison</span></h2>
+          <div class="adm-sub">Jumeau numérique Carrefour Boulevard de l'Hôpital × Boulevard Saint-Marcel (Paris 13e)</div>
+        </div>
+        <div class="adm-tabs" role="tablist">
+          <button role="tab" data-admin-tab="table" class="${tab === "table" ? "on" : ""}">Tableau comparatif des scénarios</button>
+          <button role="tab" data-admin-tab="sync" class="${tab === "sync" ? "on" : ""}">Comparaison synchronisée (${ADMIN_LABELS.join(" vs ")})</button>
+        </div>
+      </div>
+      ${alerts}
+      <div id="adm-body" data-field="admin-tab" data-value="${esc(tab)}">${body}</div>
+    </div>`;
+}
+
+async function admin() {
+  const sess = await api("/admin/session");
+  if (sess.error || !sess.authenticated) {
+    if (ADMIN.wasIn && !sess.error) ADMIN.msg = ["Session expirée ou fermée : reconnectez-vous.", "bad"];
+    ADMIN.wasIn = false;
+    adminForget();
+    return [sess, adminLogin(sess, banners(sess))];
+  }
+  ADMIN.wasIn = true;
+  adminExpiry(sess.remaining_s);
+  const d = await adminData();
+  const [b, body] = state.adminTab === "sync" ? await adminSync(d) : adminTable(d);
+  if (state.adminTab !== "sync") setTimeout(adminAfterRender, 0);
+  return [b, adminShell(sess, banners(b), body)];
+}
+
+async function adminSubmit(form) {
+  const email = $("admin-email");
+  const pw = $("admin-password");
+  const btn = $("admin-submit");
+  const out = $("admin-login-msg");
+  if (!email || !pw) return;
+  if (btn) btn.disabled = true;
+  if (out) { out.className = "adm-login-msg"; out.textContent = "Vérification…"; }
+  const r = await api("/admin/login", false, { method: "POST", body: { email: email.value, password: pw.value } });
+  pw.value = "";
+  if (r.authenticated) {
+    ADMIN.msg = null;
+    render();
+    return;
+  }
+  let text = "API injoignable : réessayez dans un instant.";
+  if (r.http === 401) text = "Identifiants incorrects.";
+  else if (r.http === 429 || r.http === 503) text = r.error ? r.error.message : "connexion refusée";
+  else if (r.http === 404) text = "Saisissez une adresse e-mail et un mot de passe.";
+  if (btn) btn.disabled = false;
+  if (out) { out.className = "adm-login-msg bad"; out.textContent = text; }
+}
+
+async function adminLogout() {
+  await api("/admin/logout", false, { method: "POST" });
+  ADMIN.wasIn = false;
+  adminForget();
+  ADMIN.msg = ["Vous êtes déconnecté.", ""];
+  render();
+}
+
+// -------------------------------------------------------------
 // Core controller
 // -------------------------------------------------------------
-const RENDER = { home, pedestrian, student, bus, ambulance, replay, operator };
+const RENDER = { home, pedestrian, student, bus, ambulance, replay, operator, admin };
 const LAST_GOOD = new Map();  // view + parameters -> { b, html } (12.1 last known value)
 const cacheKey = () => [state.view, state.run, state.crossing, state.speed, state.trajet, state.exam, state.line].join("|");
 
@@ -3863,12 +5027,14 @@ async function render() {
   let [b, html] = await RENDER[state.view]();
   if (seq !== state.seq) return;
   let st = viewState(b);
-  if (transportFailure(b) && LAST_GOOD.has(key)) {
+  // the admin cockpit is never shown from the last known value: its gate is the session
+  const keep = state.view !== "admin";
+  if (keep && transportFailure(b) && LAST_GOOD.has(key)) {
     const last = LAST_GOOD.get(key);
     html = `<div class="banner bad" data-field="banner-last-known">⚠️ <strong>Données temporairement indisponibles</strong> · dernière valeur connue (${stampOf(last.b.timestamp)})</div>${last.html}`;
     b = last.b;
     st = "stale";
-  } else if (!transportFailure(b) && st !== "error") {
+  } else if (keep && !transportFailure(b) && st !== "error") {
     LAST_GOOD.set(key, { b, html });
   }
   v.dataset.view = state.view;
@@ -3945,6 +5111,20 @@ document.addEventListener("click", (e) => {
     }
     return;
   }
+  if (btn.dataset.adminTab) {
+    state.adminTab = btn.dataset.adminTab;
+    const body = $("adm-body");
+    if (body) body.innerHTML = `<div class="adm-loading">⏳ Chargement des données de l'API…</div>`;
+    document.querySelectorAll("[data-admin-tab]").forEach((c) => c.classList.toggle("on", c === btn));
+    render();
+    return;
+  }
+  if (btn.dataset.adminGroup) { ADMIN.group = btn.dataset.adminGroup; render(); return; }
+  if (btn.dataset.adminT) { ADMIN.t = Number(btn.dataset.adminT); render(); return; }
+  if (btn.dataset.adminEv) { ADMIN.evFilter = btn.dataset.adminEv; render(); return; }
+  if (btn.dataset.adminRaw) { ADMIN.rawLabel = btn.dataset.adminRaw; render(); return; }
+  if (btn.id === "admin-logout") { adminLogout(); return; }
+  if (btn.id === "admin-export") { adminCsv(); return; }
   if (btn.dataset.go) {
     if (btn.dataset.key) {
       state[btn.dataset.key] = btn.dataset.val;
@@ -3970,6 +5150,17 @@ document.addEventListener("change", (e) => {
     $("view").dataset.view = "";
     render();
   }
+});
+
+document.addEventListener("submit", (e) => {
+  if (e.target && e.target.id === "admin-login") {
+    e.preventDefault();
+    adminSubmit(e.target);
+  }
+});
+
+document.addEventListener("input", (e) => {
+  if (e.target && e.target.id === "admin-search") applyAdminSearch();
 });
 
 let sliderTimer = null;
@@ -4048,6 +5239,10 @@ function readDeepLink(P, problems) {
   pick("speed", SPEEDS.map(([k]) => k), "vitesse");
   pick("line", LINES, "ligne");
   pick("trajet", STUDENT_ROUTES.map(([k]) => k), "trajet");
+  if (P.has("tab")) {
+    if (["table", "sync"].includes(P.get("tab"))) state.adminTab = P.get("tab");
+    else problems.push(`onglet « ${P.get("tab")} » inconnu`);
+  }
   if (P.has("exam")) {
     if (/^([01]\d|2[0-3]):[0-5]\d$/.test(P.get("exam"))) state.exam = P.get("exam");
     else problems.push(`heure d'examen « ${P.get("exam")} » invalide`);

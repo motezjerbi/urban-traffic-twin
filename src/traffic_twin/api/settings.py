@@ -81,6 +81,7 @@ class Settings:
     field_file: Path = FIELD_FILE  # field inventory: `provisional` until timings are measured
     index_ttl_s: float = 30.0  # the run index is rebuilt at most this often
     sensitivity: Path = SENSITIVITY_CSV  # /sensitivity table (Part 7, D103)
+    admin_env_file: Path = Path(".env")  # admin credential file (gitignored; `api.admin`)
     source: Path | None = None  # the settings file
 
     def path(self, p: str | Path) -> Path:

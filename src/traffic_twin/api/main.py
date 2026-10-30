@@ -28,6 +28,12 @@ missing file is `unavailable`, a label registered but not in the outputs "pas en
 évalué", outputs of an older config `degraded`); `/replay` gains the run's time bounds
 and the signal heads at t, and `/replay/{run_id}/events` the controller and preemption
 events of a time window.
+
+Admin cockpit (local-only addition, `api.admin`): `POST /admin/login`, `POST
+/admin/logout` and `GET /admin/session` gate the admin view of the user app with one
+admin credential from the environment or the gitignored `.env`, in an HttpOnly,
+SameSite=Strict session cookie of 30 min. The data the cockpit shows stays the public
+API v1; the five public profiles stay account-free (ENF-07).
 """
 
 from __future__ import annotations
@@ -49,6 +55,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from traffic_twin.api.admin import COOKIE, SESSION_TTL_S, AdminAuth, make_token, read_token
 from traffic_twin.api.clock import (
     PARIS,
     age_s,
@@ -76,6 +83,8 @@ from traffic_twin.api.results import (
     signal_map,
 )
 from traffic_twin.api.schemas import (
+    AdminLogin,
+    AdminSessionResponse,
     AmbulanceRouteResponse,
     ApiError,
     BusStatusResponse,
@@ -113,7 +122,7 @@ PATH_TYPES = (
     ("/replay", "replay_state"), ("/crossing", "crossing_status"), ("/bus", "bus_status"),
     ("/ambulance", "ambulance_route"), ("/eta", "eta"),
     ("/evaluation", "evaluation"), ("/compare", "kpi_pair"), ("/series", "kpi_series"),
-    ("/sensitivity", "sensitivity"),
+    ("/sensitivity", "sensitivity"), ("/admin", "admin_session"),
 )  # fmt: skip
 EVENTS_SUFFIX = "/events"  # /replay/{run_id}/events answers type replay_events
 PART8_PENDING = "pas encore évalué"  # a label registered but absent from the outputs (D103)
@@ -925,7 +934,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         description="Pitié-Salpêtrière digital twin: simulated data (spec 9.2, 9.3).",
     )
     app.state.ctx = ctx
-    # ENF-07: no accounts, no cookies; read-only GET from any origin
+    # ENF-07: no accounts and no cookies on the public endpoints; read-only GET from any
+    # origin (the local admin sign-in below is same-origin POST, never cross-origin)
     app.add_middleware(
         CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_credentials=False
     )
@@ -1193,6 +1203,74 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         limit: int = Query(1000, ge=1, le=10000),
     ):
         return replay_events_answer(ctx, run_id, t_from, t_to, limit)
+
+    # -- /admin (admin cockpit sign-in; local-only, not a user account system) ----------
+    auth = AdminAuth(settings.path(settings.admin_env_file))
+    app.state.admin = auth
+    no_store = {"Cache-Control": "no-store", "Pragma": "no-cache"}
+
+    def client_key(request: Request) -> str:
+        return request.client.host if request.client else "?"
+
+    def session_answer(cfg, exp: int | None) -> JSONResponse:
+        now = auth.clock()
+        notice = None if cfg.configured else "admin non configuré"
+        env = ctx.envelope("admin_session", timestamp=wall_now(), notice=notice)
+        body = AdminSessionResponse(
+            **env,
+            configured=cfg.configured,
+            authenticated=exp is not None,
+            email=cfg.email if exp is not None else None,
+            expires_at=datetime.fromtimestamp(exp, PARIS) if exp is not None else None,
+            remaining_s=round(max(0.0, exp - now), 1) if exp is not None else None,
+            ttl_s=SESSION_TTL_S,
+        )
+        return JSONResponse(body.model_dump(mode="json"), headers=no_store)
+
+    def set_cookie(request: Request, response: Response, token: str, max_age: int) -> None:
+        response.set_cookie(
+            COOKIE,
+            token,
+            max_age=max_age,
+            path="/",
+            httponly=True,
+            samesite="strict",
+            secure=request.url.scheme == "https",
+        )
+
+    @app.get("/admin/session", response_model=AdminSessionResponse)
+    def admin_session(request: Request):
+        cfg = auth.config()
+        exp = read_token(cfg, request.cookies.get(COOKIE), auth.clock())
+        return session_answer(cfg, exp)
+
+    @app.post("/admin/login", response_model=AdminSessionResponse)
+    def admin_login(request: Request, creds: AdminLogin):
+        cfg = auth.config()
+        if not cfg.configured:
+            raise ApiError("admin_not_configured", "admin non configuré", 503)
+        who, now = client_key(request), auth.clock()
+        wait = auth.limiter.blocked(who, now)
+        if wait is not None:
+            raise ApiError(
+                "too_many_attempts",
+                f"trop de tentatives : réessayez dans {math.ceil(wait)} s",
+                429,
+            )
+        if not auth.check(cfg, creds.email, creds.password):
+            auth.limiter.failed(who, now)
+            raise ApiError("bad_credentials", "identifiants incorrects", 401)
+        auth.limiter.reset(who)
+        token, exp = make_token(cfg, now)
+        response = session_answer(cfg, exp)
+        set_cookie(request, response, token, SESSION_TTL_S)
+        return response
+
+    @app.post("/admin/logout", response_model=AdminSessionResponse)
+    def admin_logout(request: Request):
+        response = session_answer(auth.config(), None)
+        set_cookie(request, response, "", 0)
+        return response
 
     # -- /mock (dev) ---------------------------------------------------------------------
     @app.get("/mock", include_in_schema=False, response_class=HTMLResponse)

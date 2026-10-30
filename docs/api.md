@@ -113,6 +113,9 @@ time (such as `t=1e12`) is `bad_t` too.
 | `GET /series?family=main&metric=halting_veh&approach=all&labels=S0,S2,S3` | `kpi_series` | `metric`, `approach`, `step_s`, `points[{label, t_s, mean, p10, p90, n}]` |
 | `GET /sensitivity` | `sensitivity` | `rows[]` (the columns of the CSV), `source` |
 | `GET /mock` | HTML | Mock screens (dev only) |
+| `GET /admin/session` | `admin_session` | `configured`, `authenticated`, `email`, `expires_at`, `remaining_s`, `ttl_s` (local admin cockpit, below) |
+| `POST /admin/login` (JSON `{email, password}`) | `admin_session` | the same, and the session cookie |
+| `POST /admin/logout` | `admin_session` | the same (not authenticated), and the cookie cleared |
 
 **Endpoint rules:**
 - **`/kpi`.**
@@ -169,6 +172,41 @@ time (such as `t=1e12`) is `bad_t` too.
   - `advice` follows spec 11.5 (`ml.advice`, D52) when `deadline` (`HH:MM` or ISO) is given.
   - `queue_beyond_zone` is true when the run's `eta_snapshots` show cars waiting to enter that arm (`pending_<arm>` > 0); null without snapshots.
 
+## Admin cockpit sign-in (local-only addition)
+
+A deliberate, local-only addition for the admin cockpit of `mock.html` (view `admin`), not a
+user account system: the five public profiles and every endpoint above stay account-free
+and cookie-free (ENF-07). The cockpit reads only the public endpoints above; the sign-in
+gates the view itself.
+
+- **Credential:** `TT_ADMIN_EMAIL` (default `admin@urban-traffic-twin.local`),
+  `TT_ADMIN_PASSWORD_HASH` (`pbkdf2_sha256$<iterations>$<salt b64>$<hash b64>`, hashlib,
+  random 16-byte salt, 600 000 iterations, at least 200 000 accepted) and `TT_ADMIN_SECRET`
+  (the cookie signing key), read at each request from the environment, else from the
+  gitignored `.env` of the repo root (`api.yaml` has no admin key). `python tasks.py
+  admin-set-password` writes them (`python -m traffic_twin.api.admin set-password --email
+  E`; the password from getpass or a piped stdin, `--password` for scripts). Nothing secret
+  is printed, logged, committed or returned.
+- **`POST /admin/login`:** JSON `{email, password}`. The email (case-insensitive) and the
+  PBKDF2 hash are compared in constant time. Success: 200 `admin_session` and the cookie
+  `tt_admin` (HttpOnly, SameSite=Strict, `Path=/`, `Max-Age=1800`, `Secure` over https):
+  an HMAC-SHA256-signed token holding the email and the expiry (now + 30 min). Its key mixes
+  the secret with the password hash, so a new password ends every session. Wrong
+  credentials: 401 `bad_credentials`, "identifiants incorrects". 5 failures within a minute
+  from one client: 429 `too_many_attempts` until the oldest leaves the window (in memory,
+  per API process). No credential configured: 503 `admin_not_configured`, "admin non
+  configuré". A body that is not that JSON: the usual 404 `bad_request`.
+- **`GET /admin/session`:** `authenticated` (a valid, unexpired cookie of the configured
+  admin), `email`, `expires_at`, `remaining_s`, `ttl_s` (1800) and `configured` (with the
+  notice "admin non configuré" when false). Never cached (`Cache-Control: no-store`).
+- **`POST /admin/logout`:** clears the cookie (`Max-Age=0`).
+- CORS still allows GET only, so another origin cannot post to `/admin/login`; uvicorn runs
+  without an access log and the login never logs the client or the password.
+- `tests/test_api_admin.py` covers the hashing, the `.env`, success, failures, 429,
+  expiry, logout, tampered tokens, the cookie flags, the 503 and the CLI;
+  `tests/test_app_views.py` signs in through the page in headless Chrome and renders both
+  tabs.
+
 ## Error policy (ENF-03)
 
 | Situation | HTTP | Body |
@@ -215,7 +253,8 @@ An unreadable Parquet or CSV file is logged and treated as absent.
 - **`queue_beyond_zone`**: the junction ETA starts at physical entry into the modelled approach; the insertion backlog is flagged, not added.
 
 **ENF-07:**
-- no accounts, no cookies;
+- no accounts, no cookies (the local admin sign-in of the admin cockpit is the one
+  exception, outside the five public profiles; see above);
 - CORS allows GET only;
 - run uvicorn with `--no-access-log`, so client IPs are not logged;
 - simulated vehicle ids are not personal data.
@@ -228,6 +267,9 @@ An unreadable Parquet or CSV file is logged and treated as absent.
 - **Each view:** one main item and at most two secondary items. Every view handles the 12.1 states: loading, stale (last known value), degraded (approximate with a mention), unavailable, and error (a plain message, no technical detail).
 - **Pedestrian view** (ENF-06, usable in under 5 s): one big verdict ("Vous pouvez traverser" / "Attendez"), the green left or the wait, and the walking time; the crossing and the speed are one click each.
 - **Ambulance view:** large high-contrast text, no interaction.
+- **Admin view** (`view=admin`, behind the local admin sign-in): the comparison table of the
+  evaluation and the synchronized comparison of the S1-S4 demo runs, read from the endpoints
+  above; it shows the sign-in form until `/admin/session` says authenticated.
 
 The Streamlit app (spec 8.6) comes in Part 9.
 

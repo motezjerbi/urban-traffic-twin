@@ -305,3 +305,24 @@ class SensitivityResponse(Envelope):
     type: str = "sensitivity"
     rows: list[dict] = []
     source: str | None = None
+
+
+# -- admin cockpit sign-in (local-only addition, not a user account system; ENF-07) -----
+class AdminLogin(BaseModel):
+    """POST /admin/login body."""
+
+    email: str = Field(..., max_length=320)
+    password: str = Field(..., max_length=1024)
+
+
+class AdminSessionResponse(Envelope):
+    """POST /admin/login, POST /admin/logout, GET /admin/session: the admin session of
+    this browser (an HttpOnly cookie); never the password or its hash."""
+
+    type: str = "admin_session"
+    configured: bool = Field(False, description="an admin credential is set (.env / env)")
+    authenticated: bool = False
+    email: str | None = None
+    expires_at: datetime | None = None
+    remaining_s: float | None = None
+    ttl_s: int | None = Field(None, description="session length (s)")

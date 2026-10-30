@@ -10,13 +10,18 @@ same request made in process. Runs on FAKE fixture data (always) and on the real
 
 from __future__ import annotations
 
+import asyncio
 import html
+import json
 import re
+import secrets
+import shutil
 import socket
 import subprocess
 import tempfile
 import threading
 import time
+import urllib.request
 from collections.abc import Iterator
 from dataclasses import replace
 from importlib import resources
@@ -456,3 +461,190 @@ def test_operator_card_is_degraded_when_a_registered_label_is_missing(fake_site)
     assert dom.view == "operator"
     assert dom.state == "degraded", (dom.state, dom.main_text[:300])
     assert dom.has("banner-degraded") and notice in dom.main_text, dom.main_text[:400]
+
+
+# -- the admin cockpit (local-only sign-in), driven over the DevTools protocol ---------------
+ADMIN_TEST_EMAIL = "admin@urban-traffic-twin.local"
+SYNC_LABELS = ("S1", "S2", "S3", "S4")
+
+
+@pytest.fixture
+def admin_site(tmp_path, monkeypatch) -> Iterator[tuple[Site, str]]:
+    """FAKE data plus an admin credential in a temporary .env (a password made for the test,
+    never the developer's)."""
+    from traffic_twin.api import admin
+
+    for key in admin.ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
+    root = tmp_path / "fake"
+    make_results(root, n_runs=3)
+    runs = sorted(p.parent for p in root.glob("*/run.json"))
+    make_fake_eta(root / "models" / "eta")
+    cfg = write_settings(root, runs, root / "models" / "eta")
+    password = secrets.token_urlsafe(12)
+    env = tmp_path / ".env"
+    admin.write_env_keys(
+        env,
+        {
+            admin.ENV_EMAIL: ADMIN_TEST_EMAIL,
+            admin.ENV_HASH: admin.hash_password(password, iterations=admin.MIN_ITERATIONS),
+            admin.ENV_SECRET: secrets.token_urlsafe(32),
+        },
+    )
+    settings = replace(load_settings(path=cfg, repo_root=REPO_ROOT, environ={}), admin_env_file=env)
+    site = Site(settings)
+    yield site, password
+    site.served.stop()
+
+
+class Cdp:
+    """A headless browser page driven over the DevTools protocol (websockets)."""
+
+    def __init__(self) -> None:
+        self.profile = tempfile.mkdtemp(prefix="tt_admin_")
+        self.proc = subprocess.Popen(
+            [
+                browser_path(), "--headless=new", "--disable-gpu", "--no-first-run",
+                "--no-default-browser-check", "--disable-extensions",
+                f"--user-data-dir={self.profile}", "--remote-debugging-port=0", "about:blank",
+            ],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=self.profile,
+        )  # fmt: skip
+        port_file = Path(self.profile) / "DevToolsActivePort"
+        deadline = time.monotonic() + 30
+        while not (port_file.is_file() and port_file.read_text().split("\n")[0].isdigit()):
+            assert time.monotonic() < deadline, "no DevTools port"
+            time.sleep(0.2)
+        port = int(port_file.read_text().split("\n")[0])
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/list", timeout=10) as r:
+            pages = [t for t in json.loads(r.read()) if t.get("type") == "page"]
+        self.ws_url = pages[0]["webSocketDebuggerUrl"]
+
+    def close(self) -> None:
+        self.proc.terminate()
+        try:
+            self.proc.wait(10)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+        shutil.rmtree(self.profile, ignore_errors=True)
+
+
+async def _drive(ws_url: str, steps):
+    import websockets
+
+    async with websockets.connect(ws_url, max_size=None) as ws:
+        seq = 0
+
+        async def call(method: str, **params):
+            nonlocal seq
+            seq += 1
+            await ws.send(json.dumps({"id": seq, "method": method, "params": params}))
+            while True:
+                msg = json.loads(await ws.recv())
+                if msg.get("id") == seq:
+                    return msg.get("result") or {}
+
+        async def js(expr: str):
+            res = await call("Runtime.evaluate", expression=expr, returnByValue=True)
+            return (res.get("result") or {}).get("value")
+
+        async def nav(url: str):
+            await call("Page.navigate", url=url)
+
+        async def until(expr: str, timeout: float = 30.0):
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                if await js(expr):
+                    return
+                await asyncio.sleep(0.25)
+            raise AssertionError(f"timed out waiting for {expr}")
+
+        return await steps(js, nav, until)
+
+
+HOOKS_JS = (
+    "JSON.stringify(Object.fromEntries([...document.querySelectorAll('[data-field^=admin-]')]"
+    ".map(e => [e.dataset.field, e.dataset.value])))"
+)
+
+
+def test_admin_cockpit_login_and_both_tabs(admin_site):
+    """Sign in through the form (a wrong password first), render both tabs from the API,
+    check that the HttpOnly cookie and the password are invisible to the page, then sign
+    out. A scenario without a demo run is shown as such (the fixtures have S1 and S2)."""
+    pytest.importorskip("websockets")
+    site, password = admin_site
+    ev = site.get("/evaluation?family=main")
+    keys = {
+        f"{r['user']}/{r['kpi']}"
+        for r in ev["final_table"]
+        if r["section"] != "probe" and not str(r["kpi"]).endswith("__probe")
+    }
+    groups = [g for g in site.get("/scenarios")["scenarios"] if g["family"] == "main"]
+    demo_runs = {
+        g["label"]: r["run_id"]
+        for g in groups
+        if g["label"] in SYNC_LABELS
+        for r in g["runs"]
+        if r["seed_role"] == "demo"
+    }
+    url = site.served.url
+
+    async def steps(js, nav, until):
+        await nav(f"{url}/mock?view=admin")
+        await until("!!document.getElementById('admin-login')")
+        out = {"login": json.loads(await js(HOOKS_JS))}
+
+        async def submit(pw: str):
+            await js(
+                f"document.getElementById('admin-email').value = {json.dumps(ADMIN_TEST_EMAIL)}"
+            )
+            await js(f"document.getElementById('admin-password').value = {json.dumps(pw)}")
+            await js("document.getElementById('admin-login').requestSubmit()")
+
+        await submit(password + "x")
+        await until("document.getElementById('admin-login-msg').innerText.includes('incorrects')")
+        await submit(password)
+        await until("!!document.querySelector('[data-field=admin-table]')")
+        out["table"] = json.loads(await js(HOOKS_JS))
+        out["cookie"] = await js("document.cookie")
+        out["password_shown"] = await js(
+            f"document.documentElement.outerHTML.includes({json.dumps(password)})"
+        )
+        out["footer"] = await js("document.querySelector('footer').innerText")
+        await js("document.querySelector('[data-admin-tab=sync]').click()")
+        await until("!!document.querySelector('[data-field=admin-maps]')", timeout=60)
+        out["sync"] = json.loads(await js(HOOKS_JS))
+        out["sync_state"] = await js("document.getElementById('view').dataset.viewState")
+        await js("document.getElementById('admin-logout').click()")
+        await until("!!document.getElementById('admin-login')")
+        out["after"] = json.loads(await js(HOOKS_JS))
+        return out
+
+    cdp = Cdp()
+    try:
+        out = asyncio.run(_drive(cdp.ws_url, steps))
+    finally:
+        cdp.close()
+    assert out["login"]["admin-state"] == "login"
+    assert out["table"]["admin-state"] == "cockpit" and out["table"]["admin-tab"] == "table"
+    assert int(out["table"]["admin-table"]) == len(keys) > 0
+    assert "tt_admin" not in (out["cookie"] or "")  # HttpOnly
+    assert out["password_shown"] is False
+    assert "Données simulées" in out["footer"]
+    sync = out["sync"]
+    assert sync["admin-tab"] == "sync" and out["sync_state"] in OK_STATES, out["sync_state"]
+    for label in SYNC_LABELS:
+        if label in demo_runs:
+            assert sync[f"admin-run-{label}"] == "ok", label
+            assert sync[f"admin-map-{label}"] not in ("missing", "error"), label
+        else:  # no demo run: said so, never faked
+            assert sync[f"admin-run-{label}"] == "missing", label
+            assert sync[f"admin-map-{label}"] == "missing", label
+    events = sum(
+        len(site.get(f"/replay/{run}/events?limit=10000")["events"]) for run in demo_runs.values()
+    )
+    assert int(sync["admin-events"]) == events
+    assert int(sync["admin-moments"]) >= 2  # the fixtures' preemption request and service
+    assert int(sync["admin-maps"]) == len(demo_runs)
+    assert out["after"]["admin-state"] == "login"

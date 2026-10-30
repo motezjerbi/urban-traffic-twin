@@ -31,7 +31,16 @@ STYLE = "\n".join(re.findall(r"<style>(.*?)</style>", PAGE, flags=re.S))
 BODY = re.sub(r"<script.*?</script>|<style>.*?</style>", "", PAGE, flags=re.S)
 TEXT = BODY + SCRIPT  # everything but the CSS
 
-VIEW_FUNCTIONS = ("home", "pedestrian", "student", "bus", "ambulance", "replay", "operator")
+VIEW_FUNCTIONS = (
+    "home",
+    "pedestrian",
+    "student",
+    "bus",
+    "ambulance",
+    "replay",
+    "operator",
+    "admin",
+)
 # plan 4.4 test hooks (data-field); every hook carries the raw API value in data-value
 HOOKS = (
     "home-card-pedestrian", "home-card-student", "home-card-bus", "home-card-ambulance",
@@ -41,6 +50,8 @@ HOOKS = (
     "bus-delay", "bus-headway", "bus-priority", "bus-message",
     "amb-eta", "replay-t", "replay-count", "op-best",
     "footer-source", "footer-calibrated",
+    "home-admin", "admin-state", "admin-session", "admin-tab", "admin-table", "admin-moments",
+    "admin-timeline", "admin-events", "admin-maps", "admin-radar", "admin-raw",
 )  # fmt: skip
 VIEW_STATES = ("loading", "ok", "degraded", "stale", "unavailable", "error")
 DEEP_LINK_PARAMS = (
@@ -311,3 +322,69 @@ def test_operator_state_reflects_the_final_evaluation():
     body = function_body("operator")
     assert 'ev.status === "degraded" || ev.status === "unavailable"' in body
     assert re.search(r'main = \{ \.\.\.main, status: "degraded"', body)
+
+
+# -- admin cockpit (local-only sign-in; not a user account system) ---------------------------
+def test_admin_view_is_gated_by_the_session_endpoint():
+    """The admin view asks /admin/session before anything else and shows the sign-in form
+    (email + password) unless the session is authenticated; the cockpit is never served
+    from the last known value; sign-in and sign-out go through POST /admin/login and
+    /admin/logout, the only non-GET requests of the page."""
+    body = function_body("admin")
+    first = re.search(r'\bapi\(\s*"([^"]+)"', body)
+    assert first and first.group(1) == "/admin/session"
+    assert re.search(r"if \(sess\.error \|\| !sess\.authenticated\)", body)
+    assert body.index("adminLogin(sess, banners(sess))") < body.index("adminData()")
+    login = function_body("adminLogin")
+    assert 'type="email"' in login and 'type="password"' in login
+    assert 'autocomplete="current-password"' in login
+    assert "admin-set-password" in login  # the "admin non configuré" state says how to fix it
+    submit = function_body("adminSubmit")
+    assert 'api("/admin/login", false, { method: "POST"' in submit
+    assert 'pw.value = ""' in submit  # the password never stays in the page
+    assert 'api("/admin/logout", false, { method: "POST" })' in function_body("adminLogout")
+    assert re.findall(r'method: "(\w+)"', SCRIPT) == ["POST", "POST"]
+    assert 'const keep = state.view !== "admin";' in function_body("render")
+    assert "localStorage" not in function_body("adminSubmit")
+    # session expiry returns to the sign-in form
+    expiry = function_body("adminExpiry")
+    assert "setTimeout" in expiry and "render()" in expiry
+
+
+def test_admin_cockpit_reads_only_api_v1():
+    """Both tabs read the public API v1 (no hard-coded result): the 10-seed evaluation,
+    /kpi equity flags, /compare Holm, the demo runs of /scenarios, /replay frames and
+    events, /ambulance; an absent demo run is shown as such."""
+    code = "\n".join(function_body(n) for n in (
+        "adminData", "adminSyncData", "adminSync", "adminTable", "holmOf", "flagOf",
+    ))  # fmt: skip
+    paths = (
+        "/evaluation?family=main",
+        "/kpi?scenario=",
+        "/compare?a=S0",
+        "/scenarios",
+        "/events?limit=",
+        "/ambulance/next-intersections?run_id=",
+        "positions=true",
+    )
+    for path in paths:
+        assert path in code, path
+    assert 'seed_role === "demo"' in function_body("adminSyncData")
+    assert "run indisponible" in function_body("adminSync")
+    assert "main_solution" in function_body("adminData")
+    assert "final_table" in function_body("adminRows")
+    assert "a06" in function_body("holmOf") and "p_holm" in function_body("holmOf")
+    assert "moyenne des graines" in function_body("adminSync")
+
+
+def test_home_has_the_admin_entry_and_its_unconfigured_state():
+    body = function_body("home")
+    assert 'api("/admin/session", true)' in body
+    assert 'data-field="home-admin"' in body and "Se connecter en admin" in body
+    assert "not_configured" in body and "admin-set-password" in body
+
+
+def test_served_page_contains_the_admin_view(client):
+    page = client.get("/mock").text
+    assert "admin: { label:" in page and "/admin/session" in page
+    assert "Cockpit d'administration" in page and "Comparaison synchronisée" in page
