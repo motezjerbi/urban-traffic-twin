@@ -133,7 +133,7 @@ ETA_TEST_SPLIT = "test"  # worlds 2900-2999: generated and evaluated once, after
 DEMO_SEEDS = ("4000",)  # Part 5 demo / replay run (api.yaml seeds.demo 4000-4009)
 API_RESULTS = ("data/results", "data/demo")  # read only by the API and its benchmark
 API_HOST, API_PORT = "127.0.0.1", "8000"
-ADMIN = "traffic_twin.api.admin"  # admin cockpit sign-in (local-only, never a user account)
+ADMIN = "traffic_twin.api.admin"  # sign-in of the user app, one account per role
 ADMIN_EMAIL = "admin@urban-traffic-twin.local"  # api.admin.DEFAULT_EMAIL
 RL_ALGOS = ("dqn", "ppo")
 RL_DEVTEST_SEEDS = tuple(str(s) for s in range(3020, 3030))  # Part 6 share of 3020-3049
@@ -1561,9 +1561,24 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
         lambda o: [_m("pytest", "-q", "-m", "browser")],
     ),
     "admin-set-password": (
-        "admin cockpit: ask the admin password (getpass) and write its PBKDF2 hash and the "
-        "session secret into the gitignored .env (--email, default " + ADMIN_EMAIL + ")",
-        lambda o: [_m(ADMIN, "set-password", "--email", o.email or ADMIN_EMAIL)],
+        "sign-in: ask the password of one role account (getpass; --role, default admin) and "
+        "write its PBKDF2 hash and the session secret into the gitignored .env (--email, "
+        "default: the one in .env, else the role's, e.g. " + ADMIN_EMAIL + ")",
+        lambda o: [
+            _m(
+                ADMIN,
+                "set-password",
+                "--role",
+                o.role or "admin",
+                *(["--email", o.email] if o.email else []),
+            )
+        ],
+    ),
+    "accounts-test": (
+        "sign-in: one test account per role, passwords kept in clear in the gitignored "
+        "data/auth/test_accounts.json and hashed into .env (reused at each run; --renew "
+        "draws new ones)",
+        lambda o: [_m(ADMIN, "test-accounts", *(["--renew"] if o.renew else []))],
     ),
     # -- Part 10: report, slides, rehearsed demo -----------------------------------------
     "report-facts": (
@@ -1890,8 +1905,14 @@ def parser() -> argparse.ArgumentParser:
         "protocol.slots (SLOTS)",
     )  # fmt: skip
     p.add_argument(
-        "--email", help=f"admin-set-password: the admin email (ADMIN_EMAIL); default {ADMIN_EMAIL}"
-    )
+        "--email", help="admin-set-password: the account email (ADMIN_EMAIL); default: the one "
+        f"in .env, else the role's ({ADMIN_EMAIL} for admin)",
+    )  # fmt: skip
+    p.add_argument(
+        "--role", choices=("pedestrian", "student", "bus", "ambulance", "operator", "admin"),
+        help="admin-set-password: the role account (ROLE); default admin",
+    )  # fmt: skip
+    p.add_argument("--renew", action="store_true", help="accounts-test: draw new test passwords")
     p.add_argument("-n", "--dry-run", action="store_true", help="print commands, run nothing")
     return p
 

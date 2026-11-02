@@ -1,12 +1,13 @@
-"""Admin cockpit sign-in (`api.admin`; a local-only addition, not a user account system):
-PBKDF2 hashing, the .env credential, POST /admin/login, /admin/logout, GET /admin/session,
-the signed 30 min session cookie, the rate limit, and the CLI behind
-`tasks.py admin-set-password`. Every test uses its own temporary .env, never the
-developer's."""
+"""Sign-in of the user app, one account per role (`api.admin`; a local-only deviation from
+ENF-07): PBKDF2 hashing, the .env accounts, POST /auth/login, /auth/logout, GET
+/auth/session, the signed 30 min session cookie and the views of each role, the rate limit,
+and the CLI behind `tasks.py admin-set-password` and `tasks.py accounts-test`. Every test
+uses its own temporary .env, never the developer's."""
 
 from __future__ import annotations
 
 import io
+import json
 import re
 from dataclasses import replace
 from pathlib import Path
@@ -21,27 +22,32 @@ from traffic_twin.api.settings import load_settings
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EMAIL = "admin@urban-traffic-twin.local"
 PASSWORD = "correct horse battery"
+AMB_EMAIL = "ambulance@urban-traffic-twin.local"
+AMB_PASSWORD = "sirene et gyrophare"
 FAST = admin.MIN_ITERATIONS  # the lowest accepted cost keeps the suite fast
 
 
 @pytest.fixture(autouse=True)
-def _no_admin_environment(monkeypatch):
+def _no_auth_environment(monkeypatch):
     for key in admin.ENV_KEYS:
         monkeypatch.delenv(key, raising=False)
 
 
-def configure(env: Path, password: str = PASSWORD, email: str = EMAIL) -> dict[str, str]:
+def configure(env: Path, password: str = PASSWORD, email: str = EMAIL, role: str = "admin"):
+    r = admin.ROLE_BY_KEY[role]
     values = {
-        admin.ENV_EMAIL: email,
-        admin.ENV_HASH: admin.hash_password(password, iterations=FAST),
+        r.email_key: email,
+        r.hash_key: admin.hash_password(password, iterations=FAST),
         admin.ENV_SECRET: "s" * 48,
     }
     admin.write_env_keys(env, values)
     return values
 
 
-def client_for(env: Path) -> TestClient:
-    settings = replace(load_settings(repo_root=REPO_ROOT, environ={}), admin_env_file=env)
+def client_for(env: Path, auth: bool = True) -> TestClient:
+    settings = replace(
+        load_settings(repo_root=REPO_ROOT, environ={}), admin_env_file=env, auth=auth
+    )
     return TestClient(create_app(settings))
 
 
@@ -49,6 +55,7 @@ def client_for(env: Path) -> TestClient:
 def env(tmp_path) -> Path:
     path = tmp_path / ".env"
     configure(path)
+    configure(path, AMB_PASSWORD, AMB_EMAIL, "ambulance")
     return path
 
 
@@ -58,7 +65,20 @@ def client(env) -> TestClient:
 
 
 def login(c: TestClient, email: str = EMAIL, password: str = PASSWORD):
-    return c.post("/admin/login", json={"email": email, "password": password})
+    return c.post("/auth/login", json={"email": email, "password": password})
+
+
+# -- roles -----------------------------------------------------------------------------------
+def test_each_role_opens_its_own_views():
+    views = {r.key: r.views for r in admin.ROLES}
+    assert set(views) == {"pedestrian", "student", "bus", "ambulance", "operator", "admin"}
+    for role in ("pedestrian", "student", "bus", "ambulance"):
+        assert views[role] == (role,)
+    assert views["operator"] == ("operator", "replay")
+    assert set(views["admin"]) == set(admin.PUBLIC_VIEWS) | {"admin"}
+    assert all("admin" not in v for k, v in views.items() if k != "admin")
+    emails = [r.email for r in admin.ROLES]
+    assert len(set(emails)) == len(emails)
 
 
 # -- hashing ---------------------------------------------------------------------------------
@@ -93,23 +113,36 @@ def test_env_file_keeps_other_lines_and_the_environment_wins(tmp_path, monkeypat
     assert "# local" in text and "OTHER=1" in text and "old@x.y" not in text
     assert admin.read_env_file(env)[admin.ENV_EMAIL] == "new@x.y"
     cfg = admin.load_config(env)
-    assert cfg.email == "new@x.y" and not cfg.configured  # no hash yet
-    assert admin.load_config(tmp_path / "missing.env").email == admin.DEFAULT_EMAIL
+    assert cfg.account("admin").email == "new@x.y" and not cfg.configured  # no hash yet
+    absent = admin.load_config(tmp_path / "missing.env")
+    assert absent.account("admin").email == admin.DEFAULT_EMAIL
+    assert absent.account("pedestrian").email == "pieton@urban-traffic-twin.local"
     monkeypatch.setenv(admin.ENV_EMAIL, "Env@X.Y")
-    assert admin.load_config(env).email == "env@x.y"
+    assert admin.load_config(env).account("admin").email == "env@x.y"
 
 
 # -- endpoints ---------------------------------------------------------------------------------
-def test_unconfigured_admin_answers_503_and_says_so(tmp_path):
+def test_no_account_answers_503_and_says_so(tmp_path):
     c = client_for(tmp_path / "absent.env")
     r = login(c)
     assert r.status_code == 503
     body = r.json()
-    assert body["type"] == "admin_session" and body["status"] == "unavailable"
-    assert body["error"] == {"code": "admin_not_configured", "message": "admin non configuré"}
-    s = c.get("/admin/session").json()
-    assert s["configured"] is False and s["authenticated"] is False
-    assert s["notice"] == "admin non configuré" and s["data_source"] == "simulation"
+    assert body["type"] == "auth_session" and body["status"] == "unavailable"
+    assert body["error"] == {"code": "auth_not_configured", "message": "aucun compte configuré"}
+    s = c.get("/auth/session").json()
+    assert s["configured"] is False and s["authenticated"] is False and s["required"] is True
+    assert s["notice"] == "aucun compte configuré" and s["data_source"] == "simulation"
+    assert s["views"] == [] and [a["role"] for a in s["accounts"]] == [r.key for r in admin.ROLES]
+    assert not any(a["configured"] for a in s["accounts"])
+
+
+def test_session_lists_the_accounts_but_no_secret(client):
+    s = client.get("/auth/session").json()
+    acc = {a["role"]: a for a in s["accounts"]}
+    assert acc["admin"]["configured"] and acc["ambulance"]["configured"]
+    assert not acc["pedestrian"]["configured"]
+    assert acc["ambulance"]["email"] == AMB_EMAIL and acc["ambulance"]["views"] == ["ambulance"]
+    assert s["required"] is True and s["views"] == [] and s["role"] is None
 
 
 def test_login_sets_a_strict_httponly_cookie_and_opens_a_30_min_session(client):
@@ -117,6 +150,8 @@ def test_login_sets_a_strict_httponly_cookie_and_opens_a_30_min_session(client):
     assert r.status_code == 200
     body = r.json()
     assert body["authenticated"] is True and body["email"] == EMAIL
+    assert body["role"] == "admin" and body["role_label"] == "Administrateur"
+    assert "admin" in body["views"] and body["views"][0] == "home"
     assert body["ttl_s"] == 1800 and 1790 <= body["remaining_s"] <= 1800
     assert body["calibrated_on"] and body["provisional"] in (True, False)  # the envelope
     cookie = r.headers["set-cookie"]
@@ -125,8 +160,25 @@ def test_login_sets_a_strict_httponly_cookie_and_opens_a_30_min_session(client):
         assert flag.lower() in cookie.lower(), flag
     assert "secure" not in cookie.lower()  # plain-http localhost; https adds Secure
     assert r.headers["cache-control"] == "no-store"
-    s = client.get("/admin/session").json()
+    s = client.get("/auth/session").json()
     assert s["authenticated"] is True and s["expires_at"] == body["expires_at"]
+
+
+def test_a_role_account_opens_only_its_views(client):
+    r = login(client, AMB_EMAIL, AMB_PASSWORD)
+    assert r.status_code == 200
+    s = client.get("/auth/session").json()
+    assert s["role"] == "ambulance" and s["views"] == ["ambulance"]
+    assert s["role_label"] == "Ambulance" and s["email"] == AMB_EMAIL
+    # the admin password does not open the ambulance account, and vice versa
+    assert login(client, AMB_EMAIL, PASSWORD).status_code == 401
+    assert login(client, EMAIL, AMB_PASSWORD).status_code == 401
+
+
+def test_without_the_gate_the_public_views_open_without_a_session(env):
+    s = client_for(env, auth=False).get("/auth/session").json()
+    assert s["required"] is False and s["authenticated"] is False
+    assert s["views"] == list(admin.PUBLIC_VIEWS) and "admin" not in s["views"]
 
 
 def test_cookie_is_secure_over_https(env):
@@ -136,19 +188,26 @@ def test_cookie_is_secure_over_https(env):
 
 
 @pytest.mark.parametrize(
-    "email, password", [(EMAIL, PASSWORD + "!"), ("other@x.y", PASSWORD), ("", ""), (EMAIL, "")]
+    "email, password",
+    [
+        (EMAIL, PASSWORD + "!"),
+        ("other@x.y", PASSWORD),
+        ("", ""),
+        (EMAIL, ""),
+        ("pieton@urban-traffic-twin.local", PASSWORD),  # a role without a password
+    ],
 )
 def test_bad_credentials_are_401_without_a_cookie(client, email, password):
     r = login(client, email, password)
     assert r.status_code == 401
     assert r.json()["error"]["code"] == "bad_credentials"
     assert "set-cookie" not in r.headers
-    assert client.get("/admin/session").json()["authenticated"] is False
+    assert client.get("/auth/session").json()["authenticated"] is False
 
 
 def test_a_bad_body_is_the_usual_404_bad_request(client):
     r = client.post(
-        "/admin/login",
+        "/auth/login",
         content="email=a&password=b",
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
@@ -157,7 +216,7 @@ def test_a_bad_body_is_the_usual_404_bad_request(client):
 
 def test_five_failures_per_minute_then_429(client, monkeypatch):
     now = [1_000_000.0]
-    monkeypatch.setattr(client.app.state.admin, "clock", lambda: now[0])
+    monkeypatch.setattr(client.app.state.auth, "clock", lambda: now[0])
     for _ in range(admin.MAX_FAILURES):
         assert login(client, password="wrong").status_code == 401
     r = login(client)  # even the right password waits
@@ -169,21 +228,21 @@ def test_five_failures_per_minute_then_429(client, monkeypatch):
 
 def test_session_expires_after_30_minutes(client, monkeypatch):
     now = [2_000_000.0]
-    monkeypatch.setattr(client.app.state.admin, "clock", lambda: now[0])
+    monkeypatch.setattr(client.app.state.auth, "clock", lambda: now[0])
     assert login(client).status_code == 200
     now[0] += admin.SESSION_TTL_S - 5
-    s = client.get("/admin/session").json()
+    s = client.get("/auth/session").json()
     assert s["authenticated"] is True and s["remaining_s"] == 5
     now[0] += 10
-    assert client.get("/admin/session").json()["authenticated"] is False
+    assert client.get("/auth/session").json()["authenticated"] is False
 
 
 def test_logout_clears_the_cookie(client):
     login(client)
-    r = client.post("/admin/logout")
+    r = client.post("/auth/logout")
     assert r.status_code == 200 and r.json()["authenticated"] is False
     assert "max-age=0" in r.headers["set-cookie"].lower()
-    assert client.get("/admin/session").json()["authenticated"] is False
+    assert client.get("/auth/session").json()["authenticated"] is False
 
 
 def test_tampered_foreign_or_stale_tokens_are_refused(client, env):
@@ -191,35 +250,47 @@ def test_tampered_foreign_or_stale_tokens_are_refused(client, env):
     payload, sig = token.split(".")
     for bad in (f"{payload}.{sig[:-2]}AA", f"{payload}x.{sig}", "garbage", ""):
         client.cookies.set(admin.COOKIE, bad)
-        assert client.get("/admin/session").json()["authenticated"] is False
+        assert client.get("/auth/session").json()["authenticated"] is False
+    # a token claiming another role is refused (its signature is the admin's)
+    claims = json.loads(admin._unb64(payload))
+    forged = admin._b64(json.dumps({**claims, "role": "ambulance"}).encode())
+    client.cookies.set(admin.COOKIE, f"{forged}.{sig}")
+    assert client.get("/auth/session").json()["authenticated"] is False
     client.cookies.set(admin.COOKIE, token)
-    assert client.get("/admin/session").json()["authenticated"] is True
-    configure(env, password="a new password")  # a new password ends every open session
-    assert client.get("/admin/session").json()["authenticated"] is False
+    assert client.get("/auth/session").json()["authenticated"] is True
+    configure(env, password="a new password")  # a new password ends the role's sessions
+    assert client.get("/auth/session").json()["authenticated"] is False
+
+
+def test_a_new_password_ends_only_that_roles_sessions(client, env):
+    token = login(client, AMB_EMAIL, AMB_PASSWORD).cookies[admin.COOKIE]
+    configure(env, password="another admin password")
+    client.cookies.set(admin.COOKIE, token)
+    assert client.get("/auth/session").json()["role"] == "ambulance"
 
 
 def test_no_secret_in_any_response(client, env):
     values = admin.read_env_file(env)
     texts = [login(client, password="wrong").text, login(client).text]
-    texts += [client.get("/admin/session").text, client.post("/admin/logout").text]
+    texts += [client.get("/auth/session").text, client.post("/auth/logout").text]
     for text in texts:
-        assert PASSWORD not in text
+        assert PASSWORD not in text and AMB_PASSWORD not in text
         assert values[admin.ENV_HASH] not in text and values[admin.ENV_SECRET] not in text
         assert "pbkdf2" not in text
 
 
-def test_admin_routes_leave_the_public_api_unchanged(client):
-    """ENF-07: the public endpoints never need or set a cookie; CORS stays GET-only."""
+def test_auth_routes_leave_the_public_api_unchanged(client):
+    """The public endpoints never need or set a cookie; CORS stays GET-only."""
     r = client.get("/health")
     assert r.status_code == 200 and "set-cookie" not in r.headers
     pre = client.options(
-        "/admin/login",
+        "/auth/login",
         headers={"Origin": "http://evil.example", "Access-Control-Request-Method": "POST"},
     )
     assert "POST" not in pre.headers.get("access-control-allow-methods", "")
 
 
-# -- CLI (tasks.py admin-set-password) ---------------------------------------------------------
+# -- CLI (tasks.py admin-set-password, accounts-test) ----------------------------------------
 def test_cli_writes_the_env_and_prints_no_secret(tmp_path, capsys, monkeypatch):
     env = tmp_path / ".env"
     monkeypatch.setattr("sys.stdin", io.StringIO("piped-password\n"))
@@ -236,31 +307,78 @@ def test_cli_writes_the_env_and_prints_no_secret(tmp_path, capsys, monkeypatch):
     again = admin.read_env_file(env)
     assert again[admin.ENV_SECRET] == secret  # kept; only created when missing
     assert admin.verify_password("another-one", again[admin.ENV_HASH])
-    assert again[admin.ENV_EMAIL] == admin.DEFAULT_EMAIL
+    assert again[admin.ENV_EMAIL] == "boss@example.org"  # the email in .env is kept
 
 
-def test_cli_refuses_short_passwords_and_bad_emails(tmp_path):
+def test_cli_sets_one_role_with_its_default_email(tmp_path):
+    env = tmp_path / ".env"
+    args = ["set-password", "--role", "bus", "--password", "bus-password", "--env-file"]
+    assert admin.main([*args, str(env)]) == 0
+    values = admin.read_env_file(env)
+    assert values["TT_BUS_EMAIL"] == "bus@urban-traffic-twin.local"
+    assert admin.verify_password("bus-password", values["TT_BUS_PASSWORD_HASH"])
+    assert admin.ENV_HASH not in values  # the other roles are untouched
+
+
+def test_cli_refuses_short_passwords_bad_emails_and_shared_emails(tmp_path):
     env = tmp_path / ".env"
     with pytest.raises(SystemExit):
         admin.main(["set-password", "--password", "short", "--env-file", str(env)])
     with pytest.raises(SystemExit):
         admin.main(
-            [
-                "set-password",
-                "--email",
-                "nobody",
-                "--password",
-                "long enough",
-                "--env-file",
-                str(env),
-            ]
-        )
+            ["set-password", "--email", "nobody", "--password", "long enough",
+             "--env-file", str(env)]
+        )  # fmt: skip
     assert not env.exists()
+    with pytest.raises(SystemExit):  # the admin's email for the bus account
+        admin.main(
+            ["set-password", "--role", "bus", "--email", EMAIL, "--password", "long enough",
+             "--env-file", str(env)]
+        )  # fmt: skip
 
 
-def test_env_is_gitignored():
-    ignored = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
-    assert ".env" in [line.strip() for line in ignored]
+def test_test_accounts_are_kept_in_a_file_and_reused(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    env, file = tmp_path / ".env", tmp_path / "auth" / "test_accounts.json"
+    assert admin.main(["test-accounts", "--file", str(file), "--env-file", str(env)]) == 0
+    rows = json.loads(file.read_text(encoding="utf-8"))["accounts"]
+    assert [r["role"] for r in rows] == [r.key for r in admin.ROLES]
+    cfg = admin.load_config(env)
+    for row in rows:
+        acc = cfg.account(row["role"])
+        assert cfg.usable(acc) and acc.email == row["email"]
+        assert admin.verify_password(row["password"], acc.password_hash)
+        assert len(row["password"]) >= admin.MIN_PASSWORD_LEN
+    out = capsys.readouterr().out
+    assert all(r["password"] in out for r in rows)  # the table the tester reads
+    # a second run reuses the file; an edited password is written into .env
+    rows[0]["password"] = "edited-password"
+    file.write_text(json.dumps({"accounts": rows}), encoding="utf-8")
+    admin.main(["test-accounts", "--file", str(file), "--env-file", str(env)])
+    again = json.loads(file.read_text(encoding="utf-8"))["accounts"]
+    assert [r["password"] for r in again] == [r["password"] for r in rows]
+    acc = admin.load_config(env).account(rows[0]["role"])
+    assert admin.verify_password("edited-password", acc.password_hash)
+    # --renew draws new passwords
+    admin.main(["test-accounts", "--renew", "--file", str(file), "--env-file", str(env)])
+    renewed = json.loads(file.read_text(encoding="utf-8"))["accounts"]
+    assert all(a["password"] != b["password"] for a, b in zip(renewed, rows, strict=True))
+
+
+def test_test_accounts_sign_in_through_the_api(tmp_path, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    env, file = tmp_path / ".env", tmp_path / "test_accounts.json"
+    rows = admin.seed_test_accounts(file, env)
+    c = client_for(env)
+    for row in rows:
+        r = login(c, row["email"], row["password"])
+        assert r.status_code == 200 and r.json()["role"] == row["role"], row["role"]
+
+
+def test_env_and_test_accounts_are_gitignored():
+    ignored = [ln.strip() for ln in (REPO_ROOT / ".gitignore").read_text("utf-8").splitlines()]
+    assert ".env" in ignored and "data/auth/*" in ignored
+    assert admin.TEST_ACCOUNTS.as_posix().startswith("data/auth/")
     assert not re.search(
         r"pbkdf2_sha256\$\d+\$", (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     )

@@ -11,6 +11,10 @@ Per DOM (plan §4.4): the view root's `data-view-state` is ok or degraded, the v
 and the hook values agree with the API answers (pedestrian verdict, ambulance junction
 statuses, student ETA, bus delay, replay time).
 
+Sign-in (`api.admin`): when the API asks for a session (`dev.auth`), the deep links are
+opened with an administrator session minted from this machine's `.env` (every view), and
+one deep link opened without it must show the sign-in screen.
+
     python -m traffic_twin.demo check [--url http://127.0.0.1:8000] [--operator-url ...]
 """
 
@@ -25,7 +29,7 @@ from pathlib import Path
 
 import httpx
 
-from traffic_twin.demo.common import Report, probe_api, probe_streamlit
+from traffic_twin.demo.common import Report, probe_api, probe_streamlit, session_cookie
 from traffic_twin.demo.config import (
     FOOTER_HOOKS,
     HOOKS,
@@ -155,7 +159,9 @@ def value_problems(view: str, hooks: dict[str, str], bodies: list[dict | None]) 
     bad: list[str] = []
     if view == "pedestrian" and b.get("can_cross") is not None:
         verdict = fold(hooks.get("ped-verdict", ""))
-        if b["can_cross"] and ("traverser" not in verdict or verdict.startswith("attendez")):
+        # « Traversez » (DESIGN.md, verb of the main answer) or « vous pouvez traverser »
+        crosses = "traversez" in verdict or "traverser" in verdict
+        if b["can_cross"] and (not crosses or verdict.startswith("attendez")):
             bad.append(f"ped-verdict {hooks.get('ped-verdict')!r} but can_cross true")
         if not b["can_cross"] and "attendez" not in verdict:
             bad.append(f"ped-verdict {hooks.get('ped-verdict')!r} but can_cross false")
@@ -246,21 +252,36 @@ def dom_check(
         rep.check(g, "hook values equal the API answers", not bad, "; ".join(bad))
 
 
-def _dump(url: str, wait_ms: int) -> tuple[str | None, str]:
+def _dump(url: str, wait_ms: int, cookie: tuple[str, str] | None) -> tuple[str | None, str]:
     from traffic_twin.app.browser import BrowserError, dump_dom
 
     try:
-        return dump_dom(url, wait_ms=wait_ms), ""
+        return dump_dom(url, wait_ms=wait_ms, cookie=cookie), ""
     except BrowserError as e:
         return None, str(e)
 
 
-def dump_many(urls: list[str], wait_ms: int, workers: int = 4) -> list[tuple[str | None, str]]:
-    """DOMs of `urls` (parallel headless browsers, one profile each)."""
+def dump_many(
+    urls: list[str], wait_ms: int, workers: int = 4, cookie: tuple[str, str] | None = None
+) -> list[tuple[str | None, str]]:
+    """DOMs of `urls` (parallel headless browsers, one profile each), opened with the
+    session `cookie` when given (`demo.common.session_cookie`)."""
     if not urls:
         return []
     with ThreadPoolExecutor(max_workers=min(workers, len(urls))) as ex:
-        return list(ex.map(lambda u: _dump(u, wait_ms), urls))
+        return list(ex.map(lambda u: _dump(u, wait_ms, cookie), urls))
+
+
+def gate_check(rep: Report, url: str, wait_ms: int) -> None:
+    """A deep link opened without a session shows the sign-in screen, never the view."""
+    from traffic_twin.app.browser import view_states
+
+    dom, err = _dump(url, wait_ms, None)
+    if dom is None:
+        rep.add("dom gate", "no session: sign-in screen", "FAIL", err)
+        return
+    views = [s["attrs"].get("data-view") for s in view_states(dom)]
+    rep.check("dom gate", "no session: sign-in screen", "login" in views, f"views {views}")
 
 
 # -- the walkthrough ---------------------------------------------------------------------
@@ -299,6 +320,16 @@ def check(
         return _finish(result, rep, t_all, out_dir)
     exe = find_browser() if browser else None
     result["browser"] = exe.name if exe else None
+    cookie, problem = session_cookie(base_url, root)
+    if problem:
+        rep.add("boot", "sign-in: a session for the views", "FAIL", problem)
+    else:
+        rep.add(
+            "boot",
+            "sign-in: a session for the views",
+            "PASS",
+            "on: admin session minted from .env" if cookie else "off (dev.auth: false)",
+        )
     with httpx.Client(base_url=base_url, timeout=10.0) as c:
         sc = call_api(rep, c, Call("boot", "/scenarios", "scenario_list"), budget) or {}
         runs = resolve_runs(cfg, sc)
@@ -390,8 +421,11 @@ def check(
         )
         j = c.get("/three.min.js")
         rep.check("front", "/three.min.js served", j.status_code == 200, f"{len(j.content)} B")
+    if dom_jobs and cookie is not None:
+        gate_check(rep, dom_jobs[0][1], int(cfg["budgets"]["browser_wait_ms"]))
     if dom_jobs:
-        doms = dump_many([u for _s, u, _b in dom_jobs], int(cfg["budgets"]["browser_wait_ms"]))
+        wait = int(cfg["budgets"]["browser_wait_ms"])
+        doms = dump_many([u for _s, u, _b in dom_jobs], wait, cookie=cookie)
         for (step, _url, bodies), (dom, err) in zip(dom_jobs, doms, strict=True):
             if dom is None:
                 rep.add(f"dom {step['id']}", "deep link DOM", "FAIL", err)

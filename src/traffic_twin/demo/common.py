@@ -117,6 +117,37 @@ def probe_api(base_url: str, title: str, timeout: float = 3.0) -> tuple[str, str
     return "impostor", f"/openapi.json title {got!r} (expected {title!r}; run_mock.py?)"
 
 
+SESSION_MINT_S = 15 * 60  # session lifetime of the cookie minted by the demo tools
+
+
+def session_cookie(base_url: str, root: Path) -> tuple[tuple[str, str] | None, str]:
+    """(cookie, problem) that opens every view of the user app at `base_url`: no cookie when
+    its sign-in is off (`dev.auth: false`); else an administrator session minted from this
+    machine's `.env` (the API must read the same file, as `tasks.py demo` does). `problem`
+    is "" when fine, else why no cookie could be made or accepted."""
+    from traffic_twin.api import admin
+
+    url = base_url.rstrip("/") + "/auth/session"
+    try:
+        s = httpx.get(url, timeout=10.0).json()
+    except (httpx.HTTPError, ValueError) as e:
+        return None, f"/auth/session: {type(e).__name__}"
+    if s.get("required") is False:
+        return None, ""
+    cfg = admin.load_config(root / admin.ENV_FILE)
+    acc = cfg.account("admin")
+    if not cfg.usable(acc):
+        return None, "sign-in on, but no admin account in .env (python tasks.py accounts-test)"
+    token, _ = admin.make_token(cfg, acc, time.time(), ttl_s=SESSION_MINT_S)
+    try:
+        r = httpx.get(url, cookies={admin.COOKIE: token}, timeout=10.0).json()
+    except (httpx.HTTPError, ValueError) as e:
+        return None, f"/auth/session: {type(e).__name__}"
+    if r.get("role") != "admin":
+        return None, "the API refuses a session of this machine's .env (another .env or secret)"
+    return (admin.COOKIE, token), ""
+
+
 def probe_streamlit(base_url: str, timeout: float = 3.0) -> tuple[str, str]:
     """("free" | "streamlit" | "other", detail) for the server at `base_url`."""
     u = httpx.URL(base_url)

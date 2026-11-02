@@ -22,25 +22,45 @@ import pandas as pd
 from traffic_twin.app import client
 
 # --------------------------------------------------------------------------- identité visuelle
+# « Carte vivante » (DESIGN.md) : la même identité de scénario que l'application usagers
+# (`SCN` de src/traffic_twin/app/mock.html) : couleur + forme de marqueur + style de trait,
+# jamais la couleur seule.
 BASELINE = "S0"  # la référence des écarts de l'API (`rel_change_vs_s0_pct`)
-RL_GREEN = "#008300"  # = viz.style.CONTROLLER_COLORS["rl"] (S3, D108)
-S4_GREY_GREEN = "#6F8F76"  # S3 sans préemption (D108)
 COLORS = {
-    "S0": "#E5484D",
-    "S1": "#F5A524",
-    "S2_noP": "#A6CF45",
-    "S2": "#2DD4A0",
-    "S3": RL_GREEN,
-    "S4": S4_GREY_GREEN,
+    "S0": "#6B7280",
+    "S1": "#2C7DA0",
+    "S2_noP": "#5D7A99",
+    "S2": "#14365C",
+    "S3": "#5E3BA3",
+    "S4": "#A07FD6",
 }
+SHAPES = {  # marqueurs Vega-Lite
+    "S0": "circle",
+    "S1": "square",
+    "S2_noP": "diamond",
+    "S2": "diamond",
+    "S3": "triangle-up",
+    "S4": "triangle-up",
+}
+FILLED = {"S0": False, "S1": True, "S2_noP": False, "S2": True, "S3": True, "S4": False}
+PLOTLY_SYMBOLS = {
+    "S0": "circle-open",
+    "S1": "square",
+    "S2_noP": "diamond-open",
+    "S2": "diamond",
+    "S3": "triangle-up",
+    "S4": "triangle-up-open",
+}
+DASHES = {"S4": "dash", "S2_noP": "dash"}  # les autres en trait plein
+WIDTHS = {"S0": 1.5, "S2": 3.5}  # S2, la solution retenue, en trait épais ; 2 sinon
 CONTROLLER_COLORS = {
-    "fixed": "#E5484D",
-    "actuated": "#F5A524",
-    "rules": "#2DD4A0",
-    "rule_based": "#2DD4A0",
-    "rl": RL_GREEN,
+    "fixed": "#6B7280",
+    "actuated": "#2C7DA0",
+    "rules": "#14365C",
+    "rule_based": "#14365C",
+    "rl": "#5E3BA3",
 }
-OTHER_COLORS = ("#7AA2F7", "#C792EA", "#FF9E64", "#73DACA")  # labels inconnus, dans l'ordre
+OTHER_COLORS = ("#4A545E", "#8A5A00", "#0F5C4E", "#7A848D")  # labels inconnus, dans l'ordre
 LABELS = {
     "S0": "Temps fixe",
     "S1": "Actuated",
@@ -65,7 +85,12 @@ DESC = {
     "S4": "S3 sans préemption : hors distribution, exploratoire",
 }
 ROLE_NAMES = {"ablation": "ablation", "exploratory": "exploratoire"}
-BG, SURFACE, BORDER, TEXT, MUTED = "#0F1419", "#171E26", "#2A3441", "#E6EDF3", "#8B98A8"
+BG, SURFACE, BORDER, TEXT, MUTED = "#E9ECE6", "#FFFFFF", "#D4D8CF", "#121A21", "#4A545E"
+SURFACE_2, GRID, ACCENT, LINE_STRONG = "#F5F6F3", "#E3E6E0", "#14365C", "#7A848D"
+GO, STOP, CAUTION = "#17773F", "#C62828", "#8A5A00"
+HATCH = "repeating-linear-gradient(135deg, rgba(18,26,33,.08) 0 1px, transparent 1px 6px)"
+FONT = "'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif"
+MONO = "'Atkinson Hyperlegible Mono', 'IBM Plex Mono', ui-monospace, monospace"
 
 HEADLINE = [
     ("car", "time_loss_mean", "Voiture · perte de temps"),
@@ -89,12 +114,12 @@ KPI_NAMES = {
     ("ambulance", "stop_duration_mean"): "Ambulance · durée des arrêts",
 }
 USER_LABELS = {
-    "car": "🚗 Voiture",
-    "bus": "🚌 Bus",
-    "pedestrian": "🚶 Piéton",
-    "ambulance": "🚑 Ambulance",
-    "all": "👥 Tous",
-    "junction": "🚦 Carrefour",
+    "car": "Voiture",
+    "bus": "Bus",
+    "pedestrian": "Piéton",
+    "ambulance": "Ambulance",
+    "all": "Tous",
+    "junction": "Carrefour",
 }
 FAM_LABELS = {"main": "Principale", "ambulance_probe": "Sonde"}
 FAM_NOTES = {
@@ -302,36 +327,54 @@ def seeds_text(seeds: list) -> str:
     return f"{len(seeds)} graines d'évaluation ({', '.join(map(str, seeds))})"
 
 
+def fr_num(v: float, digits: int = 1, signed: bool = False) -> str:
+    """Nombre au format français : virgule décimale, signe moins typographique."""
+    txt = f"{abs(v):,.{digits}f}".replace(",", "\u202f").replace(".", ",")
+    sign = ("+" if v > 0 else ("−" if v < 0 else "")) if signed else ("−" if v < 0 else "")
+    return sign + txt
+
+
+def shape_svg(label: str, color: str, size: int = 14) -> str:
+    """Le marqueur d'un scénario (même dessin que `scnShape` de l'application usagers)."""
+    shape, filled, h, sw = SHAPES.get(label, "circle"), FILLED.get(label, True), size / 2, 2
+    fill = color if filled else "#FFFFFF"
+    if shape == "square":
+        body = f'<rect x="{sw}" y="{sw}" width="{size - 2 * sw}" height="{size - 2 * sw}" fill="{fill}" stroke="{color}" stroke-width="{sw}"/>'
+    elif shape == "diamond":
+        body = f'<path d="M{h} 1 L{size - 1} {h} L{h} {size - 1} L1 {h}Z" fill="{fill}" stroke="{color}" stroke-width="{sw}"/>'
+    elif shape == "triangle-up":
+        body = f'<path d="M{h} 1.5 L{size - 1.5} {size - 1.5} L1.5 {size - 1.5}Z" fill="{fill}" stroke="{color}" stroke-width="{sw}" stroke-linejoin="round"/>'
+    else:
+        body = f'<circle cx="{h}" cy="{h}" r="{h - sw}" fill="{fill if filled else "none"}" stroke="{color}" stroke-width="{sw}"/>'
+    return f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" aria-hidden="true">{body}</svg>'
+
+
 def rgba(hex_color: str, alpha: float) -> str:
     h = hex_color.lstrip("#")
     r, g, b = (int(h[i : i + 2], 16) for i in (0, 2, 4))
     return f"rgba({r},{g},{b},{alpha})"
 
 
-# --------------------------------------------------------------------------- styles (Motez)
+# --------------------------------------------------------------------------- styles (« Carte vivante »)
 SIDEBAR_CSS = """
-[data-testid="stSidebar"] { background: linear-gradient(180deg, #131A22 0%, #0E1318 100%); border-right: 1px solid #232D38; }
+[data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid #D4D8CF; }
 [data-testid="stSidebar"] > div:first-child { padding-top: .6rem; }
 section[data-testid="stSidebar"] { min-width: 335px !important; max-width: 335px !important; }
-.brand { display: flex; gap: .9rem; align-items: center; margin: .3rem 0 .4rem; }
-.signal { background: #090D11; border: 1px solid #2A3441; border-radius: 12px; padding: 8px 7px;
-          display: flex; flex-direction: column; gap: 6px; }
-.signal i { display: block; width: 13px; height: 13px; border-radius: 50%; }
-.signal i:nth-child(1) { background: #E5484D; box-shadow: 0 0 9px #E5484D99; }
-.signal i:nth-child(2) { background: #F5A524; box-shadow: 0 0 9px #F5A52499; }
-.signal i:nth-child(3) { background: #2DD4A0; box-shadow: 0 0 9px #2DD4A099; }
-.brand b { font-family: 'Bricolage Grotesque', sans-serif; font-size: 1.28rem; line-height: 1.05; display: block; }
-.brand span { color: #8B98A8; font-size: .8rem; }
-.sb-h { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 1rem; margin: 1.5rem 0 .55rem; color: #E6EDF3; }
-.sb-h small { color: #8B98A8; font-weight: 500; font-size: .8rem; margin-left: .4rem; font-family: 'IBM Plex Sans', sans-serif; }
-.sb-note { color: #8B98A8; font-size: .78rem; margin: .5rem 0 0; line-height: 1.35; }
-.sb-desc { color: #8B98A8; font-size: .76rem; margin: -.25rem 0 .1rem 2.7rem; line-height: 1.3; }
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p.sb-desc { font-size: .76rem; margin: -.25rem 0 .1rem 2.7rem;
-      line-height: 1.3; }
+.brand { display: flex; gap: .8rem; align-items: center; margin: .3rem 0 .4rem; }
+.signal { background: #14365C; border-radius: 8px; padding: 7px 6px; display: flex; flex-direction: column; gap: 5px; }
+.signal i { display: block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid #FFFFFF; }
+.brand b { font-size: 1.15rem; line-height: 1.15; display: block; color: #121A21; }
+.brand span { color: #4A545E; font-size: .82rem; }
+.sb-h { font-weight: 700; font-size: 1rem; margin: 1.4rem 0 .5rem; color: #121A21; }
+.sb-h small { color: #4A545E; font-weight: 400; font-size: .8125rem; margin-left: .4rem; }
+.sb-note { color: #4A545E; font-size: .8125rem; margin: .5rem 0 0; line-height: 1.45; }
+.sb-desc { color: #4A545E; font-size: .8125rem; margin: -.25rem 0 .1rem 2.7rem; line-height: 1.35; }
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p.sb-desc { font-size: .8125rem; margin: -.25rem 0 .1rem 2.7rem;
+      line-height: 1.35; }
 [data-testid="stSidebar"] [class*="st-key-scn_card_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0; }
-[data-testid="stSidebar"] .stButton button { width: 100%; background: #171E26; border: 1px solid #2A3441; color: #E6EDF3;
-      border-radius: 9px; font-size: .84rem; padding: .3rem .5rem; }
-[data-testid="stSidebar"] .stButton button:hover { border-color: #2DD4A0; color: #2DD4A0; }
+[data-testid="stSidebar"] .stButton button { width: 100%; min-height: 44px; background: #FFFFFF; border: 1px solid #7A848D; color: #121A21;
+      border-radius: 8px; font-size: .875rem; font-weight: 700; padding: .3rem .5rem; }
+[data-testid="stSidebar"] .stButton button:hover { border-color: #14365C; color: #14365C; }
 [data-testid="stSidebar"] [data-baseweb="button-group"] button, [data-testid="stSidebar"] [data-testid="stPills"] button {
       border-radius: 999px; }
 """
@@ -339,8 +382,8 @@ section[data-testid="stSidebar"] { min-width: 335px !important; max-width: 335px
 
 def scn_card_css(colors: dict[str, str]) -> str:
     return "".join(
-        f".st-key-scn_card_{s} {{ border: 1px solid {BORDER}; border-left: 5px solid {c}; border-radius: 10px; "
-        f"background: #141B23; padding: .55rem .8rem .5rem; margin-bottom: .5rem; }} "
+        f".st-key-scn_card_{s} {{ border: 1px solid {BORDER}; border-left: 4px solid {c}; border-radius: 8px; "
+        f"background: {SURFACE}; padding: .55rem .8rem .5rem; margin-bottom: .5rem; }} "
         f".st-key-scn_card_{s}:has(input:not(:checked)) {{ opacity: .5; }} "
         for s, c in colors.items()
     )
@@ -348,42 +391,49 @@ def scn_card_css(colors: dict[str, str]) -> str:
 
 CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap');
-html, body, [class*="css"], .stApp {{ font-family: 'IBM Plex Sans', system-ui, sans-serif; }}
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;700&family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,700;1,400&display=swap');
+html, body, [class*="css"], .stApp {{ font-family: {FONT}; }}
 .stApp {{ background: {BG}; color: {TEXT}; }}
 header[data-testid="stHeader"] {{ background: transparent; }}
 #MainMenu, footer {{ visibility: hidden; }}
 .block-container {{ padding-top: 2.2rem; max-width: 1400px; }}
-[data-testid="stSidebar"] {{ background: #12181F; border-right: 1px solid #232D38; }}
-h1, h2, h3 {{ font-family: 'Bricolage Grotesque', sans-serif; letter-spacing: -0.01em; color: {TEXT}; }}
-.title {{ font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 2.7rem; line-height: 1.05; margin: 0; }}
-.subtitle {{ color: {MUTED}; font-size: 1.02rem; margin-top: .45rem; }}
-.lane {{ height: 4px; margin: 1.1rem 0 1.5rem;
-        background: repeating-linear-gradient(90deg, #F2C94C 0 30px, transparent 30px 52px); opacity: .9; }}
-.notice {{ background: #2A2210; border: 1px solid #5A4513; border-left: 5px solid #F2C94C; border-radius: 10px;
-          padding: .85rem 1.1rem; font-size: .93rem; color: #F3E7C0; margin-bottom: 1.4rem; }}
-.card {{ background: {SURFACE}; border: 1px solid {BORDER}; border-top: 5px solid var(--c); border-radius: 12px;
-        padding: 1.05rem 1.15rem 1rem; height: 100%; }}
-.card.off {{ opacity: .38; }}
-.card.abl {{ opacity: .72; }}
-.rank {{ font-size: .8rem; color: var(--c); font-weight: 600; }}
-.name {{ font-family: 'Bricolage Grotesque', sans-serif; font-size: 1.7rem; font-weight: 800; line-height: 1.1; margin-top: .15rem; }}
-.sub {{ color: {MUTED}; font-size: .86rem; margin-bottom: .75rem; }}
-.big {{ font-family: 'IBM Plex Mono', monospace; font-size: 2.15rem; font-weight: 500; line-height: 1; }}
-.big small {{ font-size: .95rem; color: {MUTED}; margin-left: .2rem; }}
-.lab {{ color: {MUTED}; font-size: .8rem; margin: .25rem 0 .55rem; }}
-.delta {{ display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: .85rem; padding: .12rem .5rem;
-         border-radius: 6px; background: #1F2933; }}
-.good {{ color: #2DD4A0; }} .bad {{ color: #FF7A7F; }} .flat {{ color: {MUTED}; }}
+h1, h2, h3, h4 {{ font-family: {FONT}; color: {TEXT}; }}
+:focus-visible {{ outline: 3px solid {ACCENT} !important; outline-offset: 2px; }}
+[data-testid="stMarkdownContainer"] p.title {{ font-weight: 700; font-size: 1.75rem; line-height: 1.15; margin: 0; color: {TEXT}; }}
+[data-testid="stMarkdownContainer"] p.subtitle {{ color: {MUTED}; font-size: 1rem; margin-top: .4rem; }}
+.lane {{ height: 1px; margin: 1.1rem 0 1.4rem; background: {BORDER}; }}
+/* bandeau hachuré : la signature visuelle du « simulé », collé en haut */
+.notice {{ position: sticky; top: 0; z-index: 90; background: {SURFACE_2} {HATCH}; border: 1px solid {BORDER};
+          border-left: 4px solid {MUTED}; border-radius: 4px; padding: .55rem 1rem; font-size: .875rem; color: {TEXT};
+          margin-bottom: 1.4rem; }}
+.notice b {{ letter-spacing: .06em; }}
+.card {{ background: {SURFACE}; border: 1px solid {BORDER}; border-left: 4px solid var(--c); border-radius: 8px;
+        padding: 1rem 1.1rem; height: 100%; box-shadow: 0 1px 2px rgba(18,26,33,.08), 0 4px 16px rgba(18,26,33,.06); }}
+.card.off {{ opacity: .45; }}
+.card.abl {{ opacity: .8; }}
+.rank {{ font-size: .8125rem; color: {MUTED}; font-weight: 700; }}
+.name {{ font-size: 1.5rem; font-weight: 700; line-height: 1.1; margin-top: .15rem; color: {TEXT}; display: flex; align-items: center; gap: .4rem; }}
+.retenue {{ font-size: .75rem; font-weight: 700; color: #FFFFFF; background: {ACCENT}; border-radius: 4px; padding: .05rem .4rem; }}
+.sub {{ color: {MUTED}; font-size: .875rem; margin-bottom: .75rem; }}
+.big {{ font-family: {MONO}; font-size: 1.75rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: {TEXT}; }}
+.big small {{ font-family: {FONT}; font-size: .95rem; color: {MUTED}; margin-left: .2rem; font-weight: 400; }}
+.lab {{ color: {MUTED}; font-size: .8125rem; margin: .25rem 0 .55rem; }}
+.delta {{ display: inline-block; font-size: .875rem; font-weight: 700; padding: .12rem .5rem;
+         border-radius: 4px; border: 1px solid currentColor; background: {SURFACE}; }}
+.good {{ color: {GO}; }} .bad {{ color: {STOP}; }} .flat {{ color: {MUTED}; }}
 .mini {{ display: flex; gap: 1rem; margin-top: .8rem; padding-top: .7rem; border-top: 1px solid {BORDER}; }}
 .mini div {{ flex: 1; }}
-.mini b {{ font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 1.02rem; display: block; }}
-.mini span {{ color: {MUTED}; font-size: .74rem; }}
-button[data-baseweb="tab"] {{ font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 1.02rem; }}
+.mini b {{ font-family: {MONO}; font-weight: 700; font-size: 1rem; display: block; font-variant-numeric: tabular-nums; color: {TEXT}; }}
+.mini span {{ display: block; color: {MUTED}; font-size: .8125rem; line-height: 1.3; margin-top: .15rem; }}
+[data-testid="stMetricValue"] {{ font-family: {MONO}; font-variant-numeric: tabular-nums; }}
+[data-testid="stDataFrame"] {{ font-variant-numeric: tabular-nums; }}
+button[data-baseweb="tab"] {{ font-weight: 700; font-size: 1rem; min-height: 44px; }}
 .stTabs [data-baseweb="tab-list"] {{ gap: .4rem; border-bottom: 1px solid {BORDER}; }}
-.section-note {{ color: {MUTED}; font-size: .9rem; margin: .1rem 0 .9rem; }}
-.pill {{ display:inline-block; padding:.1rem .55rem; border-radius:999px; font-size:.78rem; font-weight:600;
-        border:1px solid var(--c); color: var(--c); margin-right:.3rem; }}
+.stTabs [data-baseweb="tab-highlight"] {{ background-color: {ACCENT}; height: 3px; }}
+.stTabs button[aria-selected="true"] {{ color: {ACCENT}; }}
+.section-note {{ color: {MUTED}; font-size: .9375rem; margin: .1rem 0 .9rem; }}
+.pill {{ display:inline-flex; align-items:center; gap:.3rem; padding:.1rem .55rem; border-radius:4px; font-size:.8125rem; font-weight:700;
+        border:1px solid {LINE_STRONG}; color: {TEXT}; margin-right:.3rem; background: {SURFACE}; }}
 </style>
 """
 
@@ -401,18 +451,34 @@ def main() -> None:
             st.dataframe(df, use_container_width=True, hide_index=True, **kw)
 
     def show_chart(ch):
+        """Thème partagé des graphiques (Altair) : polices, axes, couleurs et la mention
+        « Simulé » dans le coin de chaque graphique."""
+        try:
+            if ch.title is alt.Undefined:
+                ch = ch.properties(
+                    title=alt.TitleParams(
+                        "Simulé", anchor="end", fontSize=12, fontWeight="bold", color=MUTED
+                    )
+                )
+        except Exception:
+            pass
         ch = (
             ch.configure_view(strokeWidth=0)
-            .configure(background="transparent")
+            .configure(background="transparent", font="Atkinson Hyperlegible Next")
             .configure_axis(
                 labelColor=MUTED,
                 titleColor=MUTED,
-                gridColor="#222C37",
-                domainColor=BORDER,
-                tickColor=BORDER,
+                gridColor=GRID,
+                domainColor=LINE_STRONG,
+                tickColor=LINE_STRONG,
+                labelFontSize=12,
+                titleFontSize=12,
             )
-            .configure_legend(labelColor=TEXT, titleColor=MUTED)
-            .configure_header(labelColor=TEXT, titleColor=TEXT)
+            .configure_legend(
+                labelColor=TEXT, titleColor=MUTED, labelFontSize=13, symbolStrokeWidth=2
+            )
+            .configure_header(labelColor=TEXT, titleColor=TEXT, labelFontSize=13)
+            .configure_line(strokeWidth=2)
         )
         try:
             st.altair_chart(ch, width="stretch")
@@ -455,7 +521,7 @@ def main() -> None:
     # ------------------------------------------------------------------ panneau de contrôle (barre latérale)
     sb = st.sidebar
     sb.markdown(
-        '<div class="brand"><div class="signal"><i></i><i></i><i></i></div>'
+        '<div class="brand"><div class="signal"><i style="background:#C62828"></i><i style="background:#E3A21A"></i><i style="background:#17773F"></i></div>'
         "<div><b>Panneau de contrôle</b><span>Bd de l'Hôpital × Bd Saint-Marcel</span></div></div>",
         unsafe_allow_html=True,
     )
@@ -589,7 +655,7 @@ def main() -> None:
         else ""
     )
     st.markdown(
-        f'<div class="notice"><b>Données simulées.</b> Demande calibrée sur des capteurs réels '
+        f'<div class="notice" role="note"><b>SIMULATION</b> · Données simulées. Demande calibrée sur des capteurs réels '
         f"jusqu'au {env.get('calibrated_on') or 'n.d.'}.{prov}</div>",
         unsafe_allow_html=True,
     )
@@ -644,10 +710,17 @@ def main() -> None:
         if abs(g) < 0.05:
             return '<span class="delta flat">= S0</span>'
         cls = "good" if (g < 0) == lower_better else "bad"
-        return f'<span class="delta {cls}">{g:+.1f} % vs S0</span>'
+        arrow = "▼" if g < 0 else "▲"
+        return f'<span class="delta {cls}">{arrow} {fr_num(g, 1, signed=True)} % vs S0</span>'
 
     def fmt(v):
-        return "n.d." if v is None else f"{v:.1f}"
+        return "n.d." if v is None else fr_num(v, 1)
+
+    main_sol = ((evp.get("replication_10_6") or {}).get("main_solution")) if evp else None
+
+    def name_html(scn):
+        tag = ' <span class="retenue">Retenue</span>' if scn == main_sol else ""
+        return f'<div class="name">{shape_svg(scn, colors[scn], 16)} {scn}{tag}</div>'
 
     cards = ranked + [x for x in order if x not in ranked]
     per_row = len(cards) if len(cards) <= 4 else 3  # Motez's 4 cards per row, 3 + 3 for 6
@@ -677,7 +750,7 @@ def main() -> None:
             )
             html = (
                 f'<div class="card{off}{abl}" style="--c:{colors[scn]}"><div class="rank">Rang {rk}/{n}{tag}{role_tag}</div>'
-                f'<div class="name">{scn}</div><div class="sub">{label_name(info[scn])}</div>'
+                f'{name_html(scn)}<div class="sub">{label_name(info[scn])}</div>'
                 f'<div class="big">{fmt(pw)}<small>s</small></div><div class="lab">Retard moyen pondéré par personne</div>'
                 f"{delta_html(gap(scn, 'all', 'person_delay_mean') if scn != BASELINE else None)}"
                 f'<div class="mini"><div><b>{fmt(car)} s</b><span>Voiture, perte de temps</span></div>'
@@ -687,7 +760,7 @@ def main() -> None:
             why = kpi_replies[scn].message or "pas encore évalué"
             html = (
                 f'<div class="card off" style="--c:{colors[scn]}"><div class="rank">Non classé{role_tag}</div>'
-                f'<div class="name">{scn}</div><div class="sub">{label_name(info[scn])}</div>'
+                f'{name_html(scn)}<div class="sub">{label_name(info[scn])}</div>'
                 f'<div class="big">n.d.</div><div class="lab">{why}</div></div>'
             )
         col.markdown(html, unsafe_allow_html=True)
@@ -844,7 +917,7 @@ def main() -> None:
                     alt.Tooltip("sd:Q", format=".1f"),
                 ],
             )
-            err = base.mark_errorbar(color="#C9D3DD").encode(y=alt.Y("lo:Q", title=None), y2="hi:Q")
+            err = base.mark_errorbar(color="#5A6270").encode(y=alt.Y("lo:Q", title=None), y2="hi:Q")
             ch = (
                 (bars + err)
                 .properties(width=150, height=190)
@@ -864,18 +937,21 @@ def main() -> None:
                 st.info("Choisis un scénario autre que S0 pour voir les écarts.")
             else:
                 dom2 = [s for s in order if s in g.scenario.unique()]
-                gc = (
+                enc = {
+                    "y": alt.Y("label:N", title=None, sort=names, axis=alt.Axis(labelLimit=260)),
+                    "x": alt.X("rel_pct:Q", title="Écart vs S0 (%)"),
+                    "yOffset": alt.YOffset("scenario:N", sort=dom2),
+                    "color": alt.Color(
+                        "scenario:N",
+                        scale=alt.Scale(domain=dom2, range=[colors[s] for s in dom2]),
+                        legend=alt.Legend(title=None, orient="top"),
+                    ),
+                }
+                gbars = (
                     alt.Chart(g)
                     .mark_bar(cornerRadiusEnd=4)
                     .encode(
-                        y=alt.Y("label:N", title=None, sort=names, axis=alt.Axis(labelLimit=260)),
-                        x=alt.X("rel_pct:Q", title="Écart vs S0 (%)"),
-                        yOffset=alt.YOffset("scenario:N", sort=dom2),
-                        color=alt.Color(
-                            "scenario:N",
-                            scale=alt.Scale(domain=dom2, range=[colors[s] for s in dom2]),
-                            legend=alt.Legend(title=None, orient="top"),
-                        ),
+                        **enc,
                         opacity=opacity,
                         tooltip=[
                             "label",
@@ -884,8 +960,33 @@ def main() -> None:
                             alt.Tooltip("rel_pct:Q", title="écart vs S0 %", format="+.1f"),
                         ],
                     )
-                    .properties(height=max(280, 46 * g.label.nunique()))
                 )
+                gmarks = (
+                    alt.Chart(g)
+                    .mark_point(size=70, strokeWidth=2, opacity=1)
+                    .encode(
+                        **enc,
+                        shape=alt.Shape(
+                            "scenario:N",
+                            scale=alt.Scale(
+                                domain=dom2, range=[SHAPES.get(s, "circle") for s in dom2]
+                            ),
+                            legend=alt.Legend(title=None, orient="top"),
+                        ),
+                        fill=alt.condition(
+                            alt.FieldOneOfPredicate(
+                                field="scenario", oneOf=[s for s in dom2 if FILLED.get(s, True)]
+                            ),
+                            alt.Fill(
+                                "scenario:N",
+                                scale=alt.Scale(domain=dom2, range=[colors[s] for s in dom2]),
+                                legend=None,
+                            ),
+                            alt.value("#FFFFFF"),
+                        ),
+                    )
+                )
+                gc = (gbars + gmarks).properties(height=max(280, 46 * g.label.nunique()))
                 show_chart(gc)
 
     # ------------------------------------------------------------------ 2. tous les KPI
@@ -1036,7 +1137,7 @@ def main() -> None:
                             title=None,
                             scale=alt.Scale(
                                 domain=["better", "worse", "same"],
-                                range=["#2DD4A0", "#FF7A7F", "#8B98A8"],
+                                range=["#157A47", "#B42323", "#A8ADB5"],
                             ),
                         ),
                         tooltip=["label", "changement %", "p", "p (Holm)"],
@@ -1322,20 +1423,44 @@ def main() -> None:
                     )
                 fig.add_trace(
                     go.Scatter(
-                        x=x, y=d["mean"], mode="lines", name=lab, line={"color": c, "width": 2}
+                        x=x,
+                        y=d["mean"],
+                        mode="lines+markers",
+                        name=lab,
+                        line={
+                            "color": c,
+                            "width": WIDTHS.get(lab, 2),
+                            "dash": DASHES.get(lab, "solid"),
+                        },
+                        marker={
+                            "symbol": PLOTLY_SYMBOLS.get(lab, "circle"),
+                            "size": 8,
+                            "color": c,
+                            "maxdisplayed": 14,
+                        },
                     )
                 )
+            fig.add_annotation(
+                text="<b>Simulé</b>",
+                xref="paper",
+                yref="paper",
+                x=1,
+                y=1.08,
+                showarrow=False,
+                font={"color": MUTED, "size": 12},
+            )
             fig.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                font={"color": TEXT},
+                font={"color": TEXT, "family": "Atkinson Hyperlegible Next, system-ui, sans-serif"},
+                separators=", ",
                 legend={"orientation": "h", "y": 1.08},
                 margin={"l": 10, "r": 10, "t": 30, "b": 10},
                 xaxis={
                     "title": "temps depuis le début de la simulation (min)",
-                    "gridcolor": "#222C37",
+                    "gridcolor": GRID,
                 },
-                yaxis={"title": "véhicules à l'arrêt", "gridcolor": "#222C37"},
+                yaxis={"title": "véhicules à l'arrêt", "gridcolor": GRID},
                 height=420,
             )
             step = (srs.payload or {}).get("step_s")
@@ -1409,6 +1534,11 @@ def main() -> None:
                     "text/csv",
                     key=f"dl_pair_{a}__{b}",
                 )
+
+    # source, calibration et âge rappelés au bas de chaque onglet (« Simulé » dans la vue)
+    for tab in tabs:
+        with tab:
+            st.caption(f"Simulé · {footer_text(env)}")
 
     # ------------------------------------------------------------------ pied de page (ENF-04, ENF-05)
     st.divider()

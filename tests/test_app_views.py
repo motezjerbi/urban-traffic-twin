@@ -106,7 +106,8 @@ def real_site() -> Iterator[Site]:
     """The repo settings (data/results + data/demo), default run pitie_rules seed 4000."""
     if not (DEMO_RUN / "run.json").is_file():
         pytest.skip("no demo run data/demo/pitie_rules_seed4000 (tasks.py demo-runs)")
-    settings = replace(load_settings(repo_root=REPO_ROOT, environ={}), mock=True)
+    # the views open without a session here; the sign-in has its own test below
+    settings = replace(load_settings(repo_root=REPO_ROOT, environ={}), mock=True, auth=False)
     site = Site(settings)
     yield site
     site.served.stop()
@@ -463,7 +464,7 @@ def test_operator_card_is_degraded_when_a_registered_label_is_missing(fake_site)
     assert dom.has("banner-degraded") and notice in dom.main_text, dom.main_text[:400]
 
 
-# -- the admin cockpit (local-only sign-in), driven over the DevTools protocol ---------------
+# -- the admin cockpit and the role sign-in, driven over the DevTools protocol ---------------
 ADMIN_TEST_EMAIL = "admin@urban-traffic-twin.local"
 SYNC_LABELS = ("S1", "S2", "S3", "S4")
 
@@ -592,18 +593,18 @@ def test_admin_cockpit_login_and_both_tabs(admin_site):
 
     async def steps(js, nav, until):
         await nav(f"{url}/mock?view=admin")
-        await until("!!document.getElementById('admin-login')")
+        await until("!!document.getElementById('auth-form')")
         out = {"login": json.loads(await js(HOOKS_JS))}
 
         async def submit(pw: str):
             await js(
-                f"document.getElementById('admin-email').value = {json.dumps(ADMIN_TEST_EMAIL)}"
+                f"document.getElementById('auth-email').value = {json.dumps(ADMIN_TEST_EMAIL)}"
             )
-            await js(f"document.getElementById('admin-password').value = {json.dumps(pw)}")
-            await js("document.getElementById('admin-login').requestSubmit()")
+            await js(f"document.getElementById('auth-password').value = {json.dumps(pw)}")
+            await js("document.getElementById('auth-form').requestSubmit()")
 
         await submit(password + "x")
-        await until("document.getElementById('admin-login-msg').innerText.includes('incorrects')")
+        await until("document.getElementById('auth-pw-msg').innerText.includes('incorrect')")
         await submit(password)
         await until("!!document.querySelector('[data-field=admin-table]')")
         out["table"] = json.loads(await js(HOOKS_JS))
@@ -617,7 +618,7 @@ def test_admin_cockpit_login_and_both_tabs(admin_site):
         out["sync"] = json.loads(await js(HOOKS_JS))
         out["sync_state"] = await js("document.getElementById('view').dataset.viewState")
         await js("document.getElementById('admin-logout').click()")
-        await until("!!document.getElementById('admin-login')")
+        await until("!!document.getElementById('auth-form')")
         out["after"] = json.loads(await js(HOOKS_JS))
         return out
 
@@ -629,7 +630,7 @@ def test_admin_cockpit_login_and_both_tabs(admin_site):
     assert out["login"]["admin-state"] == "login"
     assert out["table"]["admin-state"] == "cockpit" and out["table"]["admin-tab"] == "table"
     assert int(out["table"]["admin-table"]) == len(keys) > 0
-    assert "tt_admin" not in (out["cookie"] or "")  # HttpOnly
+    assert "tt_session" not in (out["cookie"] or "")  # HttpOnly
     assert out["password_shown"] is False
     assert "Données simulées" in out["footer"]
     sync = out["sync"]
@@ -648,3 +649,108 @@ def test_admin_cockpit_login_and_both_tabs(admin_site):
     assert int(sync["admin-moments"]) >= 2  # the fixtures' preemption request and service
     assert int(sync["admin-maps"]) == len(demo_runs)
     assert out["after"]["admin-state"] == "login"
+
+
+ROLE_PASSWORDS = {"pedestrian": "pieton-test-pw", "operator": "operateur-test-pw"}
+VIEW_JS = (
+    "JSON.stringify({view: document.getElementById('view').dataset.view,"
+    " state: document.getElementById('view').dataset.viewState,"
+    " navHidden: document.getElementById('nav').hidden,"
+    " nav: [...document.querySelectorAll('#nav [data-view]')].map(b => b.dataset.view),"
+    " role: (document.querySelector('[data-field=auth-role]') || {dataset: {}}).dataset.value"
+    " || null, msg: (document.getElementById('auth-note') || {}).innerText || null,"
+    " submit: document.querySelectorAll('#view button[type=submit]').length})"
+)
+TYPE_JS = (
+    "(() => { const e = document.getElementById('auth-email'); e.value = %s;"
+    " e.dispatchEvent(new Event('input', {bubbles: true}));"
+    " const h = document.getElementById('auth-role');"
+    " return h.dataset.value + ':' + h.className; })()"
+)
+READY_JS = (
+    "(() => { const v = document.getElementById('view');"
+    " return v.dataset.view === '%s' && v.dataset.viewState !== 'loading'; })()"
+)
+
+
+@pytest.fixture
+def gate_site(tmp_path, monkeypatch) -> Iterator[Site]:
+    """FAKE data, the sign-in on (`dev.auth`), a pedestrian and an operator account in a
+    temporary .env (passwords made for the test)."""
+    from traffic_twin.api import admin
+
+    for key in admin.ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
+    root = tmp_path / "fake"
+    make_results(root, n_runs=3)
+    runs = sorted(p.parent for p in root.glob("*/run.json"))
+    make_fake_eta(root / "models" / "eta")
+    cfg = write_settings(root, runs, root / "models" / "eta")
+    env = tmp_path / ".env"
+    admin.write_env_keys(env, {admin.ENV_SECRET: secrets.token_urlsafe(32)})
+    for role, pw in ROLE_PASSWORDS.items():
+        r = admin.ROLE_BY_KEY[role]
+        admin.write_env_keys(
+            env, {r.hash_key: admin.hash_password(pw, iterations=admin.MIN_ITERATIONS)}
+        )
+    settings = replace(
+        load_settings(path=cfg, repo_root=REPO_ROOT, environ={}), admin_env_file=env, auth=True
+    )
+    site = Site(settings)
+    yield site
+    site.served.stop()
+
+
+def test_every_view_needs_a_role_session_and_opens_only_that_roles_views(gate_site):
+    """No session: any deep link shows the sign-in screen. The pedestrian account opens the
+    pedestrian view only (no navigation bar; a deep link to another view lands back on
+    it); after the logout, the operator account opens the operator card and the replay."""
+    pytest.importorskip("websockets")
+    url = gate_site.served.url
+
+    async def steps(js, nav, until):
+        out = {}
+        await nav(f"{url}/mock?view=operator")
+        await until("!!document.getElementById('auth-form')")
+        out["gate"] = json.loads(await js(VIEW_JS))
+        out["hints"] = {ident: await js(TYPE_JS % json.dumps(ident))
+                        for ident in ("pieton", "admin", "nobody")}  # fmt: skip
+        ids = {"pedestrian": "pieton", "operator": "operateur@urban-traffic-twin.local"}
+
+        async def sign_in(role: str):
+            await js(TYPE_JS % json.dumps(ids[role]))  # the role comes from the address
+            pw = json.dumps(ROLE_PASSWORDS[role])
+            await js(f"document.getElementById('auth-password').value = {pw}")
+            await js("document.getElementById('auth-form').requestSubmit()")
+
+        await sign_in("pedestrian")
+        await until(READY_JS % "pedestrian")
+        out["pedestrian"] = json.loads(await js(VIEW_JS))
+        await nav(f"{url}/mock?view=operator")  # another role's view
+        await until(READY_JS % "pedestrian")
+        out["redirect"] = json.loads(await js(VIEW_JS))
+        await js("document.getElementById('auth-logout').click()")
+        await until("!!document.getElementById('auth-form')")
+        out["logout"] = json.loads(await js(VIEW_JS))
+        await sign_in("operator")
+        await until(READY_JS % "operator")
+        out["operator"] = json.loads(await js(VIEW_JS))
+        return out
+
+    cdp = Cdp()
+    try:
+        out = asyncio.run(_drive(cdp.ws_url, steps))
+    finally:
+        cdp.close()
+    assert out["gate"]["view"] == "login" and out["gate"]["role"] is None
+    assert out["gate"]["submit"] == 1  # one button sends the form
+    assert out["hints"]["pieton"] == "pedestrian:field-msg ok"
+    assert out["hints"]["admin"] == "admin:field-msg warn"  # no password set: said so
+    assert out["hints"]["nobody"].startswith(":")
+    ped = out["pedestrian"]
+    assert ped["role"] == "pedestrian" and ped["state"] in OK_STATES and ped["navHidden"]
+    assert out["redirect"]["view"] == "pedestrian" and out["redirect"]["role"] == "pedestrian"
+    assert out["logout"]["view"] == "login" and "déconnecté" in (out["logout"]["msg"] or "")
+    op = out["operator"]
+    assert op["role"] == "operator" and op["state"] in OK_STATES | {"unavailable"}
+    assert op["nav"] == ["replay", "operator"] and not op["navHidden"]

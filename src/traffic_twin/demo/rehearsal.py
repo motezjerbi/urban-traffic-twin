@@ -47,6 +47,7 @@ from traffic_twin.demo.common import (
     free_port,
     git_info,
     now_iso,
+    session_cookie,
     wait_http,
     write_report,
 )
@@ -339,7 +340,11 @@ def run_degraded(
         rep.extend(sub)
         status[case] = "FAIL" if sub.count("FAIL") else "PASS"
     if browser and dom_jobs:
-        doms = dump_many([u for _c, _v, u, _a in dom_jobs], int(cfg["budgets"]["browser_wait_ms"]))
+        # every degraded API reads the repo's .env: one minted session opens them all
+        base = next(iter(servers.values()))[1]
+        cookie, _problem = session_cookie(base, root)
+        wait = int(cfg["budgets"]["browser_wait_ms"])
+        doms = dump_many([u for _c, _v, u, _a in dom_jobs], wait, cookie=cookie)
         for (case, view, _u, allowed), (dom, err) in zip(dom_jobs, doms, strict=True):
             sub = Report(quiet=rep.quiet)
             _dom_generic(sub, case, view, dom, err, allowed)

@@ -113,9 +113,9 @@ time (such as `t=1e12`) is `bad_t` too.
 | `GET /series?family=main&metric=halting_veh&approach=all&labels=S0,S2,S3` | `kpi_series` | `metric`, `approach`, `step_s`, `points[{label, t_s, mean, p10, p90, n}]` |
 | `GET /sensitivity` | `sensitivity` | `rows[]` (the columns of the CSV), `source` |
 | `GET /mock` | HTML | Mock screens (dev only) |
-| `GET /admin/session` | `admin_session` | `configured`, `authenticated`, `email`, `expires_at`, `remaining_s`, `ttl_s` (local admin cockpit, below) |
-| `POST /admin/login` (JSON `{email, password}`) | `admin_session` | the same, and the session cookie |
-| `POST /admin/logout` | `admin_session` | the same (not authenticated), and the cookie cleared |
+| `GET /auth/session` | `auth_session` | `required`, `configured`, `authenticated`, `role`, `role_label`, `email`, `views[]`, `expires_at`, `remaining_s`, `ttl_s`, `accounts[{role, label, email, views, configured}]` (sign-in, below) |
+| `POST /auth/login` (JSON `{email, password}`) | `auth_session` | the same, and the session cookie |
+| `POST /auth/logout` | `auth_session` | the same (not authenticated), and the cookie cleared |
 
 **Endpoint rules:**
 - **`/kpi`.**
@@ -172,40 +172,46 @@ time (such as `t=1e12`) is `bad_t` too.
   - `advice` follows spec 11.5 (`ml.advice`, D52) when `deadline` (`HH:MM` or ISO) is given.
   - `queue_beyond_zone` is true when the run's `eta_snapshots` show cars waiting to enter that arm (`pending_<arm>` > 0); null without snapshots.
 
-## Admin cockpit sign-in (local-only addition)
+## Sign-in by role (local-only deviation from ENF-07)
 
-A deliberate, local-only addition for the admin cockpit of `mock.html` (view `admin`), not a
-user account system: the five public profiles and every endpoint above stay account-free
-and cookie-free (ENF-07). The cockpit reads only the public endpoints above; the sign-in
-gates the view itself.
+Every view of `mock.html` is behind a sign-in, one account per role (`api.admin.ROLES`):
+`pedestrian`, `student`, `bus` and `ambulance` open their own view, `operator` the
+operator card and the replay, `admin` every view and the admin cockpit. This deviates
+from ENF-07 ("no accounts") on purpose, for the user app only: every GET endpoint above
+stays account-free and cookie-free, and the views read only those endpoints. `dev.auth`
+in `api.yaml` (default true) turns the sign-in on; the FAKE fixtures set it to false.
 
-- **Credential:** `TT_ADMIN_EMAIL` (default `admin@urban-traffic-twin.local`),
-  `TT_ADMIN_PASSWORD_HASH` (`pbkdf2_sha256$<iterations>$<salt b64>$<hash b64>`, hashlib,
-  random 16-byte salt, 600 000 iterations, at least 200 000 accepted) and `TT_ADMIN_SECRET`
-  (the cookie signing key), read at each request from the environment, else from the
-  gitignored `.env` of the repo root (`api.yaml` has no admin key). `python tasks.py
-  admin-set-password` writes them (`python -m traffic_twin.api.admin set-password --email
-  E`; the password from getpass or a piped stdin, `--password` for scripts). Nothing secret
-  is printed, logged, committed or returned.
-- **`POST /admin/login`:** JSON `{email, password}`. The email (case-insensitive) and the
-  PBKDF2 hash are compared in constant time. Success: 200 `admin_session` and the cookie
-  `tt_admin` (HttpOnly, SameSite=Strict, `Path=/`, `Max-Age=1800`, `Secure` over https):
-  an HMAC-SHA256-signed token holding the email and the expiry (now + 30 min). Its key mixes
-  the secret with the password hash, so a new password ends every session. Wrong
-  credentials: 401 `bad_credentials`, "identifiants incorrects". 5 failures within a minute
-  from one client: 429 `too_many_attempts` until the oldest leaves the window (in memory,
-  per API process). No credential configured: 503 `admin_not_configured`, "admin non
-  configuré". A body that is not that JSON: the usual 404 `bad_request`.
-- **`GET /admin/session`:** `authenticated` (a valid, unexpired cookie of the configured
-  admin), `email`, `expires_at`, `remaining_s`, `ttl_s` (1800) and `configured` (with the
-  notice "admin non configuré" when false). Never cached (`Cache-Control: no-store`).
-- **`POST /admin/logout`:** clears the cookie (`Max-Age=0`).
-- CORS still allows GET only, so another origin cannot post to `/admin/login`; uvicorn runs
+- **Accounts:** `TT_<ROLE>_EMAIL` (default `<role>@urban-traffic-twin.local`, e.g.
+  `pieton@...`, `operateur@...`), `TT_<ROLE>_PASSWORD_HASH`
+  (`pbkdf2_sha256$<iterations>$<salt b64>$<hash b64>`, hashlib, random 16-byte salt,
+  600 000 iterations, at least 200 000 accepted) and `TT_ADMIN_SECRET` (the key that signs
+  the sessions of every role), read at each request from the environment, else from the
+  gitignored `.env` of the repo root. `python tasks.py admin-set-password --role R` writes
+  one account; `python tasks.py accounts-test` writes all six from the gitignored test file
+  `data/auth/test_accounts.json` (passwords in clear, for tests and the demo). Nothing
+  secret is logged, committed or returned by the API.
+- **`POST /auth/login`:** JSON `{email, password}`. Every email (case-insensitive) is
+  compared in constant time and one PBKDF2 hash is always computed. Success: 200
+  `auth_session` and the cookie `tt_session` (HttpOnly, SameSite=Strict, `Path=/`,
+  `Max-Age=1800`, `Secure` over https): an HMAC-SHA256-signed token holding the email, the
+  role and the expiry (now + 30 min). Its key mixes the secret with the role and its
+  password hash, so a new password ends every session of that role. Wrong credentials: 401
+  `bad_credentials`, "identifiants incorrects". 5 failures within a minute from one
+  client: 429 `too_many_attempts` until the oldest leaves the window (in memory, per API
+  process). No usable account: 503 `auth_not_configured`, "aucun compte configuré". A body
+  that is not that JSON: the usual 404 `bad_request`.
+- **`GET /auth/session`:** `required` (`dev.auth`), `configured` (at least one account can
+  sign in), `authenticated`, `role`, `role_label`, `email`, `views` (the views this
+  browser may open, landing view first; without the gate and a session, the public views),
+  `expires_at`, `remaining_s`, `ttl_s` (1800) and `accounts` (each role, its email, its
+  views and whether it can sign in; never a hash). Never cached (`Cache-Control: no-store`).
+- **`POST /auth/logout`:** clears the cookie (`Max-Age=0`).
+- CORS still allows GET only, so another origin cannot post to `/auth/login`; uvicorn runs
   without an access log and the login never logs the client or the password.
-- `tests/test_api_admin.py` covers the hashing, the `.env`, success, failures, 429,
-  expiry, logout, tampered tokens, the cookie flags, the 503 and the CLI;
-  `tests/test_app_views.py` signs in through the page in headless Chrome and renders both
-  tabs.
+- `tests/test_api_admin.py` covers the roles, the hashing, the `.env`, success, failures,
+  429, expiry, logout, tampered and forged-role tokens, the cookie flags, the 503 and both
+  CLIs; `tests/test_app_views.py` signs in through the page in headless Chrome (a role
+  opens only its views; the admin cockpit and both tabs).
 
 ## Error policy (ENF-03)
 
@@ -253,8 +259,8 @@ An unreadable Parquet or CSV file is logged and treated as absent.
 - **`queue_beyond_zone`**: the junction ETA starts at physical entry into the modelled approach; the insertion backlog is flagged, not added.
 
 **ENF-07:**
-- no accounts, no cookies (the local admin sign-in of the admin cockpit is the one
-  exception, outside the five public profiles; see above);
+- no accounts and no cookies on the API endpoints (the sign-in by role of the user app is the one
+  deliberate deviation; see above);
 - CORS allows GET only;
 - run uvicorn with `--no-access-log`, so client IPs are not logged;
 - simulated vehicle ids are not personal data.
@@ -267,9 +273,11 @@ An unreadable Parquet or CSV file is logged and treated as absent.
 - **Each view:** one main item and at most two secondary items. Every view handles the 12.1 states: loading, stale (last known value), degraded (approximate with a mention), unavailable, and error (a plain message, no technical detail).
 - **Pedestrian view** (ENF-06, usable in under 5 s): one big verdict ("Vous pouvez traverser" / "Attendez"), the green left or the wait, and the walking time; the crossing and the speed are one click each.
 - **Ambulance view:** large high-contrast text, no interaction.
-- **Admin view** (`view=admin`, behind the local admin sign-in): the comparison table of the
+- **Sign-in** (every view): the role picked among the accounts of `/auth/session`, its email and
+  password; each role then sees only its views (no navigation bar when it has one view).
+- **Admin view** (`view=admin`, the administrator role): the comparison table of the
   evaluation and the synchronized comparison of the S1-S4 demo runs, read from the endpoints
-  above; it shows the sign-in form until `/admin/session` says authenticated.
+  above.
 
 The Streamlit app (spec 8.6) comes in Part 9.
 

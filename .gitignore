@@ -21,6 +21,8 @@ data/exports/*
 data/usertests/*
 data/demo_check/*
 data/report/*
+# test accounts of the sign-in, passwords in clear (`tasks.py accounts-test`): never committed
+data/auth/*
 last_dom.html
 .streamlit/secrets.toml
 !data/**/.gitkeep

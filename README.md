@@ -1899,26 +1899,48 @@ What was checked in the integration (2026-10-23, real data):
 - Privacy (ENF-07): participants are `P1` to `P5`, with no name, contact or health
   information; reduced mobility is never recorded, and consent on paper stays offline.
 
-### Admin cockpit (local-only addition)
+### Sign-in by role and admin cockpit (local-only deviation from ENF-07)
 
-A deliberate, local-only addition to the user app, not a user account system: the five
-public profiles stay account-free (ENF-07) and every public endpoint answers as before.
-The data it shows is the public API v1 (simulated runs on the ASSUMED, provisional program,
-until the field visit), only arranged for the project team.
+Every view of the user app (`/mock`) is behind a sign-in, one account per role. This is a
+deliberate, local-only deviation from ENF-07 ("no accounts"), asked by the project team:
+the public GET endpoints of API v1 stay account-free and cookie-free, so the Streamlit
+Operator, the API clients and the user-test material work as before. The data the views
+show is still the public API v1 (simulated runs on the ASSUMED, provisional program, until
+the field visit).
 
-- **Set the password** on the machine that runs the API:
-  `python tasks.py admin-set-password` (`--email`, default `admin@urban-traffic-twin.local`;
-  `make admin-set-password ADMIN_EMAIL=...`). It asks the password (getpass, or one line of
-  a piped stdin) and writes `TT_ADMIN_EMAIL`, `TT_ADMIN_PASSWORD_HASH` (PBKDF2-SHA256,
-  random salt, 600 000 iterations) and, when missing, `TT_ADMIN_SECRET` (the session
-  signing key) into the gitignored `.env`. The same variables in the environment win over
-  `.env`. The password and its hash are never committed, logged or sent back.
-- **Open it:** `python tasks.py api`, then http://127.0.0.1:8000/mock and "Se connecter en
-  admin" on the home screen (or `/mock?view=admin`, `&tab=sync` for the second tab). Without
-  a password the entry says "admin non configuré" and `POST /admin/login` answers 503.
+| Role | Default email | Views opened |
+| --- | --- | --- |
+| `pedestrian` (Piéton) | `pieton@urban-traffic-twin.local` | pedestrian |
+| `student` (Étudiant) | `etudiant@urban-traffic-twin.local` | student |
+| `bus` (Conducteur de bus) | `bus@urban-traffic-twin.local` | bus |
+| `ambulance` | `ambulance@urban-traffic-twin.local` | ambulance |
+| `operator` (Opérateur) | `operateur@urban-traffic-twin.local` | operator card, replay |
+| `admin` (Administrateur) | `admin@urban-traffic-twin.local` | every view and the admin cockpit |
+
+- **Test accounts, once:** `python tasks.py accounts-test` gives every role an account whose
+  password is kept in clear in the gitignored `data/auth/test_accounts.json` and hashed
+  into the gitignored `.env`; it prints the table. Later runs reuse the file (edit a
+  password there and run it again to change it; `--renew` draws new ones), so the accounts
+  survive every restart.
+- **One account:** `python tasks.py admin-set-password --role ambulance` (`--email`;
+  default the one in `.env`, else the role's; `make admin-set-password ROLE=ambulance`). It
+  asks the password (getpass, or one line of a piped stdin; from PowerShell 5.1 pipe from
+  Bash, its pipe adds a BOM) and writes `TT_<ROLE>_EMAIL`, `TT_<ROLE>_PASSWORD_HASH`
+  (PBKDF2-SHA256, random salt, 600 000 iterations) and, when missing, `TT_ADMIN_SECRET`
+  (the key that signs every session) into `.env`. The same variables in the environment win
+  over `.env`. `python -m traffic_twin.api.admin list` shows which roles can sign in.
+- **Open it:** `python tasks.py demo` (or `python tasks.py api`), then
+  http://127.0.0.1:8000/mock: pick the role, type its password. A deep link
+  (`/mock?view=admin&tab=sync`) opens after the sign-in when the role may see it; a view of
+  another role lands on the role's own view. Without any account the sign-in screen says
+  how to create them and `POST /auth/login` answers 503.
 - **Sessions:** an HMAC-signed, HttpOnly, SameSite=Strict cookie of 30 min; logging out or a
-  new password ends it; 5 failed logins per minute and per client give 429. Endpoints in
-  [docs/api.md](docs/api.md).
+  new password of the role ends it; 5 failed logins per minute and per client give 429.
+  `dev.auth: false` in `api.yaml` turns the sign-in off (the FAKE fixtures do; the admin
+  cockpit then keeps its own sign-in). Endpoints in [docs/api.md](docs/api.md).
+- **Demo tools:** `tasks.py demo-check`, the rehearsal and `app-shots` open the views with
+  an administrator session minted from this machine's `.env` (so the admin account must
+  exist), and check that a deep link without a session shows the sign-in screen.
 - **Tab 1, "Tableau comparatif des scénarios":** the 33 rows of `final_table` (S0, S1, S2,
   S3 and the ablations S2_noP, S4; means over the evaluation seeds 1-10), filters by user
   group, search, CSV export, the change vs S0, the best value, the equity flags of `/kpi`
@@ -1941,7 +1963,7 @@ until the field visit), only arranged for the project team.
 | `usertest-check` | validate `docs/usertests/results.yaml` (schema, privacy, issue fixes) |
 | `usertest-docs` | `docs/usertests.md` and `synthesis.json` |
 | `test-browser` | the headless-browser view tests only (`pytest -m browser`) |
-| `admin-set-password` | the local admin password of the admin cockpit, hashed into the gitignored `.env` (asks it; `--email`) |
+| `admin-set-password` | the password of one role account of the sign-in, hashed into the gitignored `.env` (asks it; `--role`, default admin; `--email`) |
 | `part9` | `demo-runs8 api-bench usertest-check usertest-docs` |
 
 ## Report, slides and demo (Part 10)

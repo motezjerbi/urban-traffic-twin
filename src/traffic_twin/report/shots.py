@@ -205,9 +205,19 @@ def take_shots(
         if api_url is None:
             api_url, started_op = stack.enter_context(servers(with_operator=operator_url is None))
             operator_url = operator_url or started_op
+        from traffic_twin.api.settings import find_repo_root
+        from traffic_twin.demo.common import session_cookie
+
+        cookie, problem = session_cookie(api_url, find_repo_root())
+        if problem:
+            raise ShotsError(f"sign-in: {problem}")
         written = []
         for name, url, wait_ms in plan(demo_cfg, api_url, operator_url):
-            written.append(browser.screenshot(url, out / f"{name}.png", size=size, wait_ms=wait_ms))
+            written.append(
+                browser.screenshot(
+                    url, out / f"{name}.png", size=size, wait_ms=wait_ms, cookie=cookie
+                )  # fmt: skip
+            )
         streamlit = [s for s in demo_cfg.get("steps") or [] if s.get("front") == "streamlit"]
         if streamlit and operator_url:
             try:
