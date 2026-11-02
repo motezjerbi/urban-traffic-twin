@@ -290,6 +290,170 @@ def test_auth_routes_leave_the_public_api_unchanged(client):
     assert "POST" not in pre.headers.get("access-control-allow-methods", "")
 
 
+# -- accounts made by the admin (several per role) -------------------------------------------
+def create(c: TestClient, name: str, role: str = "pedestrian", password: str = "mot de passe 1"):
+    return c.post("/auth/accounts", json={"name": name, "role": role, "password": password})
+
+
+def test_only_the_admin_session_manages_accounts(client, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    for r in (client.get("/auth/accounts"), create(client, "sami"),
+              client.delete("/auth/accounts/sami")):  # fmt: skip
+        assert r.status_code == 401 and r.json()["error"]["code"] == "not_signed_in"
+        assert r.json()["type"] == "auth_accounts"
+    login(client, AMB_EMAIL, AMB_PASSWORD)  # another role
+    assert client.get("/auth/accounts").status_code == 403
+    assert create(client, "sami").json()["error"]["code"] == "forbidden"
+    login(client)
+    r = client.get("/auth/accounts")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
+    body = r.json()
+    assert [x["role"] for x in body["roles"]] == [x.key for x in admin.ROLES]
+    assert [x["name"] for x in body["accounts"]] == [
+        "pieton", "etudiant", "bus", "ambulance", "operateur", "admin"
+    ]  # fmt: skip
+    assert not any(x["created"] for x in body["accounts"]) and "pbkdf2" not in r.text
+
+
+def test_the_admin_creates_several_accounts_per_role_that_sign_in_by_name(client, env, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    login(client)
+    r = create(client, " Sami ", "Piéton", "sami password")  # role by label, name any case
+    assert r.status_code == 200 and r.json()["created"] == "sami"
+    assert create(client, "lina", "pedestrian", "lina password").status_code == 200
+    accounts = {x["name"]: x for x in r.json()["accounts"]}
+    assert accounts["sami"]["role"] == "pedestrian" and accounts["sami"]["created"] is True
+    assert accounts["sami"]["email"] == f"sami@{admin.DOMAIN}" and accounts["sami"]["created_at"]
+    # stored beside the .env, the hash only
+    users = admin.users_file_for(env)
+    assert users == env.parent / "data" / "auth" / "users.json"
+    text = users.read_text(encoding="utf-8")
+    assert "sami password" not in text and "pbkdf2_sha256$" in text
+    # the public session never lists them
+    client.post("/auth/logout")
+    assert "sami" not in client.get("/auth/session").text
+    # each signs in by name (or email) and opens the pedestrian view
+    for ident, pw in (("sami", "sami password"), (f"LINA@{admin.DOMAIN}", "lina password")):
+        r = login(client, ident, pw)
+        assert r.status_code == 200 and r.json()["role"] == "pedestrian", ident
+        assert r.json()["views"] == ["pedestrian"]
+        assert client.get("/auth/session").json()["email"] == ident.split("@")[0].lower() + (
+            f"@{admin.DOMAIN}"
+        )
+    assert login(client, "sami", "lina password").status_code == 401
+    assert login(client, "pieton", PASSWORD).status_code == 401  # role account, no password
+
+
+def test_account_creation_refusals_and_removal(client, env, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    login(client)
+    cases = [
+        ("admin", "pedestrian", "long enough", 409, "name_taken"),  # a role account's name
+        ("ambulance", "bus", "long enough", 409, "name_taken"),
+        ("a", "pedestrian", "long enough", 404, "bad_request"),
+        ("jean pierre", "pedestrian", "long enough", 404, "bad_request"),
+        ("élise", "pedestrian", "long enough", 404, "bad_request"),
+        ("sami", "chauffeur", "long enough", 404, "bad_request"),
+        ("sami", "pedestrian", "short", 404, "bad_request"),
+    ]
+    for name, role, pw, status, code in cases:
+        r = create(client, name, role, pw)
+        assert (r.status_code, r.json()["error"]["code"]) == (status, code), name
+    assert create(client, "sami").status_code == 200
+    assert create(client, "SAMI", "bus").json()["error"]["code"] == "name_taken"
+    # removal: the created account only
+    r = client.delete("/auth/accounts/admin")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "role_account"
+    assert client.delete("/auth/accounts/nobody").json()["error"]["code"] == "not_found"
+    token = None
+    with TestClient(client.app) as other:
+        token = login(other, "sami", "mot de passe 1").cookies[admin.COOKIE]
+    r = client.delete("/auth/accounts/sami")
+    assert r.status_code == 200 and "sami" not in [x["name"] for x in r.json()["accounts"]]
+    assert login(client, "sami", "mot de passe 1").status_code == 401
+    client.cookies.set(admin.COOKIE, token)  # its open session ends with it
+    assert client.get("/auth/session").json()["authenticated"] is False
+
+
+def register(c: TestClient, name: str, role: str = "pedestrian", password: str = "mot de passe 1"):
+    return c.post("/auth/register", json={"name": name, "role": role, "password": password})
+
+
+def test_anyone_signs_up_for_a_public_role_and_is_signed_in(client, env, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    s = client.get("/auth/session").json()
+    assert [r["role"] for r in s["signup_roles"]] == list(admin.SIGNUP_ROLES)
+    assert set(admin.SIGNUP_ROLES) == {"pedestrian", "student"}
+    r = register(client, "Nour", "Étudiant", "nour password")  # role by label, name any case
+    assert r.status_code == 200
+    body = r.json()
+    assert body["authenticated"] is True and body["role"] == "student"
+    assert body["email"] == f"nour@{admin.DOMAIN}" and body["views"] == ["student"]
+    cookie = r.headers["set-cookie"]
+    assert cookie.startswith(f"{admin.COOKIE}=") and "httponly" in cookie.lower()
+    assert "nour password" not in r.text and "pbkdf2" not in r.text
+    assert client.get("/auth/session").json()["role"] == "student"
+    client.post("/auth/logout")
+    assert login(client, "nour", "nour password").json()["role"] == "student"
+    # the admin sees where it comes from
+    client.post("/auth/logout")
+    login(client)
+    rows = {x["name"]: x for x in client.get("/auth/accounts").json()["accounts"]}
+    assert rows["nour"]["origin"] == "inscription" and rows["nour"]["created"] is True
+
+
+def test_sign_up_refusals_and_rate_limit(client, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    for role in ("bus", "ambulance", "operator", "admin"):  # made by the admin only
+        r = register(client, f"x{role}", role)
+        assert r.status_code == 403 and r.json()["error"]["code"] == "role_not_allowed", role
+        assert "set-cookie" not in r.headers
+    assert register(client, "admin").json()["error"]["code"] == "name_taken"
+    assert register(client, "a").json()["error"]["code"] == "bad_request"
+    assert register(client, "okname", password="short").json()["error"]["code"] == "bad_request"
+    assert client.get("/auth/session").json()["authenticated"] is False
+    # every attempt counts: SIGNUP_MAX per client within the window, then 429
+    now = [3_000_000.0]
+    monkeypatch.setattr(client.app.state.auth, "clock", lambda: now[0])
+    client.app.state.signups.reset("testclient")
+    for i in range(admin.SIGNUP_MAX):
+        assert register(client, f"user{i}").status_code == 200
+    r = register(client, "onemore")
+    assert r.status_code == 429 and r.json()["error"]["code"] == "too_many_attempts"
+    now[0] += admin.SIGNUP_WINDOW_S + 1
+    assert register(client, "onemore").status_code == 200
+
+
+def test_sign_up_needs_the_session_secret(tmp_path, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    c = client_for(tmp_path / "absent.env")
+    r = register(c, "nour")
+    assert r.status_code == 503 and r.json()["error"]["code"] == "auth_not_configured"
+    assert not admin.users_file_for(tmp_path / "absent.env").exists()
+
+
+def test_cli_adds_lists_and_removes_accounts(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    env = tmp_path / ".env"
+    configure(env)
+    args = ["--env-file", str(env)]
+    assert admin.main(["add-user", "--name", "sami", "--role", "bus", "--password",
+                       "sami password", *args]) == 0  # fmt: skip
+    cfg = admin.load_config(env)
+    acc = cfg.by_email(f"sami@{admin.DOMAIN}")
+    assert acc and acc.created and acc.role.key == "bus" and cfg.usable(acc)
+    admin.main(["list", *args])
+    out = capsys.readouterr().out
+    assert "sami" in out and "créé par l'admin" in out and "sami password" not in out
+    with pytest.raises(SystemExit):  # a role account's name
+        admin.main(["add-user", "--name", "admin", "--role", "bus", "--password", "x" * 9, *args])
+    with pytest.raises(SystemExit):  # the role names cannot take a created account's name
+        admin.main(["test-accounts", "--name", "pieton=sami", "--file",
+                    str(tmp_path / "t.json"), *args])  # fmt: skip
+    assert admin.main(["remove-user", "--name", "sami", *args]) == 0
+    assert admin.load_config(env).by_email(f"sami@{admin.DOMAIN}") is None
+
+
 # -- CLI (tasks.py admin-set-password, accounts-test) ----------------------------------------
 def test_cli_writes_the_env_and_prints_no_secret(tmp_path, capsys, monkeypatch):
     env = tmp_path / ".env"
@@ -335,6 +499,11 @@ def test_cli_refuses_short_passwords_bad_emails_and_shared_emails(tmp_path):
             ["set-password", "--role", "bus", "--email", EMAIL, "--password", "long enough",
              "--env-file", str(env)]
         )  # fmt: skip
+    with pytest.raises(SystemExit):  # the admin's name (the identifier typed) at another domain
+        admin.main(
+            ["set-password", "--role", "bus", "--email", "admin@example.org", "--password",
+             "long enough", "--env-file", str(env)]
+        )  # fmt: skip
 
 
 def test_test_accounts_are_kept_in_a_file_and_reused(tmp_path, monkeypatch, capsys):
@@ -363,6 +532,52 @@ def test_test_accounts_are_kept_in_a_file_and_reused(tmp_path, monkeypatch, caps
     admin.main(["test-accounts", "--renew", "--file", str(file), "--env-file", str(env)])
     renewed = json.loads(file.read_text(encoding="utf-8"))["accounts"]
     assert all(a["password"] != b["password"] for a, b in zip(renewed, rows, strict=True))
+
+
+def test_test_accounts_take_one_name_per_role(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    env, file = tmp_path / ".env", tmp_path / "test_accounts.json"
+    first = {r["role"]: r for r in admin.seed_test_accounts(file, env)}
+    args = ["--file", str(file), "--env-file", str(env)]
+    names = ["--name", "Piéton=Ali", "--name", "bus=karim"]  # role by label or key
+    assert admin.main(["test-accounts", *names, *args]) == 0
+    rows = {r["role"]: r for r in json.loads(file.read_text(encoding="utf-8"))["accounts"]}
+    assert rows["pedestrian"]["email"] == f"ali@{admin.DOMAIN}"
+    assert rows["bus"]["email"] == f"karim@{admin.DOMAIN}"
+    assert rows["student"]["email"] == first["student"]["email"]  # the others keep theirs
+    pw = rows["pedestrian"]["password"]
+    assert pw == first["pedestrian"]["password"]  # a new name keeps the password
+    assert "ali" in capsys.readouterr().out
+    c = client_for(env)
+    r = login(c, f"ali@{admin.DOMAIN}", pw)
+    assert r.status_code == 200 and r.json()["role"] == "pedestrian"
+    assert r.json()["email"] == f"ali@{admin.DOMAIN}"
+    assert login(c, f"pieton@{admin.DOMAIN}", pw).status_code == 401  # one name per role
+    sess = c.get("/auth/session").json()
+    assert [a["email"] for a in sess["accounts"] if a["role"] == "pedestrian"] == [
+        f"ali@{admin.DOMAIN}"
+    ]
+    # --renew draws new passwords and keeps the names
+    admin.main(["test-accounts", "--renew", *args])
+    renewed = {r["role"]: r for r in json.loads(file.read_text(encoding="utf-8"))["accounts"]}
+    assert renewed["pedestrian"]["email"] == f"ali@{admin.DOMAIN}"
+    assert renewed["pedestrian"]["password"] != pw
+    # refused: no "=", too short, a space, an accent, an unknown role, a name already taken
+    for bad in ("ali", "pieton=a", "pieton=jean pierre", "pieton=élise", "chauffeur=ali",
+                "bus=ali"):  # fmt: skip
+        with pytest.raises(SystemExit):
+            admin.main(["test-accounts", "--name", bad, *args])
+    assert json.loads(file.read_text(encoding="utf-8"))["accounts"] == list(renewed.values())
+    # the file holds the names; a name edited there renames the account at the next run
+    assert [r["name"] for r in renewed.values()] == [
+        "ali", "etudiant", "karim", "ambulance", "operateur", "admin"
+    ]  # fmt: skip
+    renewed["student"]["name"] = "sara"
+    file.write_text(json.dumps({"accounts": list(renewed.values())}), encoding="utf-8")
+    admin.main(["test-accounts", *args])
+    rows = {r["role"]: r for r in json.loads(file.read_text(encoding="utf-8"))["accounts"]}
+    assert rows["student"]["name"] == "sara" and rows["student"]["email"] == f"sara@{admin.DOMAIN}"
+    assert admin.load_config(env).account("student").email == f"sara@{admin.DOMAIN}"
 
 
 def test_test_accounts_sign_in_through_the_api(tmp_path, monkeypatch):

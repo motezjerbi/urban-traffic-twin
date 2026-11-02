@@ -170,8 +170,9 @@
   /* stage: the map fills it, the answer panel floats on it (desktop) */
   .stage { position: relative; min-height: 0; overflow: hidden; }
   .map-layer { position: absolute; inset: 0; background: var(--bg-map); }
-  #trafficCanvas { display: block; width: 100%; height: 100%; cursor: default; touch-action: manipulation; }
+  #trafficCanvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: manipulation; }
   #trafficCanvas.pick { cursor: pointer; }
+  #trafficCanvas.panning { cursor: grabbing; }
   #trafficCanvas:focus-visible { outline-offset: -4px; }
   #trafficCanvas3D { position: absolute; inset: 0; }
   #trafficCanvas3D canvas { display: block; }
@@ -365,6 +366,7 @@
   .user-box { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
   .user-box[hidden] { display: none; }
   .user-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+  .user-chip .user-role { font-weight: 500; }
   .user-logout { min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--radius-m); background: var(--surface); font-size: var(--fs-s); font-weight: 700; }
   .user-logout:hover { border-color: var(--stop); color: var(--stop); }
   /* the sign-in: a welcome panel (what each identifier opens) beside the form */
@@ -376,12 +378,14 @@
   .login-aside h2 { margin: 0; font-size: var(--fs-2xl); line-height: 1.15; }
   .login-aside p { margin: 0; color: #E3EAF2; }
   .login-profiles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  .login-profiles li { display: grid; grid-template-columns: 24px auto minmax(0, 1fr); gap: var(--sp-3); align-items: center; min-height: 44px; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: var(--radius-m); transition: background-color 0.15s ease-out, border-color 0.15s ease-out, color 0.15s ease-out; }
+  .login-profiles li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: var(--sp-3); align-items: center; min-height: 44px; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: var(--radius-m); transition: background-color 0.15s ease-out, border-color 0.15s ease-out, color 0.15s ease-out; }
   .login-profiles li .ic { width: 22px; height: 22px; }
-  .login-profiles code { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.3); color: #fff; font-size: var(--fs-s); }
+  .login-profiles .who { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+  .login-profiles .who strong { font-size: var(--fs-l); font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+  .login-profiles .who span { font-size: var(--fs-xs); opacity: 0.85; }
   .login-profiles li.off { border-style: dashed; color: #C9D6E3; }
   .login-profiles li.match { background: #fff; border-color: #fff; color: var(--accent); }
-  .login-profiles li.match code { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .login-profiles li.match .who span { opacity: 1; }
   .login-sim { display: flex; gap: 6px; align-items: center; margin-top: auto !important; font-size: var(--fs-xs); }
   .login-main { display: flex; flex-direction: column; justify-content: center; padding: var(--sp-6) var(--sp-6); }
   .login-title { margin: 0; font-size: var(--fs-2xl); line-height: 1.15; }
@@ -390,7 +394,8 @@
   .login-form label { margin-top: var(--sp-3); font-weight: 700; font-size: var(--fs-s); }
   .field { position: relative; display: flex; align-items: center; }
   .field > .ic { position: absolute; left: 14px; width: 20px; height: 20px; color: var(--ink-2); pointer-events: none; }
-  .field input { width: 100%; min-height: 52px; padding-left: 44px; }
+  .field input, .field select { width: 100%; min-height: 52px; padding-left: 44px; }
+  .field select[aria-invalid="true"] { border-color: var(--stop); box-shadow: 0 0 0 1px var(--stop); }
   .field input.has-eye { padding-right: 52px; }
   .field input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
   .field input[aria-invalid="true"] { border-color: var(--stop); box-shadow: 0 0 0 1px var(--stop); }
@@ -406,7 +411,11 @@
   .login-submit .spin { width: 18px; height: 18px; border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
   .login-msg { min-height: 1.4em; margin-top: var(--sp-2); font-size: var(--fs-s); font-weight: 700; color: var(--stop); }
   .login-note { margin-top: var(--sp-3); }
-  .login-foot { margin: var(--sp-5) 0 0; font-size: var(--fs-xs); color: var(--ink-2); }
+  .login-foot { margin: var(--sp-5) 0 0; font-size: var(--fs-xs); color: var(--ink-2); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+  .login-foot > span { flex: 1 1 auto; min-width: 0; }
+  .login-foot > button { flex: none; }
+  .login-signup { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--sp-4); border: 1px solid var(--accent); border-radius: var(--radius-m); background: var(--surface); color: var(--accent); font-size: var(--fs-s); font-weight: 700; }
+  .login-signup:hover { background: var(--accent-soft); }
 
   /* ---------- Pedestrian: countdown ring ---------- */
   .ped-main { display: flex; align-items: center; gap: var(--sp-4); }
@@ -517,6 +526,19 @@
   .adm-dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
   .adm-flag { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-xs); font-weight: 700; color: var(--stop); border: 1px solid currentColor; background: var(--stop-soft); border-radius: var(--radius-s); padding: 0 5px; margin-top: 2px; }
   .adm-table-box { max-height: 70vh; overflow: auto; }
+  /* Comptes tab: account creation (name, role drop-down, password) and the account list */
+  .acc-wrap h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-l); }
+  .acc-form > .muted { margin: 0 0 var(--sp-3); }
+  .acc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-4); margin-bottom: var(--sp-3); }
+  .acc-grid label { display: block; font-weight: 700; font-size: var(--fs-s); margin-bottom: 6px; }
+  .acc-grid input, .acc-grid select { width: 100%; min-height: 44px; }
+  .acc-pw { display: flex; gap: var(--sp-2); }
+  .acc-pw input { flex: 1; min-width: 0; }
+  .acc-note { margin-bottom: var(--sp-3); }
+  .acc-table td { vertical-align: middle; }
+  .acc-table .ic { width: 16px; height: 16px; vertical-align: -3px; }
+  .acc-del { min-height: 36px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-m); background: var(--surface); font-weight: 700; color: var(--stop); }
+  .acc-del:hover { border-color: var(--stop); background: var(--stop-soft); }
   .adm-table th, .adm-table td { white-space: nowrap; }
   .adm-table tbody td { height: 44px; }
   .adm-table.compact tbody td { height: 36px; padding-top: 4px; padding-bottom: 4px; }
@@ -722,7 +744,7 @@
 
   <div class="stage" id="stage">
     <div class="map-layer" id="map-layer">
-      <canvas id="trafficCanvas" tabindex="0" role="img" aria-label="Carte simulée du carrefour Bd de l'Hôpital × Bd Saint-Marcel. Touches + et − pour zoomer, Échap pour désélectionner."></canvas>
+      <canvas id="trafficCanvas" tabindex="0" role="img" aria-label="Carte simulée du carrefour Bd de l'Hôpital × Bd Saint-Marcel. Molette de la souris pour zoomer sur le point visé, glisser pour déplacer la carte, touches + et − pour zoomer, 0 pour recentrer, Échap pour désélectionner."></canvas>
       <div id="trafficCanvas3D" style="display:none"></div>
       <div id="controls3D" class="controls-3d-overlay" style="display:none">
         <div class="camera-presets-group" role="group" aria-label="Caméra 3D">
@@ -959,8 +981,10 @@ const state = {
   session: null,            // /auth/session answer (role, views, expiry); null before the first read
   wanted: null,             // view asked by the deep link, opened after the sign-in when allowed
   authMsg: null,            // [text, class] shown once on the sign-in screen
+  signup: false,            // the sign-in screen shows the sign-up form (Inscription)
   flash: null,
   zoom: 1,
+  pan: { x: 0, y: 0 },      // 2D plan: shift of the view centre (plan units), set by dragging and the wheel
   selected: null,
   debugState: null,
   boot: true,
@@ -1487,7 +1511,9 @@ const SIM = {
   vehicles: [],
   peds: [],
   mouse: { x: -100, y: -100, active: false },
-  hoveredVehicle: null
+  hoveredVehicle: null,
+  drag: null,               // the mouse drag moving the plan: {id, x, y, moved}
+  dragged: false            // the last press moved the plan (its click selects nothing)
 };
 
 const REPLAY = {
@@ -3248,7 +3274,7 @@ function mapViewport(cv) {
   const f = phone ? MAP_FOCUS.phone : (mode === "replay" ? MAP_FOCUS.replay : MAP_FOCUS.map);
   const vw = Math.max(80, cssW - left - 16), vh = Math.max(80, cssH - top - 16);
   const k = Math.min(vw / (f[2] - f[0]), vh / (f[3] - f[1])) * state.zoom;
-  const cx = (f[0] + f[2]) / 2, cy = (f[1] + f[3]) / 2;
+  const cx = (f[0] + f[2]) / 2 + state.pan.x, cy = (f[1] + f[3]) / 2 + state.pan.y;
   return { k, dpr, s: k * dpr, ox: (left + vw / 2) * dpr - cx * k * dpr, oy: (top + vh / 2 + 8) * dpr - cy * k * dpr };
 }
 
@@ -3259,8 +3285,56 @@ function toWorld(cv, e) {
   return { x: ((e.clientX - rect.left) * vp.dpr - vp.ox) / vp.s, y: ((e.clientY - rect.top) * vp.dpr - vp.oy) / vp.s };
 }
 
-function setZoom(z) {
-  state.zoom = Math.max(0.5, Math.min(4, z));
+// Zoom of the 2D plan; with a pointer position `at` ({clientX, clientY}) on the canvas `cv`,
+// around the point under the mouse (that point stays under it), else around the view centre.
+// setZoom applies at once (scripts, screenshots); zoomTo eases there over a few frames
+// (wheel, buttons, keys), the draw loop calling stepZoom at each frame.
+const ZOOM_MIN = 0.5, ZOOM_MAX = 6;
+const ZOOM_WHEEL = 0.004;  // per wheel pixel: one notch (100 px) zooms about x1.5
+const ZOOM_STEP = 1.5;     // the + and - buttons and keys
+const ZOOM_EASE_S = 0.06;  // easing time constant: 95 % of the way in about 0.18 s
+const ZOOM = { target: 1, at: null, last: 0 };
+const PAN_MAX = 500;  // plan units the view centre may move away from its frame
+const clampZoom = (z) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+
+function applyZoom(z, cv, at) {
+  const before = cv && at ? toWorld(cv, at) : null;
+  state.zoom = clampZoom(z);
+  if (!before) return;
+  SIM.view = mapViewport(cv);
+  const after = toWorld(cv, at);
+  if (after) panBy(before.x - after.x, before.y - after.y);
+}
+
+function setZoom(z, cv, at) {
+  applyZoom(z, cv, at);
+  ZOOM.target = state.zoom;
+  ZOOM.at = null;
+}
+
+function zoomTo(z, cv, at) {
+  ZOOM.target = clampZoom(z);
+  ZOOM.at = cv && at ? { cv, clientX: at.clientX, clientY: at.clientY } : null;
+}
+
+// One frame of the eased zoom: a geometric step (zooming in and out feel the same)
+function stepZoom(now) {
+  const dt = Math.min(0.1, Math.max(0, (now - (ZOOM.last || now)) / 1000));
+  ZOOM.last = now;
+  if (state.zoom === ZOOM.target) return;
+  let z = state.zoom * Math.pow(ZOOM.target / state.zoom, 1 - Math.exp(-dt / ZOOM_EASE_S));
+  if (Math.abs(Math.log(ZOOM.target / z)) < 0.002) z = ZOOM.target;
+  applyZoom(z, ZOOM.at && ZOOM.at.cv, ZOOM.at);
+}
+
+function panBy(dx, dy) {
+  state.pan.x = Math.max(-PAN_MAX, Math.min(PAN_MAX, state.pan.x + dx));
+  state.pan.y = Math.max(-PAN_MAX, Math.min(PAN_MAX, state.pan.y + dy));
+}
+
+function resetMapView() {
+  setZoom(1);
+  state.pan = { x: 0, y: 0 };
 }
 
 function selectObject(id) {
@@ -3289,7 +3363,44 @@ function startTrafficSim() {
       SIM.mouse.active = false;
       SIM.hoveredVehicle = null;
     });
+    // Mouse wheel: zoom on the point under the mouse (a trackpad pinch sends the same event)
+    canvas.addEventListener("wheel", (e) => {
+      if (effMode() === "3d") return;
+      e.preventDefault();
+      const px = e.deltaMode === 1 ? e.deltaY * 16 : (e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY);
+      zoomTo(ZOOM.target * Math.exp(-Math.max(-300, Math.min(300, px)) * ZOOM_WHEEL), canvas, e);
+    }, { passive: false });
+    // Drag with the mouse: move the plan (a click without moving still selects a vehicle)
+    canvas.addEventListener("pointerdown", (e) => {
+      SIM.dragged = false;
+      if (effMode() === "3d" || e.pointerType === "touch" || e.button !== 0) return;
+      SIM.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      const d = SIM.drag;
+      if (!d || d.id !== e.pointerId) return;
+      const dx = e.clientX - d.x, dy = e.clientY - d.y;
+      if (!d.moved && Math.hypot(dx, dy) < 4) return;
+      if (!d.moved) {
+        d.moved = true;
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
+        canvas.classList.add("panning");
+      }
+      d.x = e.clientX;
+      d.y = e.clientY;
+      const vp = SIM.view;
+      if (vp) panBy(-dx / vp.k, -dy / vp.k);  // the plan follows the mouse
+    });
+    const endDrag = () => {
+      if (!SIM.drag) return;
+      SIM.dragged = SIM.drag.moved;
+      SIM.drag = null;
+      canvas.classList.remove("panning");
+    };
+    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointercancel", endDrag);
     canvas.addEventListener("click", (e) => {
+      if (SIM.dragged) { SIM.dragged = false; return; }  // the end of a drag, not a click
       const w = toWorld(canvas, e);
       if (!w) return;
       let best = null, bestD = 26;
@@ -3300,9 +3411,9 @@ function startTrafficSim() {
       selectObject(best ? best.id : null);
     });
     canvas.addEventListener("keydown", (e) => {
-      if (e.key === "+" || e.key === "=") { setZoom(state.zoom * 1.25); e.preventDefault(); }
-      else if (e.key === "-" || e.key === "_") { setZoom(state.zoom / 1.25); e.preventDefault(); }
-      else if (e.key === "0") { setZoom(1); e.preventDefault(); }
+      if (e.key === "+" || e.key === "=") { zoomTo(ZOOM.target * ZOOM_STEP); e.preventDefault(); }
+      else if (e.key === "-" || e.key === "_") { zoomTo(ZOOM.target / ZOOM_STEP); e.preventDefault(); }
+      else if (e.key === "0") { resetMapView(); e.preventDefault(); }
       else if (e.key === "Escape") selectObject(null);
     });
   }
@@ -3324,6 +3435,7 @@ function startTrafficSim() {
       try {
         SIM.lastTime = now;
         SIM.frame++;
+        stepZoom(now);
         const vp = mapViewport(cv);
         SIM.view = vp;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -4198,7 +4310,8 @@ const ADMIN = {
   rawLabel: "S1",
   compact: false,
   drawer: null,
-  maps: []             // mini maps to draw after the render
+  maps: [],            // mini maps to draw after the render
+  accMsg: null         // [text, "ok" | "bad"] of the last account change, shown once
 };
 
 function adminForget() {
@@ -4207,6 +4320,126 @@ function adminForget() {
   ADMIN.cache.clear();
   ADMIN.t = null;
   ADMIN.maps = [];
+  ADMIN.accMsg = null;
+}
+
+// -- Comptes tab: the admin creates accounts (a name, a role picked in a drop-down list, a
+// password; several accounts per role) and removes the ones made here. GET/POST
+// /auth/accounts and DELETE /auth/accounts/{name}, admin session only; the password is
+// never kept in the page.
+const ACC_NAME_RE = /^[a-z0-9][a-z0-9._-]{1,31}$/;   // the same rule as the API's
+
+async function adminAccounts() {
+  const d = await api("/auth/accounts");
+  const msg = ADMIN.accMsg;
+  ADMIN.accMsg = null;
+  const note = msg
+    ? `<div class="banner ${msg[1] === "ok" ? "info" : "bad"} acc-note" id="acc-note" role="status">${ic(msg[1] === "ok" ? "check" : "alert")} <span>${esc(msg[0])}</span></div>`
+    : "";
+  if (d.error) {
+    return [d, `<div class="adm-panel">${note}<div class="missing">Impossible de lire les comptes : ${esc(d.error.message || "API injoignable")}.</div></div>`];
+  }
+  const roles = Array.isArray(d.roles) ? d.roles : [];
+  const accounts = Array.isArray(d.accounts) ? d.accounts : [];
+  const options = roles.map((r) => `<option value="${esc(r.role)}">${esc(r.label)}</option>`).join("");
+  const count = (role) => accounts.filter((a) => a.role === role).length;
+  const rows = accounts.map((a) => `
+          <tr data-acc="${esc(a.name)}">
+            <td><strong>${esc(a.name)}</strong></td>
+            <td>${ic(ROLE_ICON[a.role] || "user")} ${esc(a.label)}</td>
+            <td>${a.created ? (a.origin === "inscription" ? "Inscription" : "Créé par l'admin") : "Compte du rôle"}${a.configured ? "" : ` <span class="muted">· sans mot de passe</span>`}</td>
+            <td>${a.created_at ? esc(String(a.created_at).slice(0, 16).replace("T", " ")) : "—"}</td>
+            <td>${a.created ? `<button type="button" class="acc-del" data-acc-del="${esc(a.name)}" aria-label="Supprimer le compte ${esc(a.name)}">Supprimer</button>` : ""}</td>
+          </tr>`).join("");
+  const body = `<div class="acc-wrap" data-field="admin-accounts" data-value="${accounts.length}">
+      <form id="acc-form" class="adm-panel acc-form" autocomplete="off" novalidate aria-labelledby="acc-title">
+        <h3 id="acc-title">Créer un compte</h3>
+        <p class="muted">La personne se connecte avec ce nom et ce mot de passe ; le rôle choisi décide de la vue qu'elle ouvre. Un rôle peut avoir plusieurs comptes.</p>
+        ${note}
+        <div class="acc-grid">
+          <div>
+            <label for="acc-name">Nom</label>
+            <input id="acc-name" type="text" maxlength="32" autocapitalize="none" spellcheck="false" required placeholder="ex. sami" aria-describedby="acc-name-msg">
+            <div id="acc-name-msg" class="field-msg">2 à 32 caractères : a-z, 0-9, . _ -</div>
+          </div>
+          <div>
+            <label for="acc-role">Rôle</label>
+            <select id="acc-role" required aria-describedby="acc-role-msg">
+              <option value="" selected disabled>Choisir un rôle…</option>${options}
+            </select>
+            <div id="acc-role-msg" class="field-msg">La vue ouverte dépend du rôle.</div>
+          </div>
+          <div>
+            <label for="acc-password">Mot de passe</label>
+            <div class="acc-pw">
+              <input id="acc-password" type="password" autocomplete="new-password" required minlength="8" aria-describedby="acc-pw-msg">
+              <button type="button" id="acc-gen" class="adm-density">Générer</button>
+            </div>
+            <div id="acc-pw-msg" class="field-msg">8 caractères au moins.</div>
+          </div>
+        </div>
+        <button type="submit" id="acc-submit" class="adm-export">${ic("check")} Créer le compte</button>
+      </form>
+      <div class="adm-panel">
+        <h3>Comptes (${accounts.length})</h3>
+        <p class="muted">${roles.map((r) => `${esc(r.label)} : ${count(r.role)}`).join(" · ")}</p>
+        <div class="adm-table-box"><table class="acc-table">
+          <thead><tr><th>Nom</th><th>Rôle</th><th>Origine</th><th>Créé le</th><th><span class="sr-only">Action</span></th></tr></thead>
+          <tbody>${rows}
+          </tbody>
+        </table></div>
+      </div>
+    </div>`;
+  return [d, body];
+}
+
+// The role picked opens these views: said under the list
+function accRoleHint() {
+  const sel = $("acc-role");
+  const out = $("acc-role-msg");
+  if (!sel || !out) return;
+  const label = sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "";
+  const views = { pedestrian: "la vue piéton", student: "la vue étudiant", bus: "la vue bus", ambulance: "la vue ambulance", operator: "la carte opérateur et la relecture", admin: "toutes les vues et ce cockpit" };
+  out.className = "field-msg";
+  out.textContent = sel.value ? `${label} : ouvre ${views[sel.value] || "sa vue"}.` : "La vue ouverte dépend du rôle.";
+}
+
+function accGenerate() {
+  const pw = $("acc-password");
+  if (!pw) return;
+  const abc = "abcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = new Uint8Array(12);
+  window.crypto.getRandomValues(bytes);
+  pw.value = Array.from(bytes, (b) => abc[b % abc.length]).join("");
+  pw.type = "text";   // shown, so the admin can pass it on
+  fieldMsg("acc-pw-msg", "ok", `${ic("check")} Mot de passe généré : notez-le, il ne sera plus affiché.`);
+  setInvalid(pw, false);
+}
+
+async function accSubmit() {
+  const name = $("acc-name"), role = $("acc-role"), pw = $("acc-password");
+  if (!name || !role || !pw) return;
+  const [n, bad] = checkAccountFields("acc");
+  if (bad) { bad.focus(); return; }
+  const btn = $("acc-submit");
+  if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+  const label = role.selectedOptions[0] ? role.selectedOptions[0].textContent : role.value;
+  const r = await api("/auth/accounts", false, { method: "POST", body: { name: n, role: role.value, password: pw.value } });
+  pw.value = "";
+  if (btn) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
+  if (r.error) {
+    if (!accountRefused("acc", r.error)) fieldMsg("acc-pw-msg", "bad", `${ic("alert")} ${esc(r.error.message || "création refusée")}`);
+    return;
+  }
+  ADMIN.accMsg = [`Compte « ${n} » créé (${label}) : il se connecte avec le nom ${n} et ce mot de passe.`, "ok"];
+  render();
+}
+
+async function accDelete(name) {
+  if (!window.confirm(`Supprimer le compte « ${name} » ? La personne ne pourra plus se connecter.`)) return;
+  const r = await api(`/auth/accounts/${encodeURIComponent(name)}`, false, { method: "DELETE" });
+  ADMIN.accMsg = r.error ? [r.error.message || "suppression refusée", "bad"] : [`Compte « ${name} » supprimé.`, "ok"];
+  render();
 }
 
 // Requests of the cockpit, at most ADMIN_POOL at a time (each one keeps its 4 s timeout)
@@ -5086,6 +5319,7 @@ function adminShell(sess, alerts, body) {
         <div class="adm-tabs" role="tablist">
           <button role="tab" data-admin-tab="table" class="${tab === "table" ? "on" : ""}">Tableau comparatif des scénarios</button>
           <button role="tab" data-admin-tab="sync" class="${tab === "sync" ? "on" : ""}">Comparaison synchronisée (${ADMIN_LABELS.join(" vs ")})</button>
+          <button role="tab" data-admin-tab="accounts" class="${tab === "accounts" ? "on" : ""}">${ic("user")} Comptes</button>
         </div>
       </div>
       ${alerts}
@@ -5102,6 +5336,10 @@ async function admin() {
     if (signedIn() || gateOn()) setTimeout(render, 0);
     return [sess, adminLogin(sess, banners(sess))];
   }
+  if (state.adminTab === "accounts") {
+    const [b, body] = await adminAccounts();
+    return [b, adminShell(sess, banners(b), body)];
+  }
   const d = await adminData();
   const [b, body] = state.adminTab === "sync" ? await adminSync(d) : adminTable(d);
   if (state.adminTab !== "sync") setTimeout(adminAfterRender, 0);
@@ -5109,8 +5347,9 @@ async function admin() {
 }
 
 // -------------------------------------------------------------
-// SIGN-IN (one account per role; /auth/session, POST /auth/login and /auth/logout, the only
-// non-GET requests of the page). The password never stays in the page or in storage.
+// SIGN-IN (the role accounts and the accounts made by the admin; /auth/session, POST
+// /auth/login and /auth/logout: with the Comptes tab's POST and DELETE /auth/accounts, the
+// only non-GET requests of the page). The password never stays in the page or in storage.
 // -------------------------------------------------------------
 const ROLE_ICON = { pedestrian: "walk", student: "student", bus: "bus", ambulance: "ambulance", operator: "chart", admin: "lock" };
 const ROLE_HINT = {
@@ -5176,7 +5415,8 @@ function renderUser() {
   if (!signedIn()) { box.hidden = true; box.innerHTML = ""; return; }
   const s = state.session;
   box.hidden = false;
-  box.innerHTML = `<span class="user-chip" data-field="auth-role" data-value="${dv(s.role)}" title="${esc(s.email)}">${ic(ROLE_ICON[s.role] || "user")} ${esc(s.role_label || s.role)}</span>
+  const name = String(s.email || "").split("@")[0];  // the identifier signed in with ("ali")
+  box.innerHTML = `<span class="user-chip" data-field="auth-role" data-value="${dv(s.role)}" title="${esc(s.email)}">${ic(ROLE_ICON[s.role] || "user")} ${esc(name || s.role)} <span class="user-role">· ${esc(s.role_label || s.role)}</span></span>
     <button id="auth-logout" class="user-logout" type="button">Déconnexion</button>`;
 }
 
@@ -5196,18 +5436,22 @@ function rememberIdent(value) {
   try { window.localStorage.setItem(IDENT_KEY, value); } catch (e) { /* storage blocked: nothing remembered */ }
 }
 
-const identList = () => {
+// An identifier to show as the example: the name of the first account that can sign in
+// (the names can be people's, e.g. "ali" for the pedestrian)
+const identExample = () => {
   const accs = state.session && Array.isArray(state.session.accounts) ? state.session.accounts : [];
-  return accs.filter((a) => a.configured).map((a) => a.email.split("@")[0]).join(", ");
+  const a = accs.find((x) => x.configured && x.role !== "admin") || accs[0];
+  return a ? a.email.split("@")[0] : "pieton";
 };
 
 // What the identifier field says under it: the profile found as typed, or (once the user
-// left the field or sent the form) why it cannot sign in
+// left the field or sent the form) why it cannot sign in. A name the page does not know can
+// be an account made by the admin (not listed): the API answers when the form is sent.
 function identHint(acc, text, final) {
   if (acc && acc.configured) return ["ok", `${ic("check")} Profil reconnu : <strong>${esc(acc.label)}</strong>`];
   if (acc) return ["warn", `${ic("alert")} Le compte ${esc(acc.label)} n'a pas encore de mot de passe : demandez à l'administrateur.`];
-  if (!String(text || "").trim()) return final ? ["bad", `${ic("alert")} Saisissez votre identifiant (par exemple <code>pieton</code>).`] : ["", "Votre identifiant ouvre votre vue."];
-  return final ? ["bad", `${ic("alert")} Identifiant inconnu. Identifiants possibles : ${esc(identList())}.`] : ["", "Votre identifiant ouvre votre vue."];
+  if (!String(text || "").trim()) return final ? ["bad", `${ic("alert")} Saisissez votre nom (par exemple <code>${esc(identExample())}</code>).`] : ["", "Votre nom ouvre votre vue."];
+  return ["", "Votre nom ouvre votre vue."];
 }
 
 function fieldMsg(id, cls, html) {
@@ -5240,6 +5484,7 @@ function showIdent(final) {
 // After the sign-in renders: the profile of a remembered identifier, and the focus on the
 // first field still to fill
 function focusLogin() {
+  if ($("su-name")) { $("su-name").focus(); return; }
   const em = $("auth-email");
   const pw = $("auth-password");
   if (!em || !pw) return;
@@ -5265,24 +5510,20 @@ function loginHtml(sess, alerts, pick) {
   const note = msg
     ? `<div class="banner ${msg[1] === "ok" ? "info" : "bad"} login-note" id="auth-note" role="status">${ic(msg[1] === "ok" ? "check" : "alert")} <span>${esc(msg[0])}</span></div>`
     : "";
+  // each profile by its role only (the person's name is typed, not listed)
   const rows = accounts.map((a) => `
-        <li data-role="${esc(a.role)}" class="${a.configured ? "" : "off"}">${ic(ROLE_ICON[a.role] || "user")}<code>${esc(a.email.split("@")[0])}</code><span>${esc(a.label)}${a.configured ? "" : " · sans mot de passe"}</span></li>`).join("");
-  return `<div class="login">
-    <aside class="login-aside" aria-label="Identifiants et profils">
-      <h2>Bienvenue</h2>
-      <p>Une question, une réponse : votre identifiant ouvre directement la vue de votre profil.</p>
-      <ul class="login-profiles">${rows}
-      </ul>
-      <p class="login-sim">${ic("info")} Données simulées · session de ${ttl} min</p>
-    </aside>
-    <div class="login-main">
+        <li data-role="${esc(a.role)}" class="${a.configured ? "" : "off"}">${ic(ROLE_ICON[a.role] || "user")}<span class="who"><strong>${esc(a.label)}</strong>${a.configured ? "" : "<span>sans mot de passe</span>"}</span></li>`).join("");
+  // Inscription: anyone, the public roles the API lists (not on the admin's own sign-in)
+  const canSignup = pick !== "admin" && Array.isArray(sess.signup_roles) && sess.signup_roles.length > 0;
+  if (!canSignup) state.signup = false;
+  const main = state.signup ? signupHtml(sess, alerts) : `
       ${alerts}
       ${title}
-      <p class="login-sub">Entrez votre identifiant et votre mot de passe.</p>
+      <p class="login-sub">Entrez votre nom et votre mot de passe.</p>
       ${note}
       <form id="auth-form" class="login-form" autocomplete="on" novalidate aria-labelledby="login-title">
-        <label for="auth-email">Identifiant</label>
-        <div class="field">${ic("user")}<input id="auth-email" name="email" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="auth-role" placeholder="ex. pieton" value="${esc(ident)}"></div>
+        <label for="auth-email">Nom</label>
+        <div class="field">${ic("user")}<input id="auth-email" name="email" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="auth-role" placeholder="ex. ${esc(identExample())}" value="${esc(ident)}"></div>
         <div id="auth-role" class="field-msg ${cls}" data-field="login-role" data-value="${pre ? esc(pre.role) : ""}" aria-live="polite">${hint}</div>
         <label for="auth-password">Mot de passe</label>
         <div class="field">${ic("lock")}<input id="auth-password" class="has-eye" name="password" type="password" autocomplete="current-password" required aria-describedby="auth-pw-msg"><button type="button" id="auth-eye" class="eye" aria-label="Afficher le mot de passe" aria-pressed="false" aria-controls="auth-password">${ic("eye")}</button></div>
@@ -5290,9 +5531,113 @@ function loginHtml(sess, alerts, pick) {
         <button type="submit" id="auth-submit" class="login-submit"><span>Se connecter</span>${ic("arrowR")}</button>
         <div id="auth-msg" class="login-msg" role="alert"></div>
       </form>
-      <p class="login-foot">Mot de passe oublié ? Demandez à l'administrateur de le redéfinir.</p>
+      <div class="login-foot"><span>Mot de passe oublié ? Demandez à l'administrateur de le redéfinir.</span>${canSignup ? `<button type="button" id="auth-signup" class="login-signup">${ic("user")} Inscription</button>` : ""}</div>`;
+  return `<div class="login">
+    <aside class="login-aside" aria-label="Noms et profils">
+      <h2>Bienvenue</h2>
+      <p>Connectez-vous avec votre nom : il ouvre directement la vue de votre profil.</p>
+      <ul class="login-profiles">${rows}
+      </ul>
+      <p class="login-sim">${ic("info")} Données simulées · session de ${ttl} min</p>
+    </aside>
+    <div class="login-main">${main}
     </div>
   </div>`;
+}
+
+// VIEW: SIGN-UP (Inscription) in the sign-in screen: a name, a role picked in a drop-down
+// list of the public roles the API lists (signup_roles), a password; POST /auth/register
+// makes the account and opens its session. The other roles are made by the admin.
+function signupHtml(sess, alerts) {
+  const roles = Array.isArray(sess.signup_roles) ? sess.signup_roles : [];
+  const options = roles.map((r) => `<option value="${esc(r.role)}">${esc(r.label)}</option>`).join("");
+  return `
+      ${alerts}
+      <h2 class="login-title" id="login-title">Inscription</h2>
+      <p class="login-sub">Créez votre compte ${roles.map((r) => esc(r.label)).join(" ou ")} : il s'ouvre tout de suite.</p>
+      <form id="su-form" class="login-form" autocomplete="on" novalidate aria-labelledby="login-title" data-field="signup-form" data-value="${roles.length}">
+        <label for="su-name">Nom</label>
+        <div class="field">${ic("user")}<input id="su-name" name="username" type="text" maxlength="32" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="ex. nour" aria-describedby="su-name-msg"></div>
+        <div id="su-name-msg" class="field-msg" aria-live="polite">Votre nom de connexion : 2 à 32 caractères (a-z, 0-9, . _ -).</div>
+        <label for="su-role">Rôle</label>
+        <div class="field">${ic("walk")}<select id="su-role" required aria-describedby="su-role-msg"><option value="" selected disabled>Choisir un rôle…</option>${options}</select></div>
+        <div id="su-role-msg" class="field-msg" aria-live="polite">Bus, ambulance, opérateur : comptes créés par l'administrateur.</div>
+        <label for="su-password">Mot de passe</label>
+        <div class="field">${ic("lock")}<input id="su-password" name="password" type="password" autocomplete="new-password" required minlength="8" aria-describedby="su-pw-msg"></div>
+        <div id="su-pw-msg" class="field-msg" aria-live="polite">8 caractères au moins.</div>
+        <button type="submit" id="su-submit" class="login-submit"><span>Créer mon compte</span>${ic("arrowR")}</button>
+        <div id="su-msg" class="login-msg" role="alert"></div>
+      </form>
+      <div class="login-foot"><span>Déjà un compte ?</span><button type="button" id="auth-signin" class="login-signup">Se connecter</button></div>`;
+}
+
+// The name, role and password fields `<p>-name`, `<p>-role`, `<p>-password` of an account
+// form (the admin's Comptes tab: acc, the sign-up: su), checked with the API's rules: each
+// message under its field; the name typed and the first field to fix (null when all fit)
+function checkAccountFields(p) {
+  const name = $(`${p}-name`), role = $(`${p}-role`), pw = $(`${p}-password`);
+  const n = name.value.trim().toLowerCase();
+  let bad = null;
+  if (!ACC_NAME_RE.test(n)) {
+    fieldMsg(`${p}-name-msg`, "bad", `${ic("alert")} Nom refusé : 2 à 32 caractères parmi a-z, 0-9, . _ - (sans accent ni espace).`);
+    setInvalid(name, true);
+    bad = bad || name;
+  } else { setInvalid(name, false); }
+  if (!role.value) {
+    fieldMsg(`${p}-role-msg`, "bad", `${ic("alert")} Choisissez un rôle dans la liste.`);
+    setInvalid(role, true);
+    bad = bad || role;
+  } else { setInvalid(role, false); }
+  if (pw.value.length < 8) {
+    fieldMsg(`${p}-pw-msg`, "bad", `${ic("alert")} Mot de passe trop court : 8 caractères au moins.`);
+    setInvalid(pw, true);
+    bad = bad || pw;
+  } else { setInvalid(pw, false); }
+  return [n, bad];
+}
+
+// An account refused by the API: its message under the field it is about (false when it
+// is about none of them)
+function accountRefused(p, err) {
+  const code = err.code || "";
+  const text = err.message || "refusé";
+  const msg = `${ic("alert")} ${esc(text)}`;
+  if (code === "name_taken" || text.startsWith("nom")) {
+    fieldMsg(`${p}-name-msg`, "bad", msg);
+    setInvalid($(`${p}-name`), true);
+    $(`${p}-name`).focus();
+  } else if (code === "role_not_allowed" || text.startsWith("rôle") || text.startsWith("ce rôle")) {
+    fieldMsg(`${p}-role-msg`, "bad", msg);
+    setInvalid($(`${p}-role`), true);
+  } else if (text.startsWith("mot de passe")) {
+    fieldMsg(`${p}-pw-msg`, "bad", msg);
+    setInvalid($(`${p}-password`), true);
+  } else {
+    return false;
+  }
+  return true;
+}
+
+async function suSubmit() {
+  const pw = $("su-password"), role = $("su-role"), out = $("su-msg"), btn = $("su-submit");
+  if (!pw || !role) return;
+  if (out) out.textContent = "";
+  const [n, bad] = checkAccountFields("su");
+  if (bad) { bad.focus(); return; }
+  if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+  const r = await api("/auth/register", false, { method: "POST", body: { name: n, role: role.value, password: pw.value } });
+  pw.value = "";
+  if (btn) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
+  if (r.authenticated) {
+    rememberIdent(n);
+    state.signup = false;
+    state.authMsg = null;
+    setSession(r);
+    render();
+    return;
+  }
+  if (r.error && accountRefused("su", r.error)) return;
+  if (out) out.textContent = r.error && (r.http === 429 || r.http === 503) ? r.error.message : "Le service ne répond pas : réessayez dans un instant.";
 }
 
 function submitBusy(on) {
@@ -5319,8 +5664,9 @@ async function authSubmit() {
   const out = $("auth-msg");
   if (!email || !pw) return;
   if (out) out.textContent = "";
-  const acc = accountOf(email.value);  // "pieton" -> pieton@...: the role comes from the address
-  if (!acc || !acc.configured) {
+  const acc = accountOf(email.value);  // "ali" -> ali@...: the role comes from the account's name
+  const ident = email.value.trim().toLowerCase();
+  if (!ident || (acc && !acc.configured)) {
     showIdent(true);
     email.focus();
     return;
@@ -5332,7 +5678,7 @@ async function authSubmit() {
     return;
   }
   submitBusy(true);
-  const r = await api("/auth/login", false, { method: "POST", body: { email: acc.email, password: pw.value } });
+  const r = await api("/auth/login", false, { method: "POST", body: { email: acc ? acc.email : ident, password: pw.value } });
   pw.value = "";
   if (r.authenticated) {
     rememberIdent(email.value.trim());
@@ -5343,7 +5689,9 @@ async function authSubmit() {
   }
   submitBusy(false);
   if (r.http === 401) {
-    fieldMsg("auth-pw-msg", "bad", `${ic("alert")} Mot de passe incorrect. Vérifiez la touche Verr. Maj. et réessayez.`);
+    fieldMsg("auth-pw-msg", "bad", acc
+      ? `${ic("alert")} Mot de passe incorrect. Vérifiez la touche Verr. Maj. et réessayez.`
+      : `${ic("alert")} Nom ou mot de passe incorrect. Vérifiez les deux et réessayez.`);
     setInvalid(pw, true);
   } else if (out) {
     out.textContent = r.http === 429 || r.http === 503
@@ -5478,7 +5826,8 @@ document.addEventListener("click", (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
   if (btn.dataset.zoom) {
-    setZoom(btn.dataset.zoom === "in" ? state.zoom * 1.25 : (btn.dataset.zoom === "out" ? state.zoom / 1.25 : 1));
+    if (btn.dataset.zoom === "reset") resetMapView();
+    else zoomTo(btn.dataset.zoom === "in" ? ZOOM.target * ZOOM_STEP : ZOOM.target / ZOOM_STEP);
     return;
   }
   if (btn.dataset.jump) { jumpTo(Number(btn.dataset.jump)); return; }
@@ -5548,6 +5897,9 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (btn.id === "admin-export") { adminCsv(); return; }
+  if (btn.id === "acc-gen") { accGenerate(); return; }
+  if (btn.id === "auth-signup" || btn.id === "auth-signin") { state.signup = btn.id === "auth-signup"; render(); return; }
+  if (btn.dataset.accDel) { accDelete(btn.dataset.accDel); return; }
   if (btn.dataset.go) {
     if (btn.dataset.key) {
       state[btn.dataset.key] = btn.dataset.val;
@@ -5573,6 +5925,8 @@ document.addEventListener("change", (e) => {
     $("view").dataset.view = "";
     render();
   }
+  if (e.target.id === "acc-role") { setInvalid(e.target, false); accRoleHint(); }
+  if (e.target.id === "su-role") { setInvalid(e.target, false); fieldMsg("su-role-msg", "", "Bus, ambulance, opérateur : comptes créés par l'administrateur."); }
 });
 
 document.addEventListener("submit", (e) => {
@@ -5580,12 +5934,21 @@ document.addEventListener("submit", (e) => {
     e.preventDefault();
     authSubmit();
   }
+  if (e.target && e.target.id === "acc-form") {
+    e.preventDefault();
+    accSubmit();
+  }
+  if (e.target && e.target.id === "su-form") {
+    e.preventDefault();
+    suSubmit();
+  }
 });
 
 document.addEventListener("input", (e) => {
   if (e.target && e.target.id === "admin-search") applyAdminSearch();
   if (e.target && e.target.id === "auth-email") showIdent(false);
   if (e.target && e.target.id === "auth-password") { setInvalid(e.target, false); fieldMsg("auth-pw-msg", "", ""); }
+  if (e.target && ["acc-name", "acc-password", "su-name", "su-password"].includes(e.target.id)) setInvalid(e.target, false);
 });
 
 document.addEventListener("focusout", (e) => {
@@ -5721,7 +6084,7 @@ function readDeepLink(P, problems) {
   pick("line", LINES, "ligne");
   pick("trajet", STUDENT_ROUTES.map(([k]) => k), "trajet");
   if (P.has("tab")) {
-    if (["table", "sync"].includes(P.get("tab"))) state.adminTab = P.get("tab");
+    if (["table", "sync", "accounts"].includes(P.get("tab"))) state.adminTab = P.get("tab");
     else problems.push(`onglet « ${P.get("tab")} » inconnu`);
   }
   if (P.has("exam")) {

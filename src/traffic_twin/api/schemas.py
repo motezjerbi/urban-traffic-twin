@@ -325,6 +325,14 @@ class AuthAccount(BaseModel):
     configured: bool = False
 
 
+class AuthRole(BaseModel):
+    """A role an account may have (admin cockpit, sign-up)."""
+
+    role: str
+    label: str
+    views: list[str] = []
+
+
 class AuthSessionResponse(Envelope):
     """POST /auth/login, POST /auth/logout, GET /auth/session: the session of this browser
     (an HttpOnly cookie); never a password or its hash."""
@@ -340,4 +348,42 @@ class AuthSessionResponse(Envelope):
     expires_at: datetime | None = None
     remaining_s: float | None = None
     ttl_s: int | None = Field(None, description="session length (s)")
-    accounts: list[AuthAccount] = []
+    accounts: list[AuthAccount] = Field(
+        [], description="the role accounts (the accounts made by the admin are not listed)"
+    )
+    signup_roles: list[AuthRole] = Field(
+        [], description="the roles anyone may sign up for (POST /auth/register)"
+    )
+
+
+class AuthAccountCreate(BaseModel):
+    """POST /auth/accounts body (admin session only) and POST /auth/register body (anyone,
+    a public role only)."""
+
+    name: str = Field(..., max_length=64, description="the name typed to sign in, e.g. sami")
+    role: str = Field(..., max_length=32, description="a role key, e.g. pedestrian")
+    password: str = Field(..., max_length=1024)
+
+
+class AuthUser(BaseModel):
+    """One account as the admin cockpit lists it (never its hash)."""
+
+    name: str
+    role: str
+    label: str
+    email: str
+    views: list[str] = []
+    configured: bool = False
+    created: bool = Field(False, description="made by the admin (else the role's own account)")
+    created_at: str | None = None
+    origin: str | None = Field(None, description="of a made account: admin or inscription")
+
+
+class AuthAccountsResponse(Envelope):
+    """GET and POST /auth/accounts, DELETE /auth/accounts/{name} (admin session only): every
+    account and the roles an account may have."""
+
+    type: str = "auth_accounts"
+    roles: list[AuthRole] = []
+    accounts: list[AuthUser] = []
+    created: str | None = Field(None, description="name of the account just made")
