@@ -340,4 +340,45 @@ class AuthSessionResponse(Envelope):
     expires_at: datetime | None = None
     remaining_s: float | None = None
     ttl_s: int | None = Field(None, description="session length (s)")
-    accounts: list[AuthAccount] = []
+    accounts: list[AuthAccount] = Field(
+        [], description="the role accounts (the accounts made by the admin are not listed)"
+    )
+
+
+class AuthAccountCreate(BaseModel):
+    """POST /auth/accounts body (admin session only)."""
+
+    name: str = Field(..., max_length=64, description="the name typed to sign in, e.g. sami")
+    role: str = Field(..., max_length=32, description="a role key, e.g. pedestrian")
+    password: str = Field(..., max_length=1024)
+
+
+class AuthRole(BaseModel):
+    """A role the admin may give to an account."""
+
+    role: str
+    label: str
+    views: list[str] = []
+
+
+class AuthUser(BaseModel):
+    """One account as the admin cockpit lists it (never its hash)."""
+
+    name: str
+    role: str
+    label: str
+    email: str
+    views: list[str] = []
+    configured: bool = False
+    created: bool = Field(False, description="made by the admin (else the role's own account)")
+    created_at: str | None = None
+
+
+class AuthAccountsResponse(Envelope):
+    """GET and POST /auth/accounts, DELETE /auth/accounts/{name} (admin session only): every
+    account and the roles an account may have."""
+
+    type: str = "auth_accounts"
+    roles: list[AuthRole] = []
+    accounts: list[AuthUser] = []
+    created: str | None = Field(None, description="name of the account just made")

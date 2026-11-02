@@ -754,3 +754,65 @@ def test_every_view_needs_a_role_session_and_opens_only_that_roles_views(gate_si
     op = out["operator"]
     assert op["role"] == "operator" and op["state"] in OK_STATES | {"unavailable"}
     assert op["nav"] == ["replay", "operator"] and not op["navHidden"]
+
+
+def test_the_admin_creates_an_account_that_signs_in_by_name(gate_site, tmp_path):
+    """Comptes tab: the admin picks the role in the drop-down list, creates "sami"
+    (pedestrian); the password is not left in the page; sami then signs in by name and opens
+    the pedestrian view only."""
+    pytest.importorskip("websockets")
+    from traffic_twin.api import admin
+
+    admin_pw, sami_pw = "admin-test-pw", "sami-test-pw"
+    admin.write_env_keys(
+        tmp_path / ".env",
+        {admin.ADMIN.hash_key: admin.hash_password(admin_pw, iterations=admin.MIN_ITERATIONS)},
+    )
+    url = gate_site.served.url
+
+    async def steps(js, nav, until):
+        out = {}
+        await nav(f"{url}/mock?view=admin&tab=accounts")
+        await until("!!document.getElementById('auth-form')")
+        await js(TYPE_JS % json.dumps("admin"))
+        await js(f"document.getElementById('auth-password').value = {json.dumps(admin_pw)}")
+        await js("document.getElementById('auth-form').requestSubmit()")
+        await until("!!document.querySelector('[data-field=admin-accounts]')")
+        out["roles"] = json.loads(
+            await js("JSON.stringify([...document.querySelectorAll('#acc-role option')]"
+                     ".map(o => o.value))")
+        )  # fmt: skip
+        await js("document.getElementById('acc-name').value = 'Sami'")
+        await js("document.getElementById('acc-role').value = 'pedestrian'")
+        await js(f"document.getElementById('acc-password').value = {json.dumps(sami_pw)}")
+        await js("document.getElementById('acc-form').requestSubmit()")
+        await until("!!document.querySelector('tr[data-acc=sami]')")
+        out["count"] = await js(
+            "document.querySelector('[data-field=admin-accounts]').dataset.value"
+        )
+        out["note"] = await js("document.getElementById('acc-note').innerText")
+        out["password_shown"] = await js(
+            f"document.documentElement.outerHTML.includes({json.dumps(sami_pw)})"
+        )
+        await js("document.getElementById('admin-logout').click()")
+        await until("!!document.getElementById('auth-form')")
+        out["hint"] = await js(TYPE_JS % json.dumps("sami"))  # not listed: no error shown
+        await js(f"document.getElementById('auth-password').value = {json.dumps(sami_pw)}")
+        await js("document.getElementById('auth-form').requestSubmit()")
+        await until(READY_JS % "pedestrian")
+        out["sami"] = json.loads(await js(VIEW_JS))
+        return out
+
+    cdp = Cdp()
+    try:
+        out = asyncio.run(_drive(cdp.ws_url, steps))
+    finally:
+        cdp.close()
+    assert out["roles"] == ["", *(r.key for r in admin.ROLES)]  # "Choisir un rôle…" first
+    assert out["count"] == str(len(admin.ROLES) + 1) and "sami" in out["note"]
+    assert out["password_shown"] is False
+    assert out["hint"] == ":field-msg "
+    sami = out["sami"]
+    assert sami["role"] == "pedestrian" and sami["navHidden"] and sami["state"] in OK_STATES
+    users = admin.read_users(admin.users_file_for(tmp_path / ".env"))
+    assert [(u.name, u.role.key) for u in users] == [("sami", "pedestrian")]

@@ -116,6 +116,9 @@ time (such as `t=1e12`) is `bad_t` too.
 | `GET /auth/session` | `auth_session` | `required`, `configured`, `authenticated`, `role`, `role_label`, `email`, `views[]`, `expires_at`, `remaining_s`, `ttl_s`, `accounts[{role, label, email, views, configured}]` (sign-in, below) |
 | `POST /auth/login` (JSON `{email, password}`) | `auth_session` | the same, and the session cookie |
 | `POST /auth/logout` | `auth_session` | the same (not authenticated), and the cookie cleared |
+| `GET /auth/accounts` | `auth_accounts` | admin session only: `roles[{role, label, views}]`, `accounts[{name, role, label, email, views, configured, created, created_at}]` |
+| `POST /auth/accounts` | `auth_accounts` | admin session only; JSON `{name, role, password}`: the same, and `created` (the new account's name) |
+| `DELETE /auth/accounts/{name}` | `auth_accounts` | admin session only: removes an account made by the admin; the same |
 
 **Endpoint rules:**
 - **`/kpi`.**
@@ -188,14 +191,17 @@ in `api.yaml` (default true) turns the sign-in on; the FAKE fixtures set it to f
   the sessions of every role), read at each request from the environment, else from the
   gitignored `.env` of the repo root. `python tasks.py admin-set-password --role R` writes
   one account; `python tasks.py accounts-test` writes all six from the gitignored test file
-  `data/auth/test_accounts.json` (passwords in clear, for tests and the demo). Nothing
-  secret is logged, committed or returned by the API.
+  `data/auth/test_accounts.json` (passwords in clear, for tests and the demo; `--name
+  pieton=ali` gives the pedestrian account the name `ali`, one name per role). The sign-in
+  screen accepts the email or the part before its @. Nothing secret is logged, committed or
+  returned by the API.
 - **`POST /auth/login`:** JSON `{email, password}`. Every email (case-insensitive) is
   compared in constant time and one PBKDF2 hash is always computed. Success: 200
   `auth_session` and the cookie `tt_session` (HttpOnly, SameSite=Strict, `Path=/`,
   `Max-Age=1800`, `Secure` over https): an HMAC-SHA256-signed token holding the email, the
-  role and the expiry (now + 30 min). Its key mixes the secret with the role and its
-  password hash, so a new password ends every session of that role. Wrong credentials: 401
+  role and the expiry (now + 30 min). Its key mixes the secret with the account (role,
+  email) and its password hash, so a new password, or removing the account, ends every
+  session of that account. Wrong credentials: 401
   `bad_credentials`, "identifiants incorrects". 5 failures within a minute from one
   client: 429 `too_many_attempts` until the oldest leaves the window (in memory, per API
   process). No usable account: 503 `auth_not_configured`, "aucun compte configuré". A body
@@ -206,6 +212,20 @@ in `api.yaml` (default true) turns the sign-in on; the FAKE fixtures set it to f
   `expires_at`, `remaining_s`, `ttl_s` (1800) and `accounts` (each role, its email, its
   views and whether it can sign in; never a hash). Never cached (`Cache-Control: no-store`).
 - **`POST /auth/logout`:** clears the cookie (`Max-Age=0`).
+- **Accounts made by the admin** (several per role, on top of the role accounts):
+  `GET`/`POST /auth/accounts` and `DELETE /auth/accounts/{name}` need the admin's session
+  (401 `not_signed_in` without, 403 `forbidden` for another role). `POST` takes `{name,
+  role, password}`: a name of 2 to 32 characters among a-z, 0-9, `.`, `_`, `-` (the
+  identifier typed; the email is `<name>@urban-traffic-twin.local`), a role key (or its
+  default name or label) and at least 8 characters; a refused field is the usual 404
+  `bad_request`, a name already held by any account 409 `name_taken`. `DELETE` removes only
+  an account made by the admin (a role account: 409 `role_account`; unknown: 404
+  `not_found`), which also ends its open sessions. They are kept in the gitignored
+  `data/auth/users.json` beside the `.env` (the PBKDF2 hash, never the password) and are
+  never listed by `/auth/session`; they sign in with `POST /auth/login`, whose `email` is
+  an email or a name. The admin cockpit's **Comptes** tab drives them (the role is picked in
+  a drop-down list); `python -m traffic_twin.api.admin add-user --name sami --role pieton`
+  and `remove-user --name sami` do the same from a shell.
 - CORS still allows GET only, so another origin cannot post to `/auth/login`; uvicorn runs
   without an access log and the login never logs the client or the password.
 - `tests/test_api_admin.py` covers the roles, the hashing, the `.env`, success, failures,

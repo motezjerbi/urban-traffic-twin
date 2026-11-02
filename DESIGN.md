@@ -161,7 +161,11 @@ Ratios calculés avec la formule WCAG de luminance relative.
 - **Carte** (`#trafficCanvas`) :
   - plan 2D par défaut ; la vue 3D (three.js r128 servi en local) est proposée dans
     Relecture seulement ;
-  - zoom limité de 1 à 3 avec +, − et recentrer (aussi au clavier, sur la carte : +, −, 0) ;
+  - zoom de 0,5 à 6 à la molette de la souris (environ ×1,5 par cran, animé en douceur
+    sur environ 0,2 s), centré sur le point visé (le point sous la souris reste en
+    place) ; glisser déplace le plan (borné), un clic sans glisser
+    sélectionne toujours un véhicule ; boutons +, − et recentrer (aussi au clavier, sur
+    la carte : +, −, 0) ;
   - en 3D, rotation, inclinaison (environ 26° à 88°), distance et déplacement sont
     bornés ;
   - feux affichés avec leur couleur et leur lettre (V, O, R ou ? si l'état n'est pas

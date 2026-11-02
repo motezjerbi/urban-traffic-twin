@@ -316,8 +316,10 @@ admin-set-password:
 	$(PY) -m traffic_twin.api.admin set-password --role $(ROLE) $(if $(ADMIN_EMAIL),--email $(ADMIN_EMAIL))
 
 ## Test accounts: one per role, passwords in clear in the gitignored data/auth/test_accounts.json
+## (NAMES="pieton=ali bus=karim" gives the accounts these names)
+NAMES ?=
 accounts-test:
-	$(PY) -m traffic_twin.api.admin test-accounts
+	$(PY) -m traffic_twin.api.admin test-accounts $(foreach n,$(NAMES),--name $(n))
 
 part9: demo-runs8 api-bench usertest-check usertest-docs
 

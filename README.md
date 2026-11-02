@@ -1922,6 +1922,18 @@ the field visit).
   into the gitignored `.env`; it prints the table. Later runs reuse the file (edit a
   password there and run it again to change it; `--renew` draws new ones), so the accounts
   survive every restart.
+- **A person's name per role:** the identifier typed is the part of the email before the
+  @ (or the whole email). `python tasks.py accounts-test --name pieton=ali --name bus=karim`
+  gives those accounts the names `ali` and `karim` (`ali@urban-traffic-twin.local`; the
+  password is kept), written in the `name` field of the test file; editing a `name` there
+  and running it again does the same. One name per role: `pieton` then no longer signs in.
+  `make accounts-test NAMES="pieton=ali bus=karim"`.
+- **More accounts (admin):** the **Comptes** tab of the admin cockpit
+  (`/mock?view=admin&tab=accounts`) creates an account from a name, a role picked in a
+  drop-down list and a password (typed or generated), several per role, and removes them.
+  They sign in by name like the role accounts and live in the gitignored
+  `data/auth/users.json` (PBKDF2 hash only). From a shell:
+  `python -m traffic_twin.api.admin add-user --name sami --role pieton` / `remove-user`.
 - **One account:** `python tasks.py admin-set-password --role ambulance` (`--email`;
   default the one in `.env`, else the role's; `make admin-set-password ROLE=ambulance`). It
   asks the password (getpass, or one line of a piped stdin; from PowerShell 5.1 pipe from

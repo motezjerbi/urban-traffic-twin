@@ -47,7 +47,7 @@ API_PREFIXES = (
     "/compare",
     "/series",
     "/sensitivity",
-    "/auth",  # the sign-in of the user app, one account per role (session, login, logout)
+    "/auth",  # the sign-in of the user app (session, login, logout) and the admin's accounts
     "/three.min.js",
     "/mock",
 )

@@ -387,7 +387,10 @@ def test_sign_in_form_and_requests():
     assert "accountOf(email.value)" in submit and "acc.email" in submit
     assert 'pw.value = ""' in submit and "localStorage" not in submit
     assert 'api("/auth/logout", false, { method: "POST" })' in function_body("authLogout")
-    assert re.findall(r'method: "(\w+)"', SCRIPT) == ["POST", "POST"]
+    # with the admin's account creation and removal, the only non-GET requests
+    assert sorted(re.findall(r'method: "(\w+)"', SCRIPT)) == ["DELETE", "POST", "POST", "POST"]
+    # a name the page does not list (an account made by the admin) is sent as typed
+    assert "acc ? acc.email : ident" in submit and "Nom ou mot de passe incorrect" in submit
     assert 'const keep = state.view !== "admin" && state.view !== "login";' in function_body(
         "render"
     )
@@ -395,6 +398,33 @@ def test_sign_in_form_and_requests():
     expiry = function_body("authExpiry")
     assert "setTimeout" in expiry and 'api("/auth/session", true)' in expiry
     assert "render()" in expiry
+
+
+def test_the_2d_map_zooms_on_the_mouse_and_drags():
+    """The wheel zooms the 2D plan around the point under the mouse, a drag moves it (and
+    its click selects nothing), the recentre button and the 0 key reset both."""
+    sim = function_body("startTrafficSim")
+    assert 'addEventListener("wheel"' in sim and "{ passive: false }" in sim
+    assert "zoomTo(ZOOM.target * Math.exp(" in sim and "ZOOM_WHEEL), canvas, e)" in sim
+    assert 'addEventListener("pointerdown"' in sim and "panBy(-dx / vp.k, -dy / vp.k)" in sim
+    assert "if (SIM.dragged)" in sim and "resetMapView()" in sim
+    assert "stepZoom(now);" in sim  # eased: the draw loop moves the zoom to its target
+    zoom = function_body("applyZoom")
+    assert "toWorld(cv, at)" in zoom and "panBy(before.x - after.x, before.y - after.y)" in zoom
+    assert "ZOOM.target = state.zoom" in function_body("setZoom")  # at once, no easing back
+    assert "Math.exp(-dt / ZOOM_EASE_S)" in function_body("stepZoom")
+    assert "state.pan.x" in function_body("mapViewport")
+    assert "#trafficCanvas.panning { cursor: grabbing; }" in STYLE
+    assert "Molette de la souris pour zoomer" in BODY
+
+
+def test_sign_in_names_come_from_the_accounts():
+    """The identifiers can be people's names (ali for the pedestrian): no name is written
+    in the sign-in screen, the example and the chip read the session."""
+    form = function_body("loginHtml")
+    assert 'placeholder="ex. ${esc(identExample())}"' in form and "ex. pieton" not in form
+    assert "identExample()" in function_body("identHint")
+    assert 'String(s.email || "").split("@")[0]' in function_body("renderUser")
 
 
 def test_admin_view_needs_the_administrator_role():
@@ -407,6 +437,29 @@ def test_admin_view_needs_the_administrator_role():
     assert 'sess.role !== "admin"' in body
     assert body.index("adminLogin(sess, banners(sess))") < body.index("adminData()")
     assert 'loginHtml(sess, alerts, "admin")' in function_body("adminLogin")
+
+
+def test_admin_creates_accounts_with_a_role_drop_down():
+    """The Comptes tab of the cockpit: a name, a role picked in a drop-down list filled from
+    the API's roles, a password (typed or generated), POST /auth/accounts; the accounts
+    made here can be removed (DELETE); the password is cleared once sent."""
+    shell = function_body("adminShell")
+    assert 'data-admin-tab="accounts"' in shell and "Comptes" in shell
+    assert 'state.adminTab === "accounts"' in function_body("admin")
+    body = function_body("adminAccounts")
+    first = re.search(r'\bapi\(\s*"([^"]+)"', body)
+    assert first and first.group(1) == "/auth/accounts"
+    assert '<select id="acc-role" required' in body and "d.roles" in body
+    assert "Choisir un rôle…" in body and 'id="acc-name"' in body
+    assert 'id="acc-password" type="password" autocomplete="new-password"' in body
+    assert 'data-field="admin-accounts"' in body and "a.created ?" in body  # only those removable
+    submit = function_body("accSubmit")
+    assert 'api("/auth/accounts", false, { method: "POST"' in submit
+    assert "ACC_NAME_RE.test(n)" in submit and 'pw.value = ""' in submit
+    assert "localStorage" not in submit
+    assert '{ method: "DELETE" }' in function_body("accDelete")
+    assert "window.crypto.getRandomValues" in function_body("accGenerate")
+    assert '["table", "sync", "accounts"].includes(P.get("tab"))' in SCRIPT  # deep link
 
 
 def test_admin_cockpit_reads_only_api_v1():

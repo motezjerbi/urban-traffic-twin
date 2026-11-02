@@ -1577,8 +1577,15 @@ TASKS: dict[str, tuple[str, Callable[[argparse.Namespace], list[Command]]]] = {
     "accounts-test": (
         "sign-in: one test account per role, passwords kept in clear in the gitignored "
         "data/auth/test_accounts.json and hashed into .env (reused at each run; --renew "
-        "draws new ones)",
-        lambda o: [_m(ADMIN, "test-accounts", *(["--renew"] if o.renew else []))],
+        "draws new ones; --name pieton=ali gives the pedestrian account the name ali)",
+        lambda o: [
+            _m(
+                ADMIN,
+                "test-accounts",
+                *(["--renew"] if o.renew else []),
+                *(a for n in o.name or [] for a in ("--name", n)),
+            )
+        ],
     ),
     # -- Part 10: report, slides, rehearsed demo -----------------------------------------
     "report-facts": (
@@ -1913,6 +1920,10 @@ def parser() -> argparse.ArgumentParser:
         help="admin-set-password: the role account (ROLE); default admin",
     )  # fmt: skip
     p.add_argument("--renew", action="store_true", help="accounts-test: draw new test passwords")
+    p.add_argument(
+        "--name", action="append", metavar="ROLE=NAME", help="accounts-test: the name typed "
+        "to sign in as a role, e.g. pieton=ali (one name per role); repeatable",
+    )  # fmt: skip
     p.add_argument("-n", "--dry-run", action="store_true", help="print commands, run nothing")
     return p
 

@@ -33,7 +33,9 @@ Sign-in of the user app (`api.admin`; a local-only deviation from ENF-07): `POST
 /auth/login`, `POST /auth/logout` and `GET /auth/session` open a 30 min session of one role
 account (pedestrian, student, bus, ambulance, operator, admin) from the environment or the
 gitignored `.env`, in an HttpOnly, SameSite=Strict cookie. Every view of `/mock` needs it
-(`dev.auth`); the public GET endpoints of API v1 stay account-free and cookie-free.
+(`dev.auth`); the public GET endpoints of API v1 stay account-free and cookie-free. The
+admin session also creates and removes accounts (several per role) with `GET`/`POST
+/auth/accounts` and `DELETE /auth/accounts/{name}`.
 """
 
 from __future__ import annotations
@@ -58,7 +60,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from traffic_twin.api.admin import (
     COOKIE,
     PUBLIC_VIEWS,
+    ROLES,
     SESSION_TTL_S,
+    AccountError,
     Auth,
     make_token,
     read_token,
@@ -93,8 +97,12 @@ from traffic_twin.api.schemas import (
     AmbulanceRouteResponse,
     ApiError,
     AuthAccount,
+    AuthAccountCreate,
+    AuthAccountsResponse,
     AuthLogin,
+    AuthRole,
     AuthSessionResponse,
+    AuthUser,
     BusStatusResponse,
     CrossingStatusResponse,
     Envelope,
@@ -130,7 +138,8 @@ PATH_TYPES = (
     ("/replay", "replay_state"), ("/crossing", "crossing_status"), ("/bus", "bus_status"),
     ("/ambulance", "ambulance_route"), ("/eta", "eta"),
     ("/evaluation", "evaluation"), ("/compare", "kpi_pair"), ("/series", "kpi_series"),
-    ("/sensitivity", "sensitivity"), ("/auth", "auth_session"),
+    ("/sensitivity", "sensitivity"), ("/auth/accounts", "auth_accounts"),
+    ("/auth", "auth_session"),
 )  # fmt: skip
 EVENTS_SUFFIX = "/events"  # /replay/{run_id}/events answers type replay_events
 PART8_PENDING = "pas encore évalué"  # a label registered but absent from the outputs (D103)
@@ -1250,10 +1259,46 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     views=list(a.role.views),
                     configured=cfg.usable(a),
                 )
-                for a in cfg.accounts
+                for a in cfg.role_accounts
             ],
         )
         return JSONResponse(body.model_dump(mode="json"), headers=no_store)
+
+    def admin_only(request: Request) -> None:
+        """The cookie's session must be the administrator's (401 without, 403 another role)."""
+        cfg = auth.config()
+        hit = read_token(cfg, request.cookies.get(COOKIE), auth.clock())
+        if hit is None:
+            raise ApiError("not_signed_in", "connexion administrateur requise", 401)
+        if hit[0].role.key != "admin":
+            raise ApiError("forbidden", "réservé à l'administrateur", 403)
+
+    def accounts_answer(created: str | None = None) -> JSONResponse:
+        cfg = auth.config()
+        env = ctx.envelope("auth_accounts", timestamp=wall_now())
+        body = AuthAccountsResponse(
+            **env,
+            roles=[AuthRole(role=r.key, label=r.label, views=list(r.views)) for r in ROLES],
+            accounts=[
+                AuthUser(
+                    name=a.name,
+                    role=a.role.key,
+                    label=a.role.label,
+                    email=a.email,
+                    views=list(a.role.views),
+                    configured=cfg.usable(a),
+                    created=a.created,
+                    created_at=a.created_at,
+                )
+                for a in cfg.accounts
+            ],
+            created=created,
+        )
+        return JSONResponse(body.model_dump(mode="json"), headers=no_store)
+
+    def account_error(e: AccountError) -> ApiError:
+        status = {"name_taken": 409, "role_account": 409}.get(e.code, 404)
+        return ApiError(e.code, e.message, status)
 
     def set_cookie(request: Request, response: Response, token: str, max_age: int) -> None:
         response.set_cookie(
@@ -1299,6 +1344,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response = session_answer(auth.config(), None)
         set_cookie(request, response, "", 0)
         return response
+
+    # accounts made by the administrator (several per role), admin session only
+    @app.get("/auth/accounts", response_model=AuthAccountsResponse)
+    def auth_accounts(request: Request):
+        admin_only(request)
+        return accounts_answer()
+
+    @app.post("/auth/accounts", response_model=AuthAccountsResponse)
+    def auth_account_create(request: Request, new: AuthAccountCreate):
+        admin_only(request)
+        try:
+            account = auth.create_user(new.name, new.role, new.password)
+        except AccountError as e:
+            raise account_error(e) from None
+        log.info("auth: account %s (%s) created by the admin", account.name, account.role.key)
+        return accounts_answer(created=account.name)
+
+    @app.delete("/auth/accounts/{name}", response_model=AuthAccountsResponse)
+    def auth_account_delete(request: Request, name: str):
+        admin_only(request)
+        try:
+            auth.delete_user(name)
+        except AccountError as e:
+            raise account_error(e) from None
+        log.info("auth: account %s removed by the admin", name)
+        return accounts_answer()
 
     # -- /mock (dev) ---------------------------------------------------------------------
     @app.get("/mock", include_in_schema=False, response_class=HTMLResponse)
