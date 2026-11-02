@@ -62,8 +62,12 @@ from traffic_twin.api.admin import (
     PUBLIC_VIEWS,
     ROLES,
     SESSION_TTL_S,
+    SIGNUP_MAX,
+    SIGNUP_ROLES,
+    SIGNUP_WINDOW_S,
     AccountError,
     Auth,
+    RateLimiter,
     make_token,
     read_token,
 )
@@ -1261,6 +1265,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
                 for a in cfg.role_accounts
             ],
+            signup_roles=[
+                AuthRole(role=r.key, label=r.label, views=list(r.views))
+                for r in ROLES
+                if r.key in SIGNUP_ROLES
+            ],
         )
         return JSONResponse(body.model_dump(mode="json"), headers=no_store)
 
@@ -1289,6 +1298,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     configured=cfg.usable(a),
                     created=a.created,
                     created_at=a.created_at,
+                    origin=a.origin,
                 )
                 for a in cfg.accounts
             ],
@@ -1297,8 +1307,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(body.model_dump(mode="json"), headers=no_store)
 
     def account_error(e: AccountError) -> ApiError:
-        status = {"name_taken": 409, "role_account": 409}.get(e.code, 404)
+        status = {"name_taken": 409, "role_account": 409, "role_not_allowed": 403}.get(e.code, 404)
         return ApiError(e.code, e.message, status)
+
+    signups = RateLimiter(limit=SIGNUP_MAX, window_s=SIGNUP_WINDOW_S)
+    app.state.signups = signups
 
     def set_cookie(request: Request, response: Response, token: str, max_age: int) -> None:
         response.set_cookie(
@@ -1343,6 +1356,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def auth_logout(request: Request):
         response = session_answer(auth.config(), None)
         set_cookie(request, response, "", 0)
+        return response
+
+    # sign-up from the sign-in screen: anyone, a public role only; the session opens
+    @app.post("/auth/register", response_model=AuthSessionResponse)
+    def auth_register(request: Request, new: AuthAccountCreate):
+        cfg = auth.config()
+        if not cfg.secret:
+            raise ApiError("auth_not_configured", "aucun compte configuré", 503)
+        who, now = client_key(request), auth.clock()
+        wait = signups.blocked(who, now)
+        if wait is not None:
+            raise ApiError(
+                "too_many_attempts",
+                f"trop d'inscriptions : réessayez dans {math.ceil(wait)} s",
+                429,
+            )
+        signups.failed(who, now)  # every attempt counts, made or refused
+        try:
+            account = auth.create_user(new.name, new.role, new.password, origin="inscription")
+        except AccountError as e:
+            raise account_error(e) from None
+        log.info("auth: account %s (%s) signed up", account.name, account.role.key)
+        cfg = auth.config()
+        token, exp = make_token(cfg, account, now)
+        response = session_answer(cfg, (account, exp))
+        set_cookie(request, response, token, SESSION_TTL_S)
         return response
 
     # accounts made by the administrator (several per role), admin session only

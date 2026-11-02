@@ -116,6 +116,7 @@ time (such as `t=1e12`) is `bad_t` too.
 | `GET /auth/session` | `auth_session` | `required`, `configured`, `authenticated`, `role`, `role_label`, `email`, `views[]`, `expires_at`, `remaining_s`, `ttl_s`, `accounts[{role, label, email, views, configured}]` (sign-in, below) |
 | `POST /auth/login` (JSON `{email, password}`) | `auth_session` | the same, and the session cookie |
 | `POST /auth/logout` | `auth_session` | the same (not authenticated), and the cookie cleared |
+| `POST /auth/register` | `auth_session` | anyone; JSON `{name, role, password}` for a public role (`signup_roles` of `/auth/session`: pedestrian, student): the new account's session and its cookie |
 | `GET /auth/accounts` | `auth_accounts` | admin session only: `roles[{role, label, views}]`, `accounts[{name, role, label, email, views, configured, created, created_at}]` |
 | `POST /auth/accounts` | `auth_accounts` | admin session only; JSON `{name, role, password}`: the same, and `created` (the new account's name) |
 | `DELETE /auth/accounts/{name}` | `auth_accounts` | admin session only: removes an account made by the admin; the same |
@@ -226,6 +227,12 @@ in `api.yaml` (default true) turns the sign-in on; the FAKE fixtures set it to f
   an email or a name. The admin cockpit's **Comptes** tab drives them (the role is picked in
   a drop-down list); `python -m traffic_twin.api.admin add-user --name sami --role pieton`
   and `remove-user --name sami` do the same from a shell.
+- **`POST /auth/register`** (Inscription, anyone): the same body and rules, for a public
+  role only (`signup_roles` of `/auth/session`: pedestrian, student; another role: 403
+  `role_not_allowed`). The account is made like the admin's (origin `inscription`, shown in
+  the Comptes tab) and its session opens at once (200 `auth_session` and the cookie). Every
+  attempt counts: 10 per client within 10 minutes, then 429 `too_many_attempts`; without
+  the session secret, 503 `auth_not_configured`.
 - CORS still allows GET only, so another origin cannot post to `/auth/login`; uvicorn runs
   without an access log and the login never logs the client or the password.
 - `tests/test_api_admin.py` covers the roles, the hashing, the `.env`, success, failures,

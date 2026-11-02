@@ -375,6 +375,63 @@ def test_account_creation_refusals_and_removal(client, env, monkeypatch):
     assert client.get("/auth/session").json()["authenticated"] is False
 
 
+def register(c: TestClient, name: str, role: str = "pedestrian", password: str = "mot de passe 1"):
+    return c.post("/auth/register", json={"name": name, "role": role, "password": password})
+
+
+def test_anyone_signs_up_for_a_public_role_and_is_signed_in(client, env, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    s = client.get("/auth/session").json()
+    assert [r["role"] for r in s["signup_roles"]] == list(admin.SIGNUP_ROLES)
+    assert set(admin.SIGNUP_ROLES) == {"pedestrian", "student"}
+    r = register(client, "Nour", "Étudiant", "nour password")  # role by label, name any case
+    assert r.status_code == 200
+    body = r.json()
+    assert body["authenticated"] is True and body["role"] == "student"
+    assert body["email"] == f"nour@{admin.DOMAIN}" and body["views"] == ["student"]
+    cookie = r.headers["set-cookie"]
+    assert cookie.startswith(f"{admin.COOKIE}=") and "httponly" in cookie.lower()
+    assert "nour password" not in r.text and "pbkdf2" not in r.text
+    assert client.get("/auth/session").json()["role"] == "student"
+    client.post("/auth/logout")
+    assert login(client, "nour", "nour password").json()["role"] == "student"
+    # the admin sees where it comes from
+    client.post("/auth/logout")
+    login(client)
+    rows = {x["name"]: x for x in client.get("/auth/accounts").json()["accounts"]}
+    assert rows["nour"]["origin"] == "inscription" and rows["nour"]["created"] is True
+
+
+def test_sign_up_refusals_and_rate_limit(client, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    for role in ("bus", "ambulance", "operator", "admin"):  # made by the admin only
+        r = register(client, f"x{role}", role)
+        assert r.status_code == 403 and r.json()["error"]["code"] == "role_not_allowed", role
+        assert "set-cookie" not in r.headers
+    assert register(client, "admin").json()["error"]["code"] == "name_taken"
+    assert register(client, "a").json()["error"]["code"] == "bad_request"
+    assert register(client, "okname", password="short").json()["error"]["code"] == "bad_request"
+    assert client.get("/auth/session").json()["authenticated"] is False
+    # every attempt counts: SIGNUP_MAX per client within the window, then 429
+    now = [3_000_000.0]
+    monkeypatch.setattr(client.app.state.auth, "clock", lambda: now[0])
+    client.app.state.signups.reset("testclient")
+    for i in range(admin.SIGNUP_MAX):
+        assert register(client, f"user{i}").status_code == 200
+    r = register(client, "onemore")
+    assert r.status_code == 429 and r.json()["error"]["code"] == "too_many_attempts"
+    now[0] += admin.SIGNUP_WINDOW_S + 1
+    assert register(client, "onemore").status_code == 200
+
+
+def test_sign_up_needs_the_session_secret(tmp_path, monkeypatch):
+    monkeypatch.setattr(admin, "ITERATIONS", FAST)
+    c = client_for(tmp_path / "absent.env")
+    r = register(c, "nour")
+    assert r.status_code == 503 and r.json()["error"]["code"] == "auth_not_configured"
+    assert not admin.users_file_for(tmp_path / "absent.env").exists()
+
+
 def test_cli_adds_lists_and_removes_accounts(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(admin, "ITERATIONS", FAST)
     env = tmp_path / ".env"

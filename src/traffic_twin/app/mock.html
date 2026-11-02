@@ -394,7 +394,8 @@
   .login-form label { margin-top: var(--sp-3); font-weight: 700; font-size: var(--fs-s); }
   .field { position: relative; display: flex; align-items: center; }
   .field > .ic { position: absolute; left: 14px; width: 20px; height: 20px; color: var(--ink-2); pointer-events: none; }
-  .field input { width: 100%; min-height: 52px; padding-left: 44px; }
+  .field input, .field select { width: 100%; min-height: 52px; padding-left: 44px; }
+  .field select[aria-invalid="true"] { border-color: var(--stop); box-shadow: 0 0 0 1px var(--stop); }
   .field input.has-eye { padding-right: 52px; }
   .field input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
   .field input[aria-invalid="true"] { border-color: var(--stop); box-shadow: 0 0 0 1px var(--stop); }
@@ -410,7 +411,11 @@
   .login-submit .spin { width: 18px; height: 18px; border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
   .login-msg { min-height: 1.4em; margin-top: var(--sp-2); font-size: var(--fs-s); font-weight: 700; color: var(--stop); }
   .login-note { margin-top: var(--sp-3); }
-  .login-foot { margin: var(--sp-5) 0 0; font-size: var(--fs-xs); color: var(--ink-2); }
+  .login-foot { margin: var(--sp-5) 0 0; font-size: var(--fs-xs); color: var(--ink-2); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+  .login-foot > span { flex: 1 1 auto; min-width: 0; }
+  .login-foot > button { flex: none; }
+  .login-signup { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--sp-4); border: 1px solid var(--accent); border-radius: var(--radius-m); background: var(--surface); color: var(--accent); font-size: var(--fs-s); font-weight: 700; }
+  .login-signup:hover { background: var(--accent-soft); }
 
   /* ---------- Pedestrian: countdown ring ---------- */
   .ped-main { display: flex; align-items: center; gap: var(--sp-4); }
@@ -976,6 +981,7 @@ const state = {
   session: null,            // /auth/session answer (role, views, expiry); null before the first read
   wanted: null,             // view asked by the deep link, opened after the sign-in when allowed
   authMsg: null,            // [text, class] shown once on the sign-in screen
+  signup: false,            // the sign-in screen shows the sign-up form (Inscription)
   flash: null,
   zoom: 1,
   pan: { x: 0, y: 0 },      // 2D plan: shift of the view centre (plan units), set by dragging and the wheel
@@ -4341,7 +4347,7 @@ async function adminAccounts() {
           <tr data-acc="${esc(a.name)}">
             <td><strong>${esc(a.name)}</strong></td>
             <td>${ic(ROLE_ICON[a.role] || "user")} ${esc(a.label)}</td>
-            <td>${a.created ? "Créé par l'admin" : "Compte du rôle"}${a.configured ? "" : ` <span class="muted">· sans mot de passe</span>`}</td>
+            <td>${a.created ? (a.origin === "inscription" ? "Inscription" : "Créé par l'admin") : "Compte du rôle"}${a.configured ? "" : ` <span class="muted">· sans mot de passe</span>`}</td>
             <td>${a.created_at ? esc(String(a.created_at).slice(0, 16).replace("T", " ")) : "—"}</td>
             <td>${a.created ? `<button type="button" class="acc-del" data-acc-del="${esc(a.name)}" aria-label="Supprimer le compte ${esc(a.name)}">Supprimer</button>` : ""}</td>
           </tr>`).join("");
@@ -4413,23 +4419,7 @@ function accGenerate() {
 async function accSubmit() {
   const name = $("acc-name"), role = $("acc-role"), pw = $("acc-password");
   if (!name || !role || !pw) return;
-  const n = name.value.trim().toLowerCase();
-  let bad = null;
-  if (!ACC_NAME_RE.test(n)) {
-    fieldMsg("acc-name-msg", "bad", `${ic("alert")} Nom refusé : 2 à 32 caractères parmi a-z, 0-9, . _ - (sans accent ni espace).`);
-    setInvalid(name, true);
-    bad = bad || name;
-  } else { fieldMsg("acc-name-msg", "", "2 à 32 caractères : a-z, 0-9, . _ -"); setInvalid(name, false); }
-  if (!role.value) {
-    fieldMsg("acc-role-msg", "bad", `${ic("alert")} Choisissez un rôle dans la liste.`);
-    setInvalid(role, true);
-    bad = bad || role;
-  } else { setInvalid(role, false); }
-  if (pw.value.length < 8) {
-    fieldMsg("acc-pw-msg", "bad", `${ic("alert")} Mot de passe trop court : 8 caractères au moins.`);
-    setInvalid(pw, true);
-    bad = bad || pw;
-  } else { setInvalid(pw, false); }
+  const [n, bad] = checkAccountFields("acc");
   if (bad) { bad.focus(); return; }
   const btn = $("acc-submit");
   if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
@@ -4438,13 +4428,7 @@ async function accSubmit() {
   pw.value = "";
   if (btn) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
   if (r.error) {
-    if (r.error.code === "name_taken" || (r.error.message || "").startsWith("nom")) {
-      fieldMsg("acc-name-msg", "bad", `${ic("alert")} ${esc(r.error.message)}`);
-      setInvalid(name, true);
-      name.focus();
-    } else {
-      fieldMsg("acc-pw-msg", "bad", `${ic("alert")} ${esc(r.error.message || "création refusée")}`);
-    }
+    if (!accountRefused("acc", r.error)) fieldMsg("acc-pw-msg", "bad", `${ic("alert")} ${esc(r.error.message || "création refusée")}`);
     return;
   }
   ADMIN.accMsg = [`Compte « ${n} » créé (${label}) : il se connecte avec le nom ${n} et ce mot de passe.`, "ok"];
@@ -5500,6 +5484,7 @@ function showIdent(final) {
 // After the sign-in renders: the profile of a remembered identifier, and the focus on the
 // first field still to fill
 function focusLogin() {
+  if ($("su-name")) { $("su-name").focus(); return; }
   const em = $("auth-email");
   const pw = $("auth-password");
   if (!em || !pw) return;
@@ -5528,15 +5513,10 @@ function loginHtml(sess, alerts, pick) {
   // each profile by its role only (the person's name is typed, not listed)
   const rows = accounts.map((a) => `
         <li data-role="${esc(a.role)}" class="${a.configured ? "" : "off"}">${ic(ROLE_ICON[a.role] || "user")}<span class="who"><strong>${esc(a.label)}</strong>${a.configured ? "" : "<span>sans mot de passe</span>"}</span></li>`).join("");
-  return `<div class="login">
-    <aside class="login-aside" aria-label="Noms et profils">
-      <h2>Bienvenue</h2>
-      <p>Connectez-vous avec votre nom : il ouvre directement la vue de votre profil.</p>
-      <ul class="login-profiles">${rows}
-      </ul>
-      <p class="login-sim">${ic("info")} Données simulées · session de ${ttl} min</p>
-    </aside>
-    <div class="login-main">
+  // Inscription: anyone, the public roles the API lists (not on the admin's own sign-in)
+  const canSignup = pick !== "admin" && Array.isArray(sess.signup_roles) && sess.signup_roles.length > 0;
+  if (!canSignup) state.signup = false;
+  const main = state.signup ? signupHtml(sess, alerts) : `
       ${alerts}
       ${title}
       <p class="login-sub">Entrez votre nom et votre mot de passe.</p>
@@ -5551,9 +5531,113 @@ function loginHtml(sess, alerts, pick) {
         <button type="submit" id="auth-submit" class="login-submit"><span>Se connecter</span>${ic("arrowR")}</button>
         <div id="auth-msg" class="login-msg" role="alert"></div>
       </form>
-      <p class="login-foot">Mot de passe oublié ? Demandez à l'administrateur de le redéfinir.</p>
+      <div class="login-foot"><span>Mot de passe oublié ? Demandez à l'administrateur de le redéfinir.</span>${canSignup ? `<button type="button" id="auth-signup" class="login-signup">${ic("user")} Inscription</button>` : ""}</div>`;
+  return `<div class="login">
+    <aside class="login-aside" aria-label="Noms et profils">
+      <h2>Bienvenue</h2>
+      <p>Connectez-vous avec votre nom : il ouvre directement la vue de votre profil.</p>
+      <ul class="login-profiles">${rows}
+      </ul>
+      <p class="login-sim">${ic("info")} Données simulées · session de ${ttl} min</p>
+    </aside>
+    <div class="login-main">${main}
     </div>
   </div>`;
+}
+
+// VIEW: SIGN-UP (Inscription) in the sign-in screen: a name, a role picked in a drop-down
+// list of the public roles the API lists (signup_roles), a password; POST /auth/register
+// makes the account and opens its session. The other roles are made by the admin.
+function signupHtml(sess, alerts) {
+  const roles = Array.isArray(sess.signup_roles) ? sess.signup_roles : [];
+  const options = roles.map((r) => `<option value="${esc(r.role)}">${esc(r.label)}</option>`).join("");
+  return `
+      ${alerts}
+      <h2 class="login-title" id="login-title">Inscription</h2>
+      <p class="login-sub">Créez votre compte ${roles.map((r) => esc(r.label)).join(" ou ")} : il s'ouvre tout de suite.</p>
+      <form id="su-form" class="login-form" autocomplete="on" novalidate aria-labelledby="login-title" data-field="signup-form" data-value="${roles.length}">
+        <label for="su-name">Nom</label>
+        <div class="field">${ic("user")}<input id="su-name" name="username" type="text" maxlength="32" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="ex. nour" aria-describedby="su-name-msg"></div>
+        <div id="su-name-msg" class="field-msg" aria-live="polite">Votre nom de connexion : 2 à 32 caractères (a-z, 0-9, . _ -).</div>
+        <label for="su-role">Rôle</label>
+        <div class="field">${ic("walk")}<select id="su-role" required aria-describedby="su-role-msg"><option value="" selected disabled>Choisir un rôle…</option>${options}</select></div>
+        <div id="su-role-msg" class="field-msg" aria-live="polite">Bus, ambulance, opérateur : comptes créés par l'administrateur.</div>
+        <label for="su-password">Mot de passe</label>
+        <div class="field">${ic("lock")}<input id="su-password" name="password" type="password" autocomplete="new-password" required minlength="8" aria-describedby="su-pw-msg"></div>
+        <div id="su-pw-msg" class="field-msg" aria-live="polite">8 caractères au moins.</div>
+        <button type="submit" id="su-submit" class="login-submit"><span>Créer mon compte</span>${ic("arrowR")}</button>
+        <div id="su-msg" class="login-msg" role="alert"></div>
+      </form>
+      <div class="login-foot"><span>Déjà un compte ?</span><button type="button" id="auth-signin" class="login-signup">Se connecter</button></div>`;
+}
+
+// The name, role and password fields `<p>-name`, `<p>-role`, `<p>-password` of an account
+// form (the admin's Comptes tab: acc, the sign-up: su), checked with the API's rules: each
+// message under its field; the name typed and the first field to fix (null when all fit)
+function checkAccountFields(p) {
+  const name = $(`${p}-name`), role = $(`${p}-role`), pw = $(`${p}-password`);
+  const n = name.value.trim().toLowerCase();
+  let bad = null;
+  if (!ACC_NAME_RE.test(n)) {
+    fieldMsg(`${p}-name-msg`, "bad", `${ic("alert")} Nom refusé : 2 à 32 caractères parmi a-z, 0-9, . _ - (sans accent ni espace).`);
+    setInvalid(name, true);
+    bad = bad || name;
+  } else { setInvalid(name, false); }
+  if (!role.value) {
+    fieldMsg(`${p}-role-msg`, "bad", `${ic("alert")} Choisissez un rôle dans la liste.`);
+    setInvalid(role, true);
+    bad = bad || role;
+  } else { setInvalid(role, false); }
+  if (pw.value.length < 8) {
+    fieldMsg(`${p}-pw-msg`, "bad", `${ic("alert")} Mot de passe trop court : 8 caractères au moins.`);
+    setInvalid(pw, true);
+    bad = bad || pw;
+  } else { setInvalid(pw, false); }
+  return [n, bad];
+}
+
+// An account refused by the API: its message under the field it is about (false when it
+// is about none of them)
+function accountRefused(p, err) {
+  const code = err.code || "";
+  const text = err.message || "refusé";
+  const msg = `${ic("alert")} ${esc(text)}`;
+  if (code === "name_taken" || text.startsWith("nom")) {
+    fieldMsg(`${p}-name-msg`, "bad", msg);
+    setInvalid($(`${p}-name`), true);
+    $(`${p}-name`).focus();
+  } else if (code === "role_not_allowed" || text.startsWith("rôle") || text.startsWith("ce rôle")) {
+    fieldMsg(`${p}-role-msg`, "bad", msg);
+    setInvalid($(`${p}-role`), true);
+  } else if (text.startsWith("mot de passe")) {
+    fieldMsg(`${p}-pw-msg`, "bad", msg);
+    setInvalid($(`${p}-password`), true);
+  } else {
+    return false;
+  }
+  return true;
+}
+
+async function suSubmit() {
+  const pw = $("su-password"), role = $("su-role"), out = $("su-msg"), btn = $("su-submit");
+  if (!pw || !role) return;
+  if (out) out.textContent = "";
+  const [n, bad] = checkAccountFields("su");
+  if (bad) { bad.focus(); return; }
+  if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+  const r = await api("/auth/register", false, { method: "POST", body: { name: n, role: role.value, password: pw.value } });
+  pw.value = "";
+  if (btn) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
+  if (r.authenticated) {
+    rememberIdent(n);
+    state.signup = false;
+    state.authMsg = null;
+    setSession(r);
+    render();
+    return;
+  }
+  if (r.error && accountRefused("su", r.error)) return;
+  if (out) out.textContent = r.error && (r.http === 429 || r.http === 503) ? r.error.message : "Le service ne répond pas : réessayez dans un instant.";
 }
 
 function submitBusy(on) {
@@ -5814,6 +5898,7 @@ document.addEventListener("click", (e) => {
   }
   if (btn.id === "admin-export") { adminCsv(); return; }
   if (btn.id === "acc-gen") { accGenerate(); return; }
+  if (btn.id === "auth-signup" || btn.id === "auth-signin") { state.signup = btn.id === "auth-signup"; render(); return; }
   if (btn.dataset.accDel) { accDelete(btn.dataset.accDel); return; }
   if (btn.dataset.go) {
     if (btn.dataset.key) {
@@ -5841,6 +5926,7 @@ document.addEventListener("change", (e) => {
     render();
   }
   if (e.target.id === "acc-role") { setInvalid(e.target, false); accRoleHint(); }
+  if (e.target.id === "su-role") { setInvalid(e.target, false); fieldMsg("su-role-msg", "", "Bus, ambulance, opérateur : comptes créés par l'administrateur."); }
 });
 
 document.addEventListener("submit", (e) => {
@@ -5852,13 +5938,17 @@ document.addEventListener("submit", (e) => {
     e.preventDefault();
     accSubmit();
   }
+  if (e.target && e.target.id === "su-form") {
+    e.preventDefault();
+    suSubmit();
+  }
 });
 
 document.addEventListener("input", (e) => {
   if (e.target && e.target.id === "admin-search") applyAdminSearch();
   if (e.target && e.target.id === "auth-email") showIdent(false);
   if (e.target && e.target.id === "auth-password") { setInvalid(e.target, false); fieldMsg("auth-pw-msg", "", ""); }
-  if (e.target && (e.target.id === "acc-name" || e.target.id === "acc-password")) setInvalid(e.target, false);
+  if (e.target && ["acc-name", "acc-password", "su-name", "su-password"].includes(e.target.id)) setInvalid(e.target, false);
 });
 
 document.addEventListener("focusout", (e) => {

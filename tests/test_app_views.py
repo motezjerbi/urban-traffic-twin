@@ -816,3 +816,45 @@ def test_the_admin_creates_an_account_that_signs_in_by_name(gate_site, tmp_path)
     assert sami["role"] == "pedestrian" and sami["navHidden"] and sami["state"] in OK_STATES
     users = admin.read_users(admin.users_file_for(tmp_path / ".env"))
     assert [(u.name, u.role.key) for u in users] == [("sami", "pedestrian")]
+
+
+def test_anyone_signs_up_beside_the_forgotten_password(gate_site, tmp_path):
+    """Inscription: the button beside "Mot de passe oublié ?" opens the sign-up form; its
+    drop-down lists the public roles only; the new account opens its view at once."""
+    pytest.importorskip("websockets")
+    from traffic_twin.api import admin
+
+    url = gate_site.served.url
+
+    async def steps(js, nav, until):
+        out = {}
+        await nav(f"{url}/mock")
+        await until("!!document.getElementById('auth-signup')")
+        out["foot"] = await js("document.querySelector('.login-foot').innerText")
+        await js("document.getElementById('auth-signup').click()")
+        await until("!!document.getElementById('su-form')")
+        out["roles"] = json.loads(
+            await js(
+                "JSON.stringify([...document.querySelectorAll('#su-role option')]"
+                ".map(o => o.value))"
+            )
+        )
+        await js("document.getElementById('su-name').value = 'nour'")
+        await js("document.getElementById('su-role').value = 'student'")
+        await js("document.getElementById('su-password').value = 'nour-test-pw'")
+        await js("document.getElementById('su-form').requestSubmit()")
+        await until(READY_JS % "student")
+        out["nour"] = json.loads(await js(VIEW_JS))
+        return out
+
+    cdp = Cdp()
+    try:
+        out = asyncio.run(_drive(cdp.ws_url, steps))
+    finally:
+        cdp.close()
+    assert "Mot de passe oublié" in out["foot"] and "Inscription" in out["foot"]
+    assert out["roles"] == ["", *admin.SIGNUP_ROLES]  # "Choisir un rôle…", then the public ones
+    nour = out["nour"]
+    assert nour["role"] == "student" and nour["navHidden"] and nour["state"] in OK_STATES
+    users = admin.read_users(admin.users_file_for(tmp_path / ".env"))
+    assert [(u.name, u.role.key, u.origin) for u in users] == [("nour", "student", "inscription")]

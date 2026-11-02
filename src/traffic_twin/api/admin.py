@@ -40,9 +40,12 @@ The identifier typed on the sign-in screen is the account's email or the part be
 
 Accounts created by the administrator (several per role: `ali` and `sami` both pedestrian)
 come on top of the role accounts. They live in the gitignored `data/auth/users.json` next
-to the `.env` (name, role, email, PBKDF2 hash, creation time; never a password), created
-from the admin cockpit (`GET`/`POST /auth/accounts`, `DELETE /auth/accounts/{name}`, admin
-session only) or with `add-user --name sami --role pieton` / `remove-user --name sami`.
+to the `.env` (name, role, email, PBKDF2 hash, origin, creation time; never a password),
+created from the admin cockpit (`GET`/`POST /auth/accounts`, `DELETE /auth/accounts/{name}`,
+admin session only) or with `add-user --name sami --role pieton` / `remove-user --name sami`.
+Anyone may also sign up from the sign-in screen (`POST /auth/register`), for a public role
+only (`SIGNUP_ROLES`: pedestrian, student; at most `SIGNUP_MAX` attempts per client per 10
+min); the account is made the same way (origin `inscription`) and its session opens.
 
 Sessions: an HMAC-SHA256-signed token `<payload b64>.<signature b64>` whose payload holds
 the email, the role and the expiry (now + 30 min), in an HttpOnly, SameSite=Strict cookie
@@ -86,6 +89,9 @@ COOKIE = "tt_session"
 SESSION_TTL_S = 30 * 60
 MAX_FAILURES = 5  # failed logins per client ...
 FAILURE_WINDOW_S = 60.0  # ... within this window, then 429
+SIGNUP_ROLES = ("pedestrian", "student")  # the roles anyone may sign up for (the public ones)
+SIGNUP_MAX = 10  # sign-up attempts per client ...
+SIGNUP_WINDOW_S = 600.0  # ... within this window, then 429
 
 
 # -- roles ---------------------------------------------------------------------------------
@@ -214,8 +220,9 @@ class Account:
     role: Role
     email: str
     password_hash: str | None
-    created: bool = False  # made by the admin (users file), not the role's own account
+    created: bool = False  # made later (users file), not the role's own account
     created_at: str | None = None
+    origin: str | None = None  # of a made account: "admin" (cockpit, CLI) or "inscription"
 
     @property
     def has_password(self) -> bool:
@@ -282,8 +289,10 @@ def read_users(path: Path) -> list[Account]:
         email = str(row.get("email") or "").strip().lower()
         if role is None or "@" not in email or not NAME_RE.fullmatch(email.split("@")[0]):
             continue
+        origin = "inscription" if row.get("origin") == "inscription" else "admin"
         out.append(Account(role=role, email=email, password_hash=row.get("password_hash"),
-                           created=True, created_at=row.get("created_at")))  # fmt: skip
+                           created=True, created_at=row.get("created_at"),
+                           origin=origin))  # fmt: skip
     return out
 
 
@@ -396,8 +405,12 @@ class Auth:
     def config(self) -> AuthConfig:
         return load_config(self.env_file, self.environ, self.users_file)
 
-    def create_user(self, name: str, role: str, password: str) -> Account:
-        return create_user(self.env_file, name, role, password, self.environ, self.users_file)
+    def create_user(self, name: str, role: str, password: str, origin: str = "admin") -> Account:
+        """An account made by the admin (`origin` admin, any role) or by a sign-up
+        (`origin` inscription, the `SIGNUP_ROLES` only)."""
+        allowed = SIGNUP_ROLES if origin == "inscription" else None
+        return create_user(self.env_file, name, role, password, self.environ, self.users_file,
+                           origin=origin, allowed=allowed)  # fmt: skip
 
     def delete_user(self, name: str) -> None:
         delete_user(self.env_file, name, self.environ, self.users_file)
@@ -436,8 +449,8 @@ _USERS_LOCK = threading.Lock()
 def _write_user_rows(path: Path, rows: list[dict]) -> None:
     body = {
         "_note": "Comptes créés par l'administrateur (cockpit admin ou `python -m "
-        "traffic_twin.api.admin add-user`) : jamais de mot de passe, seulement son empreinte "
-        "PBKDF2. Local, jamais versionné.",
+        "traffic_twin.api.admin add-user`) ou par inscription (Piéton, Étudiant) : jamais de "
+        "mot de passe, seulement son empreinte PBKDF2. Local, jamais versionné.",
         "accounts": rows,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -453,10 +466,12 @@ def create_user(
     password: str,
     environ: Mapping[str, str] | None = None,
     users_file: Path | None = None,
+    origin: str = "admin",
+    allowed: tuple[str, ...] | None = None,
 ) -> Account:
     """Add an account `name` (`<name>@urban-traffic-twin.local`) of `role` (a key, default
-    name or label) to the users file; AccountError when a field is refused or the name is
-    taken by any account."""
+    name or label) to the users file; AccountError when a field is refused, the role is not
+    in `allowed` (when given) or the name is taken by any account."""
     name = str(name or "").strip().lower()
     if not NAME_RE.fullmatch(name):
         raise AccountError("bad_request", "nom refusé : 2 à 32 caractères parmi a-z, 0-9, . _ - "
@@ -465,6 +480,10 @@ def create_user(
         r = role_of(str(role or ""))
     except SystemExit:
         raise AccountError("bad_request", f"rôle inconnu : {role!r}") from None
+    if allowed is not None and r.key not in allowed:
+        labels = ", ".join(ROLE_BY_KEY[k].label for k in allowed)
+        raise AccountError("role_not_allowed", f"ce rôle est créé par l'administrateur ; "
+                           f"inscription possible : {labels}")  # fmt: skip
     if len(password or "") < MIN_PASSWORD_LEN:
         raise AccountError(
             "bad_request", f"mot de passe trop court : au moins {MIN_PASSWORD_LEN} caractères"
@@ -480,11 +499,11 @@ def create_user(
         if name in taken or cfg.by_email(email) is not None:
             raise AccountError("name_taken", f"le nom « {name} » est déjà pris")
         created_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-        rows.append({"name": name, "role": r.key, "email": email,
+        rows.append({"name": name, "role": r.key, "email": email, "origin": origin,
                      "password_hash": password_hash, "created_at": created_at})  # fmt: skip
         _write_user_rows(path, rows)
     return Account(role=r, email=email, password_hash=password_hash, created=True,
-                   created_at=created_at)  # fmt: skip
+                   created_at=created_at, origin=origin)  # fmt: skip
 
 
 def delete_user(

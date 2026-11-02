@@ -325,6 +325,14 @@ class AuthAccount(BaseModel):
     configured: bool = False
 
 
+class AuthRole(BaseModel):
+    """A role an account may have (admin cockpit, sign-up)."""
+
+    role: str
+    label: str
+    views: list[str] = []
+
+
 class AuthSessionResponse(Envelope):
     """POST /auth/login, POST /auth/logout, GET /auth/session: the session of this browser
     (an HttpOnly cookie); never a password or its hash."""
@@ -343,22 +351,18 @@ class AuthSessionResponse(Envelope):
     accounts: list[AuthAccount] = Field(
         [], description="the role accounts (the accounts made by the admin are not listed)"
     )
+    signup_roles: list[AuthRole] = Field(
+        [], description="the roles anyone may sign up for (POST /auth/register)"
+    )
 
 
 class AuthAccountCreate(BaseModel):
-    """POST /auth/accounts body (admin session only)."""
+    """POST /auth/accounts body (admin session only) and POST /auth/register body (anyone,
+    a public role only)."""
 
     name: str = Field(..., max_length=64, description="the name typed to sign in, e.g. sami")
     role: str = Field(..., max_length=32, description="a role key, e.g. pedestrian")
     password: str = Field(..., max_length=1024)
-
-
-class AuthRole(BaseModel):
-    """A role the admin may give to an account."""
-
-    role: str
-    label: str
-    views: list[str] = []
 
 
 class AuthUser(BaseModel):
@@ -372,6 +376,7 @@ class AuthUser(BaseModel):
     configured: bool = False
     created: bool = Field(False, description="made by the admin (else the role's own account)")
     created_at: str | None = None
+    origin: str | None = Field(None, description="of a made account: admin or inscription")
 
 
 class AuthAccountsResponse(Envelope):

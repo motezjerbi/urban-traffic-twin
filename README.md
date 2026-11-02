@@ -1934,6 +1934,11 @@ the field visit).
   They sign in by name like the role accounts and live in the gitignored
   `data/auth/users.json` (PBKDF2 hash only). From a shell:
   `python -m traffic_twin.api.admin add-user --name sami --role pieton` / `remove-user`.
+- **Inscription (anyone):** the **Inscription** button beside "Mot de passe oublié ?" on the
+  sign-in screen opens a sign-up form (name, role in a drop-down list, password) for the
+  public roles only, Piéton and Étudiant; the account opens its view at once. Bus,
+  ambulance, operator and admin accounts stay made by the admin. `POST /auth/register`,
+  10 attempts per client per 10 minutes.
 - **One account:** `python tasks.py admin-set-password --role ambulance` (`--email`;
   default the one in `.env`, else the role's; `make admin-set-password ROLE=ambulance`). It
   asks the password (getpass, or one line of a piped stdin; from PowerShell 5.1 pipe from

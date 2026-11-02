@@ -377,7 +377,8 @@ def test_sign_in_form_and_requests():
     assert "sess.accounts" in form and 'name="role"' not in form  # no role picker
     assert 'id="auth-email"' in form and 'type="password"' in form
     assert 'autocomplete="username"' in form and 'autocomplete="current-password"' in form
-    assert form.count("<button") == 2 and form.count('type="submit"') == 1  # send + eye
+    sign_in = form[form.index('<form id="auth-form"') : form.index("</form>")]
+    assert sign_in.count("<button") == 2 and sign_in.count('type="submit"') == 1  # send + eye
     assert 'aria-label="Afficher le mot de passe"' in form and 'role="alert"' in form
     assert 'aria-describedby="auth-role"' in form and 'aria-describedby="auth-pw-msg"' in form
     assert 'split("@")[0] === t' in function_body("accountOf")  # "pieton" -> pieton@...
@@ -387,8 +388,9 @@ def test_sign_in_form_and_requests():
     assert "accountOf(email.value)" in submit and "acc.email" in submit
     assert 'pw.value = ""' in submit and "localStorage" not in submit
     assert 'api("/auth/logout", false, { method: "POST" })' in function_body("authLogout")
-    # with the admin's account creation and removal, the only non-GET requests
-    assert sorted(re.findall(r'method: "(\w+)"', SCRIPT)) == ["DELETE", "POST", "POST", "POST"]
+    # with the sign-up and the admin's account creation and removal, the only non-GET requests
+    methods = sorted(re.findall(r'method: "(\w+)"', SCRIPT))
+    assert methods == ["DELETE", "POST", "POST", "POST", "POST"]
     # a name the page does not list (an account made by the admin) is sent as typed
     assert "acc ? acc.email : ident" in submit and "Nom ou mot de passe incorrect" in submit
     assert 'const keep = state.view !== "admin" && state.view !== "login";' in function_body(
@@ -439,6 +441,26 @@ def test_admin_view_needs_the_administrator_role():
     assert 'loginHtml(sess, alerts, "admin")' in function_body("adminLogin")
 
 
+def test_sign_up_beside_the_forgotten_password():
+    """The Inscription button sits beside "Mot de passe oublié ?" (not on the admin's own
+    sign-in); its form takes a name, a role in a drop-down list of the API's signup_roles
+    (the public roles) and a password, posts /auth/register and opens the session."""
+    form = function_body("loginHtml")
+    foot = form[form.index("Mot de passe oublié ?") :]
+    assert 'id="auth-signup"' in foot[:400] and "Inscription" in foot[:400]
+    assert 'pick !== "admin"' in form and "sess.signup_roles" in form
+    assert "signupHtml(sess, alerts)" in form
+    up = function_body("signupHtml")
+    assert '<select id="su-role" required' in up and "sess.signup_roles" in up
+    assert "Choisir un rôle…" in up and 'autocomplete="new-password"' in up
+    assert 'id="auth-signin"' in up  # back to the sign-in
+    submit = function_body("suSubmit")
+    assert 'api("/auth/register", false, { method: "POST"' in submit
+    assert 'checkAccountFields("su")' in submit and 'pw.value = ""' in submit
+    assert "setSession(r)" in submit and "localStorage" not in submit
+    assert 'checkAccountFields("acc")' in function_body("accSubmit")  # the same rules
+
+
 def test_admin_creates_accounts_with_a_role_drop_down():
     """The Comptes tab of the cockpit: a name, a role picked in a drop-down list filled from
     the API's roles, a password (typed or generated), POST /auth/accounts; the accounts
@@ -455,7 +477,8 @@ def test_admin_creates_accounts_with_a_role_drop_down():
     assert 'data-field="admin-accounts"' in body and "a.created ?" in body  # only those removable
     submit = function_body("accSubmit")
     assert 'api("/auth/accounts", false, { method: "POST"' in submit
-    assert "ACC_NAME_RE.test(n)" in submit and 'pw.value = ""' in submit
+    assert "ACC_NAME_RE.test(n)" in function_body("checkAccountFields")  # the API's rule
+    assert 'checkAccountFields("acc")' in submit and 'pw.value = ""' in submit
     assert "localStorage" not in submit
     assert '{ method: "DELETE" }' in function_body("accDelete")
     assert "window.crypto.getRandomValues" in function_body("accGenerate")
