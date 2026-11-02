@@ -634,7 +634,7 @@ def make_fake_eta(target: Path, *, model_version: str | None = None) -> Path:
 
 def write_settings(out: Path, run_dirs: list[Path], models_dir: Path) -> Path:
     """`<out>/api.yaml`: configs/api.yaml with the results, evaluation, models and
-    default run pointing at the fake data."""
+    default run pointing at the fake data, and the sign-in off (`dev.auth: false`)."""
     root = find_repo_root(API_CONFIG)
     raw = yaml.safe_load((root / API_CONFIG).read_text(encoding="utf-8"))
     rules = [d for d in run_dirs if d.name.startswith("pitie_rules")]
@@ -643,6 +643,7 @@ def write_settings(out: Path, run_dirs: list[Path], models_dir: Path) -> Path:
     raw["eta"]["models_dir"] = models_dir.as_posix()
     raw["default_run"] = [d.as_posix() for d in (rules or run_dirs)[:1]]
     raw.setdefault("dev", {})["mock"] = True
+    raw["dev"]["auth"] = False  # FAKE data: the views open without a session (api.admin)
     path = out / "api.yaml"
     header = "# FAKE data settings written by `python -m traffic_twin.api.fixtures`\n"
     path.write_text(header + yaml.safe_dump(raw, sort_keys=False, allow_unicode=True), "utf-8")

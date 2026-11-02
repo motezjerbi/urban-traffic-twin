@@ -31,7 +31,7 @@ CALIB_SEEDS ?=
 .PHONY: part7 reproduce7
 .PHONY: part8-guard rebaseline-verify part8
 .PHONY: demo-runs8 operator usertest-kit usertest-serve usertest-check usertest-docs test-browser part9
-.PHONY: admin-set-password
+.PHONY: admin-set-password accounts-test
 .PHONY: report-facts report slides app-shots report-check part10
 .PHONY: demo demo-check demo-rehearsal demo-clean demo-pack bootstrap demo-readiness
 .PHONY: lint format test test-fast check
@@ -307,12 +307,17 @@ usertest-docs:
 test-browser:
 	$(PY) -m pytest -q -m browser
 
-## Admin cockpit sign-in (local-only): asks the password, writes its PBKDF2 hash and the
+## Sign-in of the user app, one account per role (local-only): asks the password of ROLE
+## (pedestrian, student, bus, ambulance, operator, admin), writes its PBKDF2 hash and the
 ## session secret into the gitignored .env; never pass the password on the command line
-ADMIN_EMAIL ?= admin@urban-traffic-twin.local
+ROLE ?= admin
 
 admin-set-password:
-	$(PY) -m traffic_twin.api.admin set-password --email $(ADMIN_EMAIL)
+	$(PY) -m traffic_twin.api.admin set-password --role $(ROLE) $(if $(ADMIN_EMAIL),--email $(ADMIN_EMAIL))
+
+## Test accounts: one per role, passwords in clear in the gitignored data/auth/test_accounts.json
+accounts-test:
+	$(PY) -m traffic_twin.api.admin test-accounts
 
 part9: demo-runs8 api-bench usertest-check usertest-docs
 

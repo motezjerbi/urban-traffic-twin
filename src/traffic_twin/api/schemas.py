@@ -307,22 +307,37 @@ class SensitivityResponse(Envelope):
     source: str | None = None
 
 
-# -- admin cockpit sign-in (local-only addition, not a user account system; ENF-07) -----
-class AdminLogin(BaseModel):
-    """POST /admin/login body."""
+# -- sign-in of the user app, one account per role (local-only deviation from ENF-07) ----
+class AuthLogin(BaseModel):
+    """POST /auth/login body."""
 
     email: str = Field(..., max_length=320)
     password: str = Field(..., max_length=1024)
 
 
-class AdminSessionResponse(Envelope):
-    """POST /admin/login, POST /admin/logout, GET /admin/session: the admin session of
-    this browser (an HttpOnly cookie); never the password or its hash."""
+class AuthAccount(BaseModel):
+    """One role account as the sign-in screen shows it (never its hash)."""
 
-    type: str = "admin_session"
-    configured: bool = Field(False, description="an admin credential is set (.env / env)")
+    role: str
+    label: str
+    email: str
+    views: list[str] = []
+    configured: bool = False
+
+
+class AuthSessionResponse(Envelope):
+    """POST /auth/login, POST /auth/logout, GET /auth/session: the session of this browser
+    (an HttpOnly cookie); never a password or its hash."""
+
+    type: str = "auth_session"
+    required: bool = Field(True, description="every view of the app needs a session")
+    configured: bool = Field(False, description="at least one account can sign in")
     authenticated: bool = False
+    role: str | None = None
+    role_label: str | None = None
     email: str | None = None
+    views: list[str] = Field([], description="views this browser may open, landing view first")
     expires_at: datetime | None = None
     remaining_s: float | None = None
     ttl_s: int | None = Field(None, description="session length (s)")
+    accounts: list[AuthAccount] = []

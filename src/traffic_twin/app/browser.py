@@ -7,6 +7,10 @@ check and rehearsal (`traffic_twin.demo`).
   preferred: headless Edge `--dump-dom` printed nothing on the development machine.
 - `dump_dom(url)`: the DOM after the page's scripts ran for `wait_ms` of virtual time.
 - `screenshot(url, out)`: a PNG of the page.
+- Both take `cookie=(name, value)`: the page is then opened over the DevTools protocol with
+  that cookie set first (the session of the user app's sign-in, `api.admin`), and read once
+  the mock view has left `loading` (`MOCK_READY`) or after `wait_ms` x 3. This mode needs
+  `websockets` (installed with Streamlit, the `app` extra).
 - `fields(dom)` and `view_states(dom)`: the `data-field` hooks and `data-view-state` roots
   of the mock views (plan §4.4), parsed with the standard library.
 
@@ -18,14 +22,19 @@ root during a call (the desktop browser pane writes one) is moved to
 
 from __future__ import annotations
 
+import asyncio
+import base64
+import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ENV_BROWSER = "TT_BROWSER"
 CANDIDATES = (
@@ -46,6 +55,13 @@ NAMES = (
 PROFILE_PREFIX = "tt_demo_browser_"  # `demo clean` removes leftovers with this prefix
 STRAY_FILE = "last_dom.html"
 TIMEOUT_S = 120.0
+# the mock view is ready: a view root that left `loading` and no request in flight
+MOCK_READY = (
+    "(() => { const v = document.getElementById('view'); const b = document.getElementById('busy');"
+    " return !!v && !!v.dataset.view && v.dataset.viewState !== 'loading'"
+    " && !(b && b.classList.contains('on')); })()"
+)
+SETTLE_S = 0.8  # once ready, the page keeps this long to finish its last paint
 VOID_TAGS = frozenset(
     "area base br col embed hr img input link meta param source track wbr".split()
 )
@@ -148,9 +164,13 @@ def dump_dom(
     wait_ms: int = 4000,
     browser: Path | None = None,
     timeout_s: float = TIMEOUT_S,
+    cookie: tuple[str, str] | None = None,
 ) -> str:
-    """The DOM of `url` after `wait_ms` of virtual time (`--dump-dom`). BrowserError when
-    no browser is found or it prints nothing."""
+    """The DOM of `url` after `wait_ms` of virtual time (`--dump-dom`); with `cookie`, over
+    DevTools with that cookie set (see the module doc). BrowserError when no browser is
+    found or it prints nothing."""
+    if cookie is not None:
+        return _cdp_page(url, cookie, wait_ms=wait_ms, browser=browser, timeout_s=timeout_s)
     exe, cp = _run(["--dump-dom", url], wait_ms, browser, timeout_s)
     dom = cp.stdout.decode("utf-8", "replace")
     if not dom.strip():
@@ -169,14 +189,22 @@ def screenshot(
     wait_ms: int = 4000,
     browser: Path | None = None,
     timeout_s: float = TIMEOUT_S,
+    cookie: tuple[str, str] | None = None,
 ) -> Path:
-    """A PNG screenshot of `url` written to `out` (parents created). BrowserError when no
-    browser is found or no image was written."""
+    """A PNG screenshot of `url` written to `out` (parents created); with `cookie`, over
+    DevTools with that cookie set. BrowserError when no browser is found or no image was
+    written."""
     out = Path(out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.exists():
         out.unlink()
     w, h = size
+    if cookie is not None:
+        _cdp_page(url, cookie, wait_ms=wait_ms, browser=browser, timeout_s=timeout_s,
+                  png=out, size=size)  # fmt: skip
+        if not out.is_file() or out.stat().st_size == 0:
+            raise BrowserError("DevTools wrote no screenshot")
+        return out
     exe, cp = _run(
         [f"--window-size={int(w)},{int(h)}", f"--screenshot={out}", url],
         wait_ms,
@@ -186,6 +214,111 @@ def screenshot(
     if not out.is_file() or out.stat().st_size == 0:
         raise BrowserError(f"{Path(exe).name} wrote no screenshot (exit {cp.returncode})")
     return out
+
+
+# -- DevTools mode (a session cookie set before the page loads) --------------------------
+def _cdp_page(
+    url: str,
+    cookie: tuple[str, str],
+    *,
+    wait_ms: int,
+    browser: Path | None,
+    timeout_s: float,
+    png: Path | None = None,
+    size: tuple[int, int] = (1280, 800),
+) -> str:
+    """The DOM of `url` (and a PNG into `png`) opened with `cookie` set."""
+    try:
+        import websockets  # noqa: F401
+    except ImportError as e:
+        raise BrowserError("the DevTools mode needs websockets (pip install -e .[app])") from e
+    exe = browser or find_browser()
+    if exe is None:
+        raise BrowserError("no headless Chrome or Edge found (set TT_BROWSER)")
+    since = time.time()
+    profile = tempfile.mkdtemp(prefix=PROFILE_PREFIX)
+    args = [a for a in _args(profile, wait_ms) if not a.startswith("--virtual-time-budget")]
+    w, h = size
+    cmd = [str(exe), *args, f"--window-size={int(w)},{int(h)}", "--remote-debugging-port=0",
+           "about:blank"]  # fmt: skip
+    try:
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=profile
+        )
+    except OSError as e:
+        _rmtree(profile)
+        raise BrowserError(f"cannot start {exe}: {e}") from e
+    try:
+        port_file = Path(profile) / "DevToolsActivePort"
+        deadline = time.monotonic() + 30
+        while not (port_file.is_file() and port_file.read_text().split("\n")[0].isdigit()):
+            if time.monotonic() > deadline or proc.poll() is not None:
+                raise BrowserError(f"{Path(exe).name}: no DevTools port")
+            time.sleep(0.1)
+        port = int(port_file.read_text().split("\n")[0])
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/list", timeout=10) as r:
+            pages = [t for t in json.loads(r.read()) if t.get("type") == "page"]
+        if not pages:
+            raise BrowserError(f"{Path(exe).name}: no page target")
+        limit = max(20.0, 3 * wait_ms / 1000)
+        coro = _cdp_session(pages[0]["webSocketDebuggerUrl"], url, cookie, limit, png)
+        try:
+            return asyncio.run(asyncio.wait_for(coro, timeout_s))
+        except (TimeoutError, OSError) as e:
+            raise BrowserError(f"{Path(exe).name} (DevTools): {type(e).__name__} {e}") from e
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        _rmtree(profile)
+        _move_stray(since)
+
+
+async def _cdp_session(
+    ws_url: str, url: str, cookie: tuple[str, str], limit_s: float, png: Path | None
+) -> str:
+    import websockets
+
+    async with websockets.connect(ws_url, max_size=None) as ws:
+        seq = 0
+
+        async def call(method: str, **params):
+            nonlocal seq
+            seq += 1
+            await ws.send(json.dumps({"id": seq, "method": method, "params": params}))
+            while True:
+                msg = json.loads(await ws.recv())
+                if msg.get("id") == seq:
+                    if "error" in msg:
+                        raise BrowserError(f"DevTools {method}: {msg['error']}")
+                    return msg.get("result") or {}
+
+        async def js(expr: str):
+            res = await call("Runtime.evaluate", expression=expr, returnByValue=True)
+            return (res.get("result") or {}).get("value")
+
+        parts = urlsplit(url)
+        origin = f"{parts.scheme}://{parts.netloc}"
+        await call("Network.enable")
+        await call("Network.setCookie", name=cookie[0], value=cookie[1], url=origin,
+                   path="/", httpOnly=True, sameSite="Strict")  # fmt: skip
+        await call("Page.navigate", url=url)
+        deadline = time.monotonic() + limit_s
+        await asyncio.sleep(0.3)
+        while time.monotonic() < deadline:
+            try:
+                if await js(MOCK_READY):
+                    break
+            except BrowserError:
+                pass  # the document is being replaced: ask again
+            await asyncio.sleep(0.2)
+        await asyncio.sleep(SETTLE_S)
+        if png is not None:
+            shot = await call("Page.captureScreenshot", format="png")
+            png.write_bytes(base64.b64decode(shot.get("data") or ""))
+        return await js("document.documentElement.outerHTML") or ""
 
 
 # -- DOM parsing (stdlib only) -----------------------------------------------------------

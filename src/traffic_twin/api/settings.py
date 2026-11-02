@@ -77,11 +77,12 @@ class Settings:
     corridor: tuple[Mapping[str, Any], ...] = ()
     ambulance_blocked_halting: int = 10
     mock: bool = False  # dev: serve app/mock.html at /mock
+    auth: bool = True  # dev: every view of the user app needs a session (`api.admin`)
     demo_seeds: tuple[int, int] | None = None
     field_file: Path = FIELD_FILE  # field inventory: `provisional` until timings are measured
     index_ttl_s: float = 30.0  # the run index is rebuilt at most this often
     sensitivity: Path = SENSITIVITY_CSV  # /sensitivity table (Part 7, D103)
-    admin_env_file: Path = Path(".env")  # admin credential file (gitignored; `api.admin`)
+    admin_env_file: Path = Path(".env")  # role accounts file (gitignored; `api.admin`)
     source: Path | None = None  # the settings file
 
     def path(self, p: str | Path) -> Path:
@@ -167,6 +168,7 @@ def settings_from_dict(
         corridor=_corridor(raw["corridor"]),
         ambulance_blocked_halting=halting,
         mock=bool((raw.get("dev") or {}).get("mock", False)),
+        auth=bool((raw.get("dev") or {}).get("auth", True)),
         demo_seeds=tuple(demo) if demo else None,
         sensitivity=_paths(raw.get("sensitivity") or SENSITIVITY_CSV, "sensitivity")[0],
         source=source,

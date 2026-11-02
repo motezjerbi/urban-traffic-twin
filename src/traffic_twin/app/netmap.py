@@ -1,0 +1,163 @@
+"""Network geometry of the 2D map of the user app (`app/mock.html`), read from the SUMO net.
+
+The page draws the lanes, sidewalks, crossings, walking areas, stop lines and junction of
+the simulated network itself, in net coordinates (metres). The state log stores TraCI
+positions, which are front-bumper points on the lane centre lines of the same net, so a
+vehicle drawn from them sits on its lane, stops at its stop line and keeps the 2.5 m gap
+of the simulation. The page also follows the lane graph (`n`, successor lanes through the
+junction) to move a vehicle along its lane between two state-log instants.
+
+`python -m traffic_twin.app.netmap` rewrites the block between the `<net-geometry>`
+markers of mock.html from the scenario's net; `--check` exits 1 when the block is out of
+date (for instance after the net was rebuilt from the field-visit program).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+from traffic_twin.config import approach_in_edges, get, load_scenario
+
+DEFAULT_SCENARIO = "configs/pitie_fixed.yaml"
+PAGE = Path(__file__).with_name("mock.html")
+BEGIN = "// <net-geometry>"
+END = "// </net-geometry>"
+DEFAULT_LANE_WIDTH = 3.2  # netconvert default; the net omits the attribute at this value
+
+# Vehicle classes the page tells apart (bit mask of a lane's permissions)
+CLASS_BITS = {"passenger": 1, "bus": 2, "emergency": 4, "pedestrian": 8}
+ALL_BITS = sum(CLASS_BITS.values())
+
+
+def _mask(lane: ET.Element) -> int:
+    allow, disallow = lane.get("allow"), lane.get("disallow")
+    if allow is not None:
+        return sum(b for c, b in CLASS_BITS.items() if c in allow.split())
+    if disallow is not None:
+        return ALL_BITS - sum(b for c, b in CLASS_BITS.items() if c in disallow.split())
+    return ALL_BITS
+
+
+def _flat(shape: str) -> list[float]:
+    return [round(float(v), 2) for p in shape.split() for v in p.split(",")[:2]]
+
+
+def geometry(scenario: str | Path = DEFAULT_SCENARIO, root: Path | None = None) -> dict:
+    """{junction, lanes, crossings, stops} of the scenario's net, coordinates in metres."""
+    root = root or Path.cwd()
+    cfg = load_scenario(root / scenario)
+    net = ET.parse(root / get(cfg, "network.net_file")).getroot()
+    tls = get(cfg, "network.tls_id")
+    approach_of = {e: a for a, edges in approach_in_edges(cfg).items() for e in edges}
+
+    succ: dict[str, list[str]] = {}
+    dirs: dict[str, set[str]] = {}
+    for c in net.iter("connection"):
+        frm = f"{c.get('from')}_{c.get('fromLane')}"
+        nxt = c.get("via") or f"{c.get('to')}_{c.get('toLane')}"
+        succ.setdefault(frm, []).append(nxt)
+        if c.get("dir") and c.get("from") in approach_of:
+            dirs.setdefault(frm, set()).add(c.get("dir"))
+
+    lanes = []
+    for edge in net.iter("edge"):
+        func = edge.get("function", "")
+        if func not in ("", "internal", "crossing", "walkingarea"):
+            continue
+        for ln in edge.iter("lane"):
+            lid = ln.get("id")
+            item = {
+                "id": lid,
+                "e": edge.get("id"),
+                "f": func[:1],
+                "i": int(ln.get("index")),
+                "m": _mask(ln),
+                "w": float(ln.get("width", DEFAULT_LANE_WIDTH)),
+                "s": _flat(ln.get("shape")),
+            }
+            if func == "walkingarea":
+                item["s"] = _flat(ln.get("outlineShape") or ln.get("shape"))
+            if edge.get("id") in approach_of:
+                item["a"] = approach_of[edge.get("id")]
+            if lid in dirs:
+                item["d"] = "".join(sorted(dirs[lid]))
+            lanes.append(item)
+    # successor lanes of the vehicle lanes (through the junction's internal lanes)
+    vehicle = {ln["id"] for ln in lanes if ln["f"] in ("", "i") and ln["m"] & 7}
+    for ln in lanes:
+        nxt = sorted({n for n in succ.get(ln["id"], []) if n in vehicle})
+        if ln["id"] in vehicle and nxt:
+            ln["n"] = nxt
+
+    junction = next(j for j in net.iter("junction") if j.get("id") == tls)
+    crossings = {
+        name: f"{c['edge']}_0" for name, c in (get(cfg, "network.crossings", {}) or {}).items()
+    }
+    stops = [
+        {"id": sid, "lane": s["lane"], "a": float(s["start"]), "b": float(s["end"])}
+        for sid, s in (get(cfg, "network.bus_stops", {}) or {}).items()
+    ]
+    return {
+        "junction": {
+            "id": tls,
+            "c": [round(float(junction.get("x")), 2), round(float(junction.get("y")), 2)],
+            "p": _flat(junction.get("shape")),
+        },
+        "crossings": crossings,
+        "stops": stops,
+        "lanes": lanes,
+    }
+
+
+def block(geo: dict, scenario: str | Path = DEFAULT_SCENARIO) -> str:
+    """The `<net-geometry>` block of the page: one lane per line."""
+    head = {k: v for k, v in geo.items() if k != "lanes"}
+    lines = [
+        f"{BEGIN} generated by `python -m traffic_twin.app.netmap` from {Path(scenario).as_posix()}"
+        " (do not edit)",
+        "const NET = {",
+    ]
+    for k, v in head.items():
+        lines.append(f"  {k}: {json.dumps(v, separators=(',', ':'))},")
+    lines.append("  lanes: [")
+    lines += [f"    {json.dumps(ln, separators=(',', ':'))}," for ln in geo["lanes"]]
+    lines += ["  ]", "};", END]
+    return "\n".join(lines)
+
+
+def replace_block(page: str, new: str) -> str:
+    start, end = page.find(BEGIN), page.find(END)
+    if start < 0 or end < start:
+        raise ValueError(f"mock.html has no {BEGIN} ... {END} block")
+    line_start = page.rfind("\n", 0, start) + 1
+    return page[:line_start] + new + page[end + len(END) :]
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--scenario", default=DEFAULT_SCENARIO)
+    p.add_argument("--page", type=Path, default=PAGE)
+    p.add_argument("--check", action="store_true", help="exit 1 if the page is out of date")
+    args = p.parse_args(argv)
+    page = args.page.read_text(encoding="utf-8")
+    new = replace_block(page, block(geometry(args.scenario), args.scenario))
+    if args.check:
+        if new != page:
+            print(f"{args.page}: net geometry out of date (run python -m traffic_twin.app.netmap)")
+            return 1
+        print(f"{args.page}: net geometry up to date")
+        return 0
+    if new != page:
+        args.page.write_text(new, encoding="utf-8", newline="\n")
+        print(f"{args.page}: net geometry written")
+    else:
+        print(f"{args.page}: net geometry already up to date")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

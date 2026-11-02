@@ -228,10 +228,17 @@ def operator_app():
     return mod
 
 
-def test_s3_colour_is_the_viz_rl_green(operator_app):
-    from traffic_twin.viz.style import CONTROLLER_COLORS
+def test_scenario_identity_is_shared_with_the_user_app(operator_app):
+    """« Carte vivante » (DESIGN.md): the Operator and the user app give each scenario the
+    same colour (SCN of mock.html), and every scenario also has a marker shape."""
+    from importlib import resources
 
-    assert operator_app.COLORS["S3"] == CONTROLLER_COLORS["rl"]
+    page = resources.files("traffic_twin.app").joinpath("mock.html").read_text(encoding="utf-8")
+    scn = dict(re.findall(r'^\s*(S\w+): \{ color: "(#[0-9A-F]{6})"', page, flags=re.M))
+    assert scn and set(scn) == set(operator_app.COLORS)
+    for label, color in scn.items():
+        assert operator_app.COLORS[label].upper() == color, label
+        assert label in operator_app.SHAPES and label in operator_app.PLOTLY_SYMBOLS, label
 
 
 def test_labels_come_from_evaluation_then_scenarios(operator_app):

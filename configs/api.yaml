@@ -13,4 +13,4 @@ corridor:                                                     # ASSUMED; confirm
   - {id: U2, name: "entrée de l'hôpital (non modélisée)", modelled: false}
 ambulance_blocked_halting: 10
 sensitivity: docs/figures/rl7/sensitivity.csv   # Part 7 weight-sensitivity table (committed), GET /sensitivity
-dev: {mock: true}
+dev: {mock: true, auth: true}   # auth: every view of /mock needs a role session (api.admin)

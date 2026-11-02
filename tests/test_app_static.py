@@ -40,6 +40,7 @@ VIEW_FUNCTIONS = (
     "replay",
     "operator",
     "admin",
+    "login",
 )
 # plan 4.4 test hooks (data-field); every hook carries the raw API value in data-value
 HOOKS = (
@@ -52,6 +53,7 @@ HOOKS = (
     "footer-source", "footer-calibrated",
     "home-admin", "admin-state", "admin-session", "admin-tab", "admin-table", "admin-moments",
     "admin-timeline", "admin-events", "admin-maps", "admin-radar", "admin-raw",
+    "login-state", "login-role", "auth-role",
 )  # fmt: skip
 VIEW_STATES = ("loading", "ok", "degraded", "stale", "unavailable", "error")
 DEEP_LINK_PARAMS = (
@@ -272,6 +274,22 @@ def test_constants_match_the_api_settings():
     assert s.demo_seeds is None or tuple(map(int, demo.groups())) == tuple(s.demo_seeds)
 
 
+def test_net_geometry_is_the_simulated_net():
+    """The 2D plan draws the simulated net (lanes, crossings, junction), so the state-log
+    positions sit on their lanes: the page's <net-geometry> block is the one `python -m
+    traffic_twin.app.netmap` writes from the scenario's net (after a net rebuild: rerun it)."""
+    from traffic_twin.app import netmap
+
+    geo = netmap.geometry(netmap.DEFAULT_SCENARIO, REPO_ROOT)
+    assert netmap.replace_block(PAGE, netmap.block(geo)) == PAGE
+    lanes = {ln["id"]: ln for ln in geo["lanes"]}
+    assert set(geo["crossings"].values()) <= set(lanes)
+    # every approach lane leads somewhere through the junction
+    for ln in lanes.values():
+        if ln.get("a") and ln["m"] & 7:
+            assert ln.get("n") and all(n in lanes for n in ln["n"]), ln["id"]
+
+
 def test_inline_script_parses_with_node(tmp_path):
     node = shutil.which("node")
     if node is None:
@@ -324,31 +342,71 @@ def test_operator_state_reflects_the_final_evaluation():
     assert re.search(r'main = \{ \.\.\.main, status: "degraded"', body)
 
 
-# -- admin cockpit (local-only sign-in; not a user account system) ---------------------------
-def test_admin_view_is_gated_by_the_session_endpoint():
-    """The admin view asks /admin/session before anything else and shows the sign-in form
-    (email + password) unless the session is authenticated; the cockpit is never served
-    from the last known value; sign-in and sign-out go through POST /admin/login and
-    /admin/logout, the only non-GET requests of the page."""
+# -- sign-in, one account per role (`api.admin`) ----------------------------------------------
+def test_every_view_is_gated_by_the_role_session():
+    """Every render first applies the role guard: no session -> the sign-in view; a view of
+    another role -> the landing view of the session's role. The allowed views are the
+    API's `views`, never a list of the page."""
+    render = function_body("render")
+    assert render.index("guardView();") < render.index("RENDER[state.view]")
+    guard = function_body("guardView")
+    assert 'state.view = "login"' in guard and "allowed[0]" in guard
+    allowed = function_body("allowedViews")
+    assert "state.session.views" in allowed and "gateOn()" in allowed
+    assert re.search(r"const gateOn = \(\) => !state\.session \|\|", SCRIPT)  # unknown: gate on
+    init = function_body("init")
+    assert 'api("/auth/session")' in init and "setSession(sess)" in init
+    # one view: no navigation bar; the user chip says the role and offers the logout
+    nav = function_body("renderNav")
+    assert "allowedViews()" in nav and "items.length < 2" in nav
+    assert 'data-field="auth-role"' in function_body("renderUser")
+
+
+def test_sign_in_form_and_requests():
+    """The sign-in view asks /auth/session before anything else; the form has one
+    identifier field and one password field that password managers fill, one button to
+    send (and the show/hide eye of the password).
+    The role comes from the address: the identifier (a full email, or its part before @)
+    names an account of the API, shown as typed, and its email is posted to /auth/login;
+    logout posts to /auth/logout. These are the only non-GET requests of the page; the
+    password never stays in the page or storage."""
+    body = function_body("login")
+    first = re.search(r'\bapi\(\s*"([^"]+)"', body)
+    assert first and first.group(1) == "/auth/session"
+    form = function_body("loginHtml")
+    assert "sess.accounts" in form and 'name="role"' not in form  # no role picker
+    assert 'id="auth-email"' in form and 'type="password"' in form
+    assert 'autocomplete="username"' in form and 'autocomplete="current-password"' in form
+    assert form.count("<button") == 2 and form.count('type="submit"') == 1  # send + eye
+    assert 'aria-label="Afficher le mot de passe"' in form and 'role="alert"' in form
+    assert 'aria-describedby="auth-role"' in form and 'aria-describedby="auth-pw-msg"' in form
+    assert 'split("@")[0] === t' in function_body("accountOf")  # "pieton" -> pieton@...
+    assert "accounts-test" in form  # how to fix "aucun compte"
+    submit = function_body("authSubmit")
+    assert 'api("/auth/login", false, { method: "POST"' in submit
+    assert "accountOf(email.value)" in submit and "acc.email" in submit
+    assert 'pw.value = ""' in submit and "localStorage" not in submit
+    assert 'api("/auth/logout", false, { method: "POST" })' in function_body("authLogout")
+    assert re.findall(r'method: "(\w+)"', SCRIPT) == ["POST", "POST"]
+    assert 'const keep = state.view !== "admin" && state.view !== "login";' in function_body(
+        "render"
+    )
+    # the session ends at its expiry: read again, back to the sign-in screen
+    expiry = function_body("authExpiry")
+    assert "setTimeout" in expiry and 'api("/auth/session", true)' in expiry
+    assert "render()" in expiry
+
+
+def test_admin_view_needs_the_administrator_role():
+    """The cockpit reads /auth/session before its data and shows the sign-in form (admin
+    picked) unless the session's role is admin; it is never served from the last known
+    value."""
     body = function_body("admin")
     first = re.search(r'\bapi\(\s*"([^"]+)"', body)
-    assert first and first.group(1) == "/admin/session"
-    assert re.search(r"if \(sess\.error \|\| !sess\.authenticated\)", body)
+    assert first and first.group(1) == "/auth/session"
+    assert 'sess.role !== "admin"' in body
     assert body.index("adminLogin(sess, banners(sess))") < body.index("adminData()")
-    login = function_body("adminLogin")
-    assert 'type="email"' in login and 'type="password"' in login
-    assert 'autocomplete="current-password"' in login
-    assert "admin-set-password" in login  # the "admin non configuré" state says how to fix it
-    submit = function_body("adminSubmit")
-    assert 'api("/admin/login", false, { method: "POST"' in submit
-    assert 'pw.value = ""' in submit  # the password never stays in the page
-    assert 'api("/admin/logout", false, { method: "POST" })' in function_body("adminLogout")
-    assert re.findall(r'method: "(\w+)"', SCRIPT) == ["POST", "POST"]
-    assert 'const keep = state.view !== "admin";' in function_body("render")
-    assert "localStorage" not in function_body("adminSubmit")
-    # session expiry returns to the sign-in form
-    expiry = function_body("adminExpiry")
-    assert "setTimeout" in expiry and "render()" in expiry
+    assert 'loginHtml(sess, alerts, "admin")' in function_body("adminLogin")
 
 
 def test_admin_cockpit_reads_only_api_v1():
@@ -379,12 +437,13 @@ def test_admin_cockpit_reads_only_api_v1():
 
 def test_home_has_the_admin_entry_and_its_unconfigured_state():
     body = function_body("home")
-    assert 'api("/admin/session", true)' in body
+    assert "state.session" in body and 'sess.role === "admin"' in body
     assert 'data-field="home-admin"' in body and "Se connecter en admin" in body
-    assert "not_configured" in body and "admin-set-password" in body
+    assert "not_configured" in body and "admin-set-password --role admin" in body
+    assert "Sans compte" not in body
 
 
 def test_served_page_contains_the_admin_view(client):
     page = client.get("/mock").text
-    assert "admin: { label:" in page and "/admin/session" in page
+    assert "admin: { label:" in page and "/auth/session" in page and 'id="auth-form"' in page
     assert "Cockpit d'administration" in page and "Comparaison synchronisée" in page
