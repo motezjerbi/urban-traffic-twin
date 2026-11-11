@@ -20,8 +20,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from traffic_twin.config import ConfigError, load_config
-from traffic_twin.rl.stub import (
+# the stub env imports gymnasium at module level: skip (never error) without the rl extra
+pytest.importorskip("gymnasium")
+
+from traffic_twin.config import ConfigError, load_config  # noqa: E402
+from traffic_twin.rl.stub import (  # noqa: E402
     OBS_DIM,
     STEP_INFO_KEYS,
     SUMMARY_KEYS,
@@ -29,7 +32,7 @@ from traffic_twin.rl.stub import (
     StubTrafficEnv,
     run_baseline,
 )
-from traffic_twin.rl.train import (
+from traffic_twin.rl.train import (  # noqa: E402
     BASELINES,
     PICK_MODEL_FILE,
     PREEMPT_KEYS,

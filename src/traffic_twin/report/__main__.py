@@ -251,8 +251,11 @@ def main(argv: list[str] | None = None) -> int:
     from traffic_twin.report.assemble import ReportError
     from traffic_twin.report.facts import FactsError
     from traffic_twin.report.shots import ShotsError
-    from traffic_twin.report.slides import DeckError
 
+    try:
+        from traffic_twin.report.slides import DeckError
+    except ImportError:  # python-pptx missing: only `slides` needs it (its own import fails)
+        DeckError = ReportError  # noqa: N806
     try:
         from traffic_twin.app.browser import BrowserError
     except ImportError:  # pragma: no cover - the helper ships with the package

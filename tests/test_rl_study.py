@@ -15,14 +15,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from traffic_twin.config import ConfigError, load_config
-from traffic_twin.evaluation.stats import wilcoxon
-from traffic_twin.paths import PITIE_RL_CONFIG
-from traffic_twin.rl import study
-from traffic_twin.rl.stub import run_baseline as stub_run_baseline
-from traffic_twin.rl.train import TOTAL_KEYS, EnvBackend, file_sha256, stub_backend
-
+# before the rl imports: the stub env imports gymnasium at module level, so a missing rl
+# extra skips the module instead of failing its collection
 pytest.importorskip("stable_baselines3")
+
+from traffic_twin.config import ConfigError, load_config  # noqa: E402
+from traffic_twin.evaluation.stats import wilcoxon  # noqa: E402
+from traffic_twin.paths import PITIE_RL_CONFIG  # noqa: E402
+from traffic_twin.rl import study  # noqa: E402
+from traffic_twin.rl.stub import run_baseline as stub_run_baseline  # noqa: E402
+from traffic_twin.rl.train import TOTAL_KEYS, EnvBackend, file_sha256, stub_backend  # noqa: E402
 
 T_CONFIGS = ("t0", "t1", "v1", "v2", "p1")
 WINDOW_S = 60  # stub episodes of one minute: the code paths, never a result

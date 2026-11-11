@@ -396,6 +396,7 @@ def small_cfg(eta_cfg: dict) -> dict:
 
 def test_xgboost_fit_early_stopping_and_sorted_output(eta_cfg):
     pytest.importorskip("xgboost")
+    pytest.importorskip("sklearn")  # XGBRegressor is xgboost's scikit-learn API
     from traffic_twin.ml.features import model_frame
     from traffic_twin.ml.train_eta import fit_quantile_model, pinball_loss
 
@@ -424,6 +425,7 @@ def test_xgboost_fit_early_stopping_and_sorted_output(eta_cfg):
 
 def test_train_end_to_end_with_xgboost(tmp_path, eta_cfg):
     pytest.importorskip("xgboost")
+    pytest.importorskip("sklearn")  # XGBRegressor is xgboost's scikit-learn API
     from traffic_twin.ml.train_eta import train
 
     ds = write_dataset(
