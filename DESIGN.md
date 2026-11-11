@@ -151,7 +151,10 @@ Ratios calculés avec la formule WCAG de luminance relative.
 ### App usagers
 
 - **Barre supérieure** (56 px) : logo, titre, pastille d'état de la vue, pastille
-  hachurée « Provisoire », sélecteur « Scénario · graine ».
+  hachurée « Provisoire », sélecteur « Scénario · graine ». Le titre ne passe jamais à
+  la ligne : de 1210 à 1365 px (vidéoprojecteur 1280 × 720), le libellé du sélecteur
+  n'est gardé que pour les lecteurs d'écran et le sélecteur se resserre, pour tenir sur
+  une ligne ; de 768 à 1209 px, la barre passe sur deux lignes nettes.
 - **Bandeau simulation** (28 px, hachuré) : « SIMULATION · programme de feux provisoire
   (visite terrain à venir) · calibré le JJ/MM/AAAA ». On peut le replier en une pastille
   « Simulé » qui reste visible. Le choix est gardé dans `localStorage` (dans un
@@ -188,9 +191,11 @@ Ratios calculés avec la formule WCAG de luminance relative.
     hachuré ;
   - clavier : Espace pour lecture/pause ; ←/→ pour ±1 s et Maj pour ±10 s ; Début/Fin
     sur le curseur. `aria-valuetext` vaut par exemple « 8 heures 15 ».
-- **Pastilles d'état** : icône, texte et couleur ; 28 px ; rayon 4 px. Une infobulle
-  (survol et focus) donne la source, la date de calibration et l'âge des données. Les
-  états : À jour, Partiel, Données de il y a X min, Indisponible, Erreur, Chargement.
+- **Pastilles d'état** : icône, texte et couleur ; 28 px ; rayon 4 px. Ce sont des
+  boutons (infobulle au survol et au focus, liée par `aria-describedby`) qui donnent la
+  source, la date de calibration et l'âge des données, lisible par une personne
+  (« 42 s », « 12 min », « 4 j 15 h »). Les états : À jour, Partiel, Données de il y a
+  X min, Indisponible, Erreur, Chargement.
 - **Panneau de réponse** : en-tête, contrôles, bannières d'état, réponse principale
   (bord de sens), au plus deux sections secondaires, puis le pied hachuré « Simulé ·
   source · scénario graine · âge ».
@@ -211,7 +216,9 @@ Ratios calculés avec la formule WCAG de luminance relative.
   - élément principal : quatre mini-cartes en 2 × 2, titrées par la forme et la couleur
     du scénario ;
   - secondaires : frises de phases empilées (V, O, R et hachures de dégagement) et
-    phrases générées à partir des événements ;
+    phrases générées à partir des événements. L'axe affiche « (t=… s) » à partir de
+    1600 px seulement ; sur téléphone il garde les deux extrémités et chaque segment
+    montre sa lettre, le détail restant dans son infobulle ;
   - les fiches d'identité et le radar passent dans un tiroir latéral ouvert par
     « Fiche » ; le radar a toujours un tableau équivalent.
 

@@ -353,6 +353,7 @@ def test_never_writes_under_data_results(tmp_path):
 def test_timing_refuses_data_results(tmp_path, monkeypatch, key):
     """rl.yaml `outputs.runs` (the timing work_root) or `--out` under data/results is
     refused before any episode runs (cwd is a scratch folder)."""
+    pytest.importorskip("gymnasium")  # rl.env imports it at module level
     cfg = load_config(RL_CONFIG)
     out = None
     if key == "runs_root":
@@ -388,11 +389,13 @@ def test_full_episode_text_follows_the_parameters(ep, text):
 
 
 def test_full_episode_times_of_the_config():
+    pytest.importorskip("gymnasium")  # rl.env imports it at module level
     ep = ev.full_episode_times(load_config(RL_CONFIG))
     assert ep is not None and ep["warmup_s"] == 0 and ep["window_s"] == 7200
 
 
 def test_docs_note_validation_without_preemption_columns(tmp_path):
+    pytest.importorskip("gymnasium")  # build_docs reads the episode times through rl.env
     art = synthetic_artifacts(tmp_path)
     make_run(art["runs"], "dqn", 4, best=150_000, steps=100_000, preempt=False)
     docs = tmp_path / "docs" / "rl.md"
@@ -658,6 +661,7 @@ def test_repro_check(tmp_path):
 
 # -- docs ------------------------------------------------------------------------------
 def test_docs_from_synthetic_artifacts(tmp_path):
+    pytest.importorskip("gymnasium")  # build_docs reads the episode times through rl.env
     art = synthetic_artifacts(tmp_path)
     docs = tmp_path / "docs" / "rl.md"
     figs = tmp_path / "docs" / "figures" / "rl"
@@ -711,6 +715,7 @@ def test_docs_from_synthetic_artifacts(tmp_path):
 
 
 def test_docs_without_artifacts(tmp_path):
+    pytest.importorskip("gymnasium")  # build_docs reads the episode times through rl.env
     docs = tmp_path / "rl.md"
     ev.main(
         [

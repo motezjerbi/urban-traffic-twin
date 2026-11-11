@@ -28,6 +28,103 @@ trainings: [docs/rl.md](docs/rl.md). Full RL training, tuning and weight sensiti
 user tests, report and demo): [Part 8](#final-evaluation-of-s0-to-s4-part-8),
 [Part 9](#app-replay-and-user-tests-part-9), [Part 10](#report-slides-and-demo-part-10).
 
+## Demo
+
+`python tasks.py demo` serves the two front ends on one API: the user app at
+http://127.0.0.1:8000/mock and the Streamlit Operator at http://127.0.0.1:8501 (see
+[Quick start](#quick-start); a fresh clone needs `tasks.py bootstrap` first). Every value on
+screen is **simulated**: SUMO runs on the ASSUMED, provisional signal program (seed 4000 for
+the views, seeds 1-10 for the comparison tables), until the [field visit](#field-visit).
+Click an image to open it full size.
+
+[![Replay of the S3 run: 2D twin of the junction, control events and timeline](docs/figures/app/replay.png)](docs/figures/app/replay.png)
+*Replay (Relecture) of the S3 run at 08:10:40: the 2D plan of the junction fed by `/replay`
+(a 3D view is one click away), the controller events (ambulance preemption request,
+pedestrian shield) and the timeline with its events and queue profile.*
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/figures/readme/login.png"><img src="docs/figures/readme/login.png" alt="Sign-in screen"></a><br>
+      <b>Sign-in</b>: one account per role; the name opens the role's own view. Pedestrians
+      and students can sign up themselves.
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/figures/app/home.png"><img src="docs/figures/app/home.png" alt="Home screen with the profiles"></a><br>
+      <b>Home</b>: one question and one answer per profile, over the live map of the
+      junction.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/figures/app/pedestrian.png"><img src="docs/figures/app/pedestrian.png" alt="Pedestrian view"></a><br>
+      <b>Pedestrian</b>: "Can I cross now?" The green left on the chosen crossing against the
+      time to cross at normal, slow or reduced-mobility walking speed.
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/figures/app/student.png"><img src="docs/figures/app/student.png" alt="Student view"></a><br>
+      <b>Student</b>: "When should I leave?" The ETA model's travel time with its 80 %
+      conformal interval and the margin before the exam.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/figures/app/bus.png"><img src="docs/figures/app/bus.png" alt="Bus driver view"></a><br>
+      <b>Bus driver</b>: the time lost at the junction by the last bus of line 91, 24 or
+      57, the headway and whether bus priority is active.
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/figures/readme/ambulance.png"><img src="docs/figures/readme/ambulance.png" alt="Ambulance kiosk view"></a><br>
+      <b>Ambulance</b> (kiosk): the corridor to the hospital with the green wave of the
+      preemption; degraded by design, since only one of its three junctions is modelled.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/figures/app/operator.png"><img src="docs/figures/app/operator.png" alt="Operator card"></a><br>
+      <b>Operator</b>: the person-weighted delay of each scenario (S0 to S4, seeds 1-10)
+      and its change against S0.
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/figures/readme/admin_table.png"><img src="docs/figures/readme/admin_table.png" alt="Admin cockpit, comparison table"></a><br>
+      <b>Admin cockpit, comparison table</b>: the 33 KPI rows of the final table, the best
+      value, the equity flags, the Holm tests and a CSV export.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/figures/readme/admin_sync.png"><img src="docs/figures/readme/admin_sync.png" alt="Admin cockpit, synchronised comparison"></a><br>
+      <b>Admin cockpit, synchronised comparison</b>: the S1 to S4 demo runs at the same
+      key moment of the ambulance preemption, with the ambulance travel time against S0.
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/figures/app/streamlit_comparaison.png"><img src="docs/figures/app/streamlit_comparaison.png" alt="Streamlit Operator, comparison tab"></a><br>
+      <b>Streamlit Operator</b>: the final comparison table (mean ± sd over 10 seeds) and
+      the mean of every KPI per scenario.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/figures/app/streamlit_equite.png"><img src="docs/figures/app/streamlit_equite.png" alt="Streamlit Operator, equity tab"></a><br>
+      <b>Equity</b>: the KPIs more than 5 % worse than S0 per scenario, and the hidden
+      degradations (a crossing, bus line or arm worse while the global delay improves).
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/figures/app/streamlit_courbes.png"><img src="docs/figures/app/streamlit_courbes.png" alt="Streamlit Operator, curves tab"></a><br>
+      <b>Curves</b>: vehicles halted over the 07:30-09:30 peak per arm, mean over the
+      evaluation seeds with a p10-p90 band, every scenario on one chart.
+    </td>
+  </tr>
+</table>
+
+The images in `docs/figures/app/` come from `python tasks.py app-shots` (the steps of
+`configs/demo.yaml`, see [Part 10 tasks](#part-10-tasks)). The four in
+`docs/figures/readme/` were taken the same way at these deep links: `login.png`
+`/mock?view=home` without a session, `ambulance.png`
+`/mock?view=ambulance&scenario=pitie_rules&seed=4000&t=2440&kiosk=1`, `admin_table.png`
+`/mock?view=admin&tab=table` and `admin_sync.png` `/mock?view=admin&tab=sync` (both
+1280 × 1500).
+
 ## Roadmap
 
 Built in 10 parts, one demoable PR each. Parts 1 (repo, Supabase schema, sensor

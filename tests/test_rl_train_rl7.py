@@ -131,6 +131,7 @@ def test_cli_options():
 
 # -- worker environment (gate: commit limit) --------------------------------------------
 def test_child_env_sets_absent_variables_for_spawned_processes_only(monkeypatch):
+    pytest.importorskip("gymnasium")  # the pooled stub env imports it
     from traffic_twin.rl.train import CHILD_ENV, EpisodePool, child_env, child_env_values
 
     assert CHILD_ENV == {"OPENBLAS_NUM_THREADS": "1"}
@@ -229,6 +230,7 @@ def test_prediction_loads_carry_no_replay_buffer(tmp_path):
 # -- clean tree (D80) ------------------------------------------------------------------
 @pytest.mark.parametrize("version", ["685679d-dirty", "unknown"])
 def test_dirty_tree_is_refused_unless_allowed(stub_rl7_cfg, tmp_path, monkeypatch, version):
+    pytest.importorskip("gymnasium")  # the stub env imports it
     monkeypatch.setattr("traffic_twin.rl.train.code_version", lambda: version)
     rl7 = stub_rl7_cfg(train={"require_clean": True})
     t1 = rl7.parent / "rl7" / "t1.yaml"
@@ -244,6 +246,7 @@ def test_dirty_tree_is_refused_unless_allowed(stub_rl7_cfg, tmp_path, monkeypatc
 
 
 def test_part7_config_needs_steps(stub_rl7_cfg, tmp_path):
+    pytest.importorskip("gymnasium")  # the stub env imports it
     t1 = stub_rl7_cfg().parent / "rl7" / "t1.yaml"
     with pytest.raises(ConfigError, match="--steps"):
         _train(t1, tmp_path / "runs", steps=None)
