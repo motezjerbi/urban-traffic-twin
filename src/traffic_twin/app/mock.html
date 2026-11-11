@@ -7,6 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Jumeau Numérique Pitié-Salpêtrière · carte vivante (données simulées)</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314365C'/%3E%3Crect x='11.5' y='4.5' width='9' height='23' rx='3.5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Ccircle cx='16' cy='10.5' r='2' fill='%23fff'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%23fff'/%3E%3Ccircle cx='16' cy='21.5' r='2' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="/three.min.js"></script>
@@ -24,6 +25,8 @@
      green = go / gain, amber = caution, red = stop / loss, violet = prediction (AI / ETA). */
   :root {
     color-scheme: light;
+    accent-color: var(--accent);
+    scrollbar-color: var(--line-strong) transparent;
     /* city plan */
     --bg-map: #E9ECE6;
     --bg-building: #DCDFD8;
@@ -86,11 +89,12 @@
   button, select, input { font-family: inherit; font-size: inherit; color: inherit; }
   button { cursor: pointer; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  ::selection { background: var(--accent-soft); color: var(--ink); }
   code { font-family: var(--font-mono); font-size: 0.9em; background: var(--surface-2); border: 1px solid var(--line); padding: 0 5px; border-radius: var(--radius-s); }
   .ic { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
   .muted { color: var(--ink-2); }
   .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-  .skip { position: absolute; left: 8px; top: -60px; z-index: 50; background: var(--accent); color: #fff; padding: 10px 16px; border-radius: var(--radius-m); font-weight: 700; }
+  .skip { position: absolute; left: 8px; top: -60px; z-index: 50; display: inline-flex; align-items: center; min-height: 44px; background: var(--accent); color: #fff; padding: 10px 16px; border-radius: var(--radius-m); font-weight: 700; }
   .skip:focus { top: 8px; }
   .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
@@ -118,6 +122,21 @@
     background: var(--surface); color: var(--ink); font-size: var(--fs-m);
   }
   #run { max-width: 340px; }
+  /* Laptop and projector (1210-1365 px): one line, the title never wraps. The select keeps
+     its label for assistive technologies only and gets narrower; the pills stay side by side */
+  @media (min-width: 1210px) and (max-width: 1365px) {
+    .brand-title { white-space: nowrap; }
+    .status-row { flex-wrap: nowrap; }
+    .run-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    #run { max-width: 300px; }
+  }
+  /* Tablet (768-1209 px): two clean lines (name and pills, then scenario and session)
+     instead of a title squeezed onto four lines */
+  @media (min-width: 768px) and (max-width: 1209px) {
+    .topbar { flex-wrap: wrap; row-gap: var(--sp-2); }
+    .brand-title { white-space: nowrap; }
+    .status-row { flex-wrap: nowrap; }
+  }
 
   /* status pills: icon + text + colour, never colour alone */
   .pill {
@@ -125,6 +144,9 @@
     border-radius: var(--radius-s); border: 1px solid currentColor; font-size: var(--fs-xs); font-weight: 700;
     background: var(--surface); white-space: nowrap;
   }
+  .pill[hidden] { display: none; }
+  /* the header pills are toggletips: a button whose tip is its description (aria-describedby) */
+  button.pill { cursor: help; line-height: 1; }
   .pill.ok { color: var(--go); background: var(--go-soft); }
   .pill.degraded { color: var(--caution); background: var(--caution-soft); }
   .pill.stale { color: var(--caution); background: var(--caution-soft); }
@@ -274,7 +296,7 @@
   }
   .foot-status { display: flex; gap: 6px; flex-wrap: wrap; }
   .foot-status strong { color: var(--ink); }
-  #stamp { font-family: var(--font-mono); }
+  #stamp { font-variant-numeric: tabular-nums; }  /* a sentence with figures, not a code: fits one line at 1280 px */
 
   /* ---------- Answer panel (one main item, at most two secondary items) ---------- */
   .panel-head { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-s); font-weight: 700; color: var(--ink-2); margin-bottom: var(--sp-2); }
@@ -347,7 +369,7 @@
   .home-icon .ic { width: 28px; height: 28px; }
   .home-title { font-size: var(--fs-s); font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; }
   .home-sub { font-size: var(--fs-l); font-weight: 700; line-height: 1.2; }
-  .home-live { font-size: var(--fs-xs); color: var(--ink-2); font-family: var(--font-mono); }
+  .home-live { font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
   .home-arrow { position: absolute; right: var(--sp-3); top: var(--sp-3); color: var(--ink-2); }
   .home-card-ped .home-go { all: unset; position: absolute; inset: 0; border-radius: var(--radius-m); cursor: pointer; }
   .home-card-ped .home-go:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -478,12 +500,16 @@
   .ticker-t { font-family: var(--font-mono); font-weight: 700; color: var(--accent); }
 
   /* ---------- Tables (Opérateur, cockpit) ---------- */
-  .table-box { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--surface); }
+  /* position: relative keeps the absolutely placed descendants (screen-reader texts) inside the
+     scrolling box: otherwise a wide table stretched the whole page on a phone */
+  .table-box { position: relative; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--surface); }
   table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--fs-s); }
   th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
   th { font-size: var(--fs-xs); color: var(--ink-2); background: var(--surface-2); font-weight: 700; }
   tr.dimmed td { color: var(--ink-2); background: var(--surface-2); }
   td.r, th.r { text-align: right; }
+  /* a value never splits from its unit: on a phone the table scrolls inside its box */
+  .op-table td.num, .op-table .diff { white-space: nowrap; }
   .diff { display: block; font-size: var(--fs-xs); font-weight: 700; }
   .diff.gain { color: var(--go); }
   .diff.loss { color: var(--stop); }
@@ -512,7 +538,7 @@
   .adm-tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
   .adm-panel { border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--surface); padding: var(--sp-4); margin-bottom: var(--sp-4); }
   .adm-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  .adm-chip { min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); font-size: var(--fs-s); font-weight: 700; color: var(--ink); }
+  .adm-chip { min-height: 44px; min-width: 44px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); font-size: var(--fs-s); font-weight: 700; color: var(--ink); }
   .adm-chip:hover { border-color: var(--accent); color: var(--accent); }
   .adm-chip.on { color: #fff; background: var(--accent); border-color: var(--accent); }
   .adm-tools { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); flex-wrap: wrap; align-items: center; }
@@ -567,14 +593,16 @@
   .adm-moments { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .adm-moments .lbl { font-size: var(--fs-s); font-weight: 700; color: var(--ink-2); }
   .adm-tl { border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--surface); padding: var(--sp-3); }
-  .adm-tl-axis { position: relative; height: 18px; margin-left: 150px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); }
-  .adm-tl-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
-  .adm-tl-axis span.first { transform: none; }
-  .adm-tl-axis span.last { transform: translateX(-100%); }
+  .adm-tl-axis { position: relative; height: 18px; margin-left: 150px; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--ink-2); }
+  .adm-tl-axis > span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .adm-tl-axis > span.first { transform: none; }
+  .adm-tl-axis > span.last { transform: translateX(-100%); }
+  /* the axis shows the run time "(t=… s)" only where six labels fit side by side */
+  @media (max-width: 1599px) { .adm-tl-axis .tl-t { display: none; } }
   .adm-tl-row { display: flex; align-items: center; margin-top: var(--sp-2); }
   .adm-tl-name { width: 150px; flex: none; font-size: var(--fs-s); font-weight: 700; padding-right: 8px; }
-  .adm-tl-bar { position: relative; flex: 1; height: 28px; display: flex; }
-  .adm-seg { height: 100%; font-family: var(--font-mono); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; min-width: 0; box-shadow: inset -2px 0 0 #fff; }
+  .adm-tl-bar { position: relative; flex: 1; min-width: 0; height: 28px; display: flex; }
+  .adm-seg { height: 100%; font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; min-width: 0; box-shadow: inset -2px 0 0 #fff; }
   .adm-seg.green { background: var(--go); color: #fff; }
   .adm-seg.green::before { content: "V\00a0"; }
   .adm-seg.clear { background: repeating-linear-gradient(135deg, var(--caution-soft) 0 4px, #EAD7AE 4px 8px); color: var(--ink); }
@@ -611,7 +639,7 @@
   .adm-map-sub { font-size: var(--fs-xs); color: var(--ink-2); }
   .adm-map-tag { font-size: var(--fs-xs); font-weight: 700; color: var(--stop); border: 1px solid currentColor; background: var(--stop-soft); border-radius: var(--radius-s); padding: 1px 6px; text-align: center; }
   .adm-map canvas { width: 100%; height: auto; border-radius: var(--radius-s); background: var(--bg-map); }
-  .adm-map-meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; }
+  .adm-map-meta { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--ink-2); display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; }
   .adm-map-meta span:nth-child(2n) { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .adm-map-stats { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-2); align-items: end; }
   .adm-stat-v { font-family: var(--font-mono); font-size: var(--fs-l); font-weight: 700; }
@@ -693,6 +721,11 @@
     .map-tools { right: var(--sp-2); top: var(--sp-2); }
     .answer-main { font-size: var(--fs-3xl); }
     .adm-tl-name { width: 90px; } .adm-tl-axis { margin-left: 90px; }
+    /* the phone axis keeps the two ends (no overlapping labels); a phase segment shows its
+       letter only (V, O, R; hatching = clearance), its detail stays in its tooltip */
+    .adm-tl-axis > span:not(.first):not(.last) { display: none; }
+    .adm-seg { font-size: 0; }
+    .adm-seg::before { font-size: var(--fs-xs); }
     .adm-grid2 { grid-template-columns: 1fr; }
     .facts { grid-template-columns: 1fr; }
     body[data-v="login"] main#view { padding: 0; }
@@ -703,7 +736,6 @@
   }
   @media (max-width: 419px) {
     .home-grid { grid-template-columns: 1fr; }
-    .speed-btn { min-width: 40px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -724,8 +756,8 @@
       </div>
     </div>
     <div class="status-row" id="status-row">
-      <span id="st-pill" class="pill loading" tabindex="0"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>En attente</span><span class="tip" role="tooltip">État de la vue en cours de lecture.</span></span>
-      <span id="prov-pill" class="pill hatch" tabindex="0">Provisoire<span class="tip" role="tooltip">Programme de feux supposé, en attente de la visite sur site : chaque valeur peut changer.</span></span>
+      <button type="button" id="st-pill" class="pill loading" aria-describedby="st-tip"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>En attente</span><span class="tip" id="st-tip" role="tooltip" aria-hidden="true">État de la vue en cours de lecture.</span></button>
+      <button type="button" id="prov-pill" class="pill hatch" aria-describedby="prov-tip">Provisoire<span class="tip" id="prov-tip" role="tooltip" aria-hidden="true">Programme de feux supposé, en attente de la visite sur site : chaque valeur peut changer.</span></button>
     </div>
     <div class="run-box">
       <label for="run" class="run-label">Scénario · graine</label>
@@ -998,6 +1030,16 @@ const hhmm = (sec) => {
   return [s / 3600 | 0, (s % 3600) / 60 | 0, s % 60 | 0].map((v) => String(v).padStart(2, "0")).join(":");
 };
 const fmtS = (v) => v == null ? "--" : `${Math.round(v)} s`;
+// Age of the data as a person reads it: 42 s, 12 min, 3 h 05 min, 4 j 14 h (the final
+// evaluation files are days old: "399061 s" said nothing)
+const fmtAge = (v) => {
+  if (v == null || !isFinite(v)) return "--";
+  const s = Math.max(0, Math.round(v));
+  if (s < 60) return `${s} s`;
+  if (s < 3600) return `${Math.round(s / 60)} min`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")} min`;
+  return `${Math.floor(s / 86400)} j ${Math.floor((s % 86400) / 3600)} h`;
+};
 const fmtMin = (v) => v == null ? "--" : `${Math.round(v / 60)} min`;
 const fmtDur = (v) => {
   if (v == null) return "--";
@@ -1045,10 +1087,10 @@ function statusPill(st, b) {
   let text = txt;
   if (st === "stale" && b && b.data_age_s != null) text = `Données de il y a ${Math.max(1, Math.round(b.data_age_s / 60))} min`;
   const tip = b && !b.error
-    ? `Source : ${b.data_source === "simulation" ? "simulation SUMO" : (b.data_source ? esc(b.data_source) : "non indiquée")} · calibration : ${b.calibrated_on ? frDate(b.calibrated_on) : "non indiquée"} · âge des données : ${b.data_age_s != null ? `${Math.round(b.data_age_s)} s` : "non indiqué"}${b.notice ? ` · ${esc(b.notice)}` : ""}`
+    ? `Source : ${b.data_source === "simulation" ? "simulation SUMO" : (b.data_source ? esc(b.data_source) : "non indiquée")} · calibration : ${b.calibrated_on ? frDate(b.calibrated_on) : "non indiquée"} · âge des données : ${b.data_age_s != null ? fmtAge(b.data_age_s) : "non indiqué"}${b.notice ? ` · ${esc(b.notice)}` : ""}`
     : (b && b.error ? `API injoignable ou demande refusée (${b.error.code ? esc(b.error.code) : "erreur"}).` : "État de la vue en cours de lecture.");
   el.className = `pill ${st}`;
-  el.innerHTML = `${ic(icon)}<span>${esc(text)}</span><span class="tip" role="tooltip">${tip}</span>`;
+  el.innerHTML = `${ic(icon)}<span>${esc(text)}</span><span class="tip" id="st-tip" role="tooltip" aria-hidden="true">${tip}</span>`;
 }
 
 // aria-live: the main answer of the view, one announcement every ANNOUNCE_MS at most
@@ -1155,7 +1197,7 @@ function banners(b) {
   let s = "";
   if (b.status === "unavailable") s += `<div class="banner bad" data-field="banner-unavailable">${ic("ban")} <span><strong>Indisponible :</strong> ${esc(b.notice || "donnée absente")}. <button class="btn" type="button" data-focus-run="1" style="margin-top:6px">Choisir un autre scénario</button></span></div>`;
   else if (b.status === "degraded") s += `<div class="banner warn" data-field="banner-degraded">${ic("half")} <span><strong>Partiel :</strong> ${esc(b.notice || "valeur approximative")}</span></div>`;
-  if (b.stale) s += `<div class="banner warn" data-field="banner-stale">${ic("clock")} <span><strong>Dernière valeur connue</strong> (donnée ancienne, âge ${fmtS(b.data_age_s)}) <button class="btn" type="button" data-retry="1" style="margin-top:6px">Actualiser</button></span></div>`;
+  if (b.stale) s += `<div class="banner warn" data-field="banner-stale">${ic("clock")} <span><strong>Dernière valeur connue</strong> (donnée ancienne, âge ${fmtAge(b.data_age_s)}) <button class="btn" type="button" data-retry="1" style="margin-top:6px">Actualiser</button></span></div>`;
   return s;
 }
 
@@ -1171,7 +1213,7 @@ function footer(b) {
   $("sb-prov").textContent = b.provisional ? "programme de feux provisoire (visite terrain à venir)" : "programme de feux relevé sur site";
   $("sb-cal").textContent = b.calibrated_on ? `calibré le ${frDate(b.calibrated_on)}` : "date de calibration non indiquée";
   $("prov-pill").hidden = !b.provisional;
-  const age = b.data_age_s != null ? ` · âge ${Math.round(b.data_age_s)} s` : "";
+  const age = b.data_age_s != null ? ` · âge ${fmtAge(b.data_age_s)}` : "";
   const runTxt = b.run ? ` · ${b.run.scenario} (graine ${b.run.seed})` : "";
   $("stamp").textContent = `Horodatage ${stampOf(b.timestamp)}${age}${b.stale ? " · donnée ancienne" : ""}${runTxt}`;
   if (b.run && b.sim_t_s != null && typeof b.timestamp === "string") {
@@ -3776,7 +3818,7 @@ async function updateTicker(k0) {
 function panelFoot(b) {
   if (!b || b.error) return `<div class="panel-foot">Simulé · source : API injoignable</div>`;
   const src = b.data_source === "simulation" ? "simulation SUMO" : (b.data_source ? esc(b.data_source) : "source non indiquée");
-  const age = b.data_age_s != null ? `âge ${Math.round(b.data_age_s)} s` : "âge non indiqué";
+  const age = b.data_age_s != null ? `âge ${fmtAge(b.data_age_s)}` : "âge non indiqué";
   return `<div class="panel-foot">Simulé · ${src}${b.run ? ` · ${esc(b.run.scenario)} graine ${esc(b.run.seed)}` : ""} · ${age}</div>`;
 }
 
@@ -4189,7 +4231,7 @@ async function operator() {
       const rel = kr.rel_change_vs_s0_pct;
       const cls = rel == null || rel === 0 ? "flat" : (kr.worse_flag ? "loss" : (rel < 0 ? "gain" : "loss"));
       const arrow = rel == null || rel === 0 ? "" : (rel < 0 ? "▼ " : "▲ ");
-      const badge = rel == null ? "--" : `<span class="diff ${cls}">${arrow}${pctFr(rel)} vs S0</span>`;
+      const badge = rel == null ? (L === "S0" ? `<span class="muted">référence</span>` : "—") : `<span class="diff ${cls}">${arrow}${pctFr(rel)} vs S0</span>`;
       cells = `<td class="r num"><strong>${frNum(kr.mean, 1)} s</strong></td><td class="r num">${kr.std != null ? `${frNum(kr.std, 1)} s` : "--"}</td><td class="r num">${esc(kr.n)}</td><td>${badge}</td>`;
     }
     const roleTxt = role === "ablation" ? " (ablation)" : (role === "exploratory" ? " (exploratoire)" : "");
@@ -4223,7 +4265,7 @@ async function operator() {
       </p>
     </div>
     <div class="table-box">
-      <table>
+      <table class="op-table">
         <thead><tr><th>Scénario</th><th class="r">Retard moyen par personne</th><th class="r">Écart-type</th><th class="r">Graines</th><th>Écart vs S0</th></tr></thead>
         <tbody>${rows || `<tr><td colspan="5" class="muted">aucun scénario enregistré</td></tr>`}</tbody>
       </table>
@@ -4966,7 +5008,7 @@ async function adminSync(d) {
     for (let i = 0; i <= ticks; i++) {
       const x = tl0 + span * i / ticks;
       const edge = i === 0 ? "first" : (i === ticks ? "last" : "");
-      axis += `<span class="${edge}" style="left:${(i / ticks * 100).toFixed(1)}%">${begin != null ? hhmm(begin + x) : ""} (t=${Math.round(x)} s)</span>`;
+      axis += `<span class="${edge}" style="left:${(i / ticks * 100).toFixed(1)}%">${begin != null ? hhmm(begin + x) : ""}<span class="tl-t"> (t=${Math.round(x)} s)</span></span>`;
     }
   }
   const segInfo = {};
